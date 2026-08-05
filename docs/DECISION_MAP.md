@@ -80,8 +80,8 @@
   门槛由每个 Study 自行冻结，不建立全局优质市场表。实测：1,208,594 个市场、
   2,784,797 个 (市场, 日)、覆盖 2022-11-21 至 2026-07-14。prefix-invariance
   负向测试保证追加未来成交不改变任何历史 cutoff。
-  弃用前的复核记录（保留作为裁决依据）： `Alpha-Data/scripts/select_polymarket_markets.py`
-  后确认）：登记表一行是一个 (市场, 品种) 对，836 行对应 492 个市场；主题与方向
+  **弃用前的复核记录**（保留作为裁决依据；来源 `Alpha-Data/scripts/select_polymarket_markets.py`）：
+  登记表一行是一个 (市场, 品种) 对，836 行对应 492 个市场；主题与方向
   `sigma` 来自事前注册的规则表（slug 子串匹配），**不是**由历史结果拟合；
   `usdc_win`/`n_win` 是窗口内累计名义额与笔数（win 指 window），对窗口内任一决策
   时点均为前视。`admit_ts` 是窗口内累计名义额首次达到 10 万美元的链上时刻，构造上
@@ -89,8 +89,8 @@
   时点不可知，因此市场选择存在幸存者偏差，`admit_ts` 修不掉。覆盖仅 2026-01-04 至
   2026-07-13，起点是脚本里写死的分析窗口而非 Polymarket 数据限制
   （`daily_aligned` 回溯至 2022-11-21），与 `curve_daily` 的 2026-01-05 同源，
-  约束来自前一代系统期货侧的日频数据可得性；M2 已把 SC 期货补到 2022-11-01，
-  2022-2025 的市场发现可从 `daily_aligned` 重建，须给出点时化的成员资格规则（M5）。
+  约束来自前一代系统期货侧的日频数据可得性。M2.5 已用 `daily_aligned` 全史重建了
+  点时化的市场身份与资格，该项不再阻塞。
 
 ## #6 — Study 合同与不可变评估器
 
@@ -156,9 +156,12 @@ contaminated audit**）；在 1,816 个 SC 决策 cutoff 上，7 日窗内有成
 中位 601、最大 66,523、42 个 cutoff 为零；Kish n_eff 在市场维为 113,631、
 在日维仅 225.3，说明 8.56 亿逐笔远不是 8.56 亿独立样本。
 
-下一项为 **#6 Study 合同与不可变评估器**（Merge-Plan-2 的 M3），
-或先做 **#12 语义映射**。M3 除 Study/Verdict/
-Factor schema 与 SQLite hash-chain ledger 外，还须满足决定 0003 的快照渲染合同。
-M2 遗留的阻塞事项（Polymarket belief 序列、市场发现的历史覆盖、Brent 发布时点核实、
-adjusted 连续序列）记录在 `artifacts/manifests/sc_temporal_spine.json` 的
-`blockers` 字段，分属 M5 与 acquisition 流程，不在 M3 范围内。
+下一项为 **#6 Study 合同与不可变评估器**（Merge-Plan-2 的 M3），或先做
+**#12 Polymarket 市场语义映射**。M3 除 Study/Verdict/Factor schema 与 SQLite
+hash-chain ledger 外，还须满足决定 0003 的快照渲染合同。
+
+尚未解决的阻塞事项记录在两份 manifest 的 `blockers` 字段：
+`sc_temporal_spine.json`（Brent 发布时点核实、adjusted 连续序列、curve 参照仅覆盖
+2026 段）与 `pm_market_index.json`（两段 tape 都缺 venue/relay 列致中继腿无法剔除、
+两段都不含 negRisk 成交与 canonical plan §2.1 表述不符、语义映射另立票）。
+其中两条数据事实与 `Merge-Plan-2.md` §2.1 的叙述冲突，需要一次文档归一化裁决。
