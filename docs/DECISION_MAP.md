@@ -73,7 +73,14 @@
   freeze_at 与 embargo 时才成立，不写死日期）。**语义侧仍未回答**：必须同时做语义、
   机制和经验三层去重；旧手工 taxonomy（`cn_registry_v3` 的 theme/product 映射）
   只能当种子，不能当真值，需要金标样本和跨模型一致性审计。
-  新增约束（2026-08-05 复核来源脚本 `Alpha-Data/scripts/select_polymarket_markets.py`
+  **2026-08-05 人类裁决：`cn_registry_v3.parquet` 已弃用并隔离**，不再作为市场来源、
+  市场映射或任何研究输入。替代是从原始 tape 推导的 **PIT Market Index**（M2.5）：
+  存在性只由首笔公开成交决定（`eligible_from = block_timestamp + 冻结延迟`），
+  流动性资格只由决策时点之前已完整结束的分区日计算且**不参与成员资格判定**，
+  门槛由每个 Study 自行冻结，不建立全局优质市场表。实测：1,208,594 个市场、
+  2,784,797 个 (市场, 日)、覆盖 2022-11-21 至 2026-07-14。prefix-invariance
+  负向测试保证追加未来成交不改变任何历史 cutoff。
+  弃用前的复核记录（保留作为裁决依据）： `Alpha-Data/scripts/select_polymarket_markets.py`
   后确认）：登记表一行是一个 (市场, 品种) 对，836 行对应 492 个市场；主题与方向
   `sigma` 来自事前注册的规则表（slug 子串匹配），**不是**由历史结果拟合；
   `usdc_win`/`n_win` 是窗口内累计名义额与笔数（win 指 window），对窗口内任一决策
@@ -127,12 +134,30 @@
 - **Question**: 哪个最小 Study 能证明整条协议而非只证明一段回测代码？
 - **Answer**: 候选已选：地缘政治概率创新 → SC 下一交易窗口开盘跳空/波动，加入国际油价与 CLS 公共信息控制。待 #3-#7 关闭后冻结，不预设为正结果。
 
+## #12 — Polymarket 市场语义映射
+
+- **Blocked by**: #5（时间侧已闭）
+- **Type**: Research
+- **Question**: 如何从原始市场标题、描述与创建时间构造版本化的地缘/能源/商品语义映射？
+- **Answer**: 未回答。约束已定：只用经 PIT 审计的原始元数据与 `markets_clob.parquet`，
+  不使用 `cn_registry_v3`；任何可变或无法证明历史时点可见的元数据保持 provisional；
+  需要金标样本与跨模型一致性审计。M2.5 已交付市场身份与点时资格，语义分组尚缺，
+  因此 PM 侧目前没有可用的机制分族。
+
 ## 当前前沿
 
 票 #3 已关闭（M1）。票 #4 已关闭（M2 SC 窄切片 Temporal Spine），票 #5 的时间侧
 （Episode、purge/embargo、污染标签）随 M2 关闭，语义侧仍未回答。
 
-下一项为 **#6 Study 合同与不可变评估器**（Merge-Plan-2 的 M3）。M3 除 Study/Verdict/
+M2.5（Polymarket 只读普查与 PIT Market Index）已完成：855,614,453 笔逐笔的
+label-blind 普查，按样本段的成交分布为 discovery 0.84% / historical validation
+11.29% / contaminated audit 87.87%（**样本段划分按裁决未修改，2026 仍是
+contaminated audit**）；在 1,816 个 SC 决策 cutoff 上，7 日窗内有成交的市场数
+中位 601、最大 66,523、42 个 cutoff 为零；Kish n_eff 在市场维为 113,631、
+在日维仅 225.3，说明 8.56 亿逐笔远不是 8.56 亿独立样本。
+
+下一项为 **#6 Study 合同与不可变评估器**（Merge-Plan-2 的 M3），
+或先做 **#12 语义映射**。M3 除 Study/Verdict/
 Factor schema 与 SQLite hash-chain ledger 外，还须满足决定 0003 的快照渲染合同。
 M2 遗留的阻塞事项（Polymarket belief 序列、市场发现的历史覆盖、Brent 发布时点核实、
 adjusted 连续序列）记录在 `artifacts/manifests/sc_temporal_spine.json` 的

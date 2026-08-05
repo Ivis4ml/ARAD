@@ -1,0 +1,258 @@
+{
+  "spine_id": "pm-market-index",
+  "code_version": "census-0.1.0/index-pit-market-index-v1",
+  "generated_at": "2026-08-05T21:54:48.377512+00:00",
+  "config_digest": "c23afb721e9967724f6298035d26156c31c2694bb23bde83bc67b28bdb38a0b5",
+  "inputs": {
+    "polymarket_tape": {
+      "fingerprint": "85c32698ad823146969d787ff5afc801f27124c17b81e0043e3fc8236aeb24b1",
+      "source_snapshot_digest": "ab281d5d20706fa3e5d19089ceb9dcaa81fc5991f76b810d0d760459f9d49e64",
+      "scanner_version": "0.2.0"
+    }
+  },
+  "calendar": {
+    "utc_partitions": 1326
+  },
+  "session_table": {
+    "note": "PM 无交易时段概念；对齐由 SC 决策 cutoff 驱动"
+  },
+  "dominant_rule": {
+    "version": "pit-market-index-v1",
+    "availability_delay_seconds": 0,
+    "availability_rule": "eligible_from = 首笔公开成交的 block_timestamp + 0 秒；block_timestamp 按 M1 合同是撮合时刻的保守下界，延迟为 0 时仍不构成前视",
+    "membership_rule": "成员资格只由首笔可见成交决定；滚动流动性不参与成员资格判定"
+  },
+  "targets": [],
+  "control_contracts": [],
+  "deprecated_sources": [],
+  "datasets": [
+    {
+      "name": "market_day",
+      "path": "data/pm_index/market_day",
+      "rows": 2787765,
+      "fingerprint": "fb3d5c86aec7e00532cc516fb7abd7dff5a7b4550fb2c6a592d340a35bfa2fcf",
+      "partitions": 1326,
+      "note": ""
+    },
+    {
+      "name": "market_presence",
+      "path": "data/pm_index/market_presence.parquet",
+      "rows": 1208594,
+      "fingerprint": "c8761bc3cb855050bc1b98fa31c6deaf6895cd789f028f7cc9e9ea8656a66c67",
+      "partitions": 0,
+      "note": ""
+    },
+    {
+      "name": "sc_cutoff_observations",
+      "path": "data/pm_index/sc_cutoff_observations.parquet",
+      "rows": 1816,
+      "fingerprint": "08534293003ea0a6c5ca10251f187140cfd0310f4180e6c3b0b7f75ff3567fda",
+      "partitions": 0,
+      "note": ""
+    }
+  ],
+  "coverage": {
+    "index": {
+      "markets": 1208594,
+      "market_days": 2784797,
+      "first_date": "2022-11-21",
+      "last_date": "2026-07-14",
+      "config": {
+        "version": "pit-market-index-v1",
+        "availability_delay_seconds": 0,
+        "availability_rule": "eligible_from = 首笔公开成交的 block_timestamp + 0 秒；block_timestamp 按 M1 合同是撮合时刻的保守下界，延迟为 0 时仍不构成前视",
+        "membership_rule": "成员资格只由首笔可见成交决定；滚动流动性不参与成员资格判定"
+      }
+    },
+    "segments": {
+      "discovery": {
+        "partitions": 764,
+        "trades": 7193579,
+        "notional": 997359930.4568484,
+        "neg_risk_markets": 0,
+        "trade_share": 0.008407500568483267
+      },
+      "historical_validation": {
+        "partitions": 365,
+        "trades": 96565106,
+        "notional": 6805682854.321337,
+        "neg_risk_markets": 0,
+        "trade_share": 0.11286053626305445
+      },
+      "contaminated_audit": {
+        "partitions": 197,
+        "trades": 751855768,
+        "notional": 18727925629.023518,
+        "neg_risk_markets": 0,
+        "trade_share": 0.8787319631684622
+      }
+    },
+    "sc_cutoff_observations": {
+      "cutoffs": 1816,
+      "lookback_days": 7,
+      "cutoffs_with_zero_active_markets": 42,
+      "median_active_markets": 601,
+      "max_active_markets": 66523
+    },
+    "effective_sample_size": {
+      "nominal_trades": 855614453,
+      "distinct_markets": 1208594,
+      "distinct_utc_days": 1325,
+      "kish_n_eff_over_markets": 113631.1,
+      "kish_n_eff_over_days": 225.3,
+      "sc_cutoffs_with_any_active_market": 1774,
+      "note": "逐笔行数不是独立样本量。市场维 Kish n_eff 远小于市场数说明成交高度集中；真正的推断单位应是市场创新、时间窗口、SC session 或 Episode，由 Study 在冻结时声明。"
+    }
+  },
+  "findings": [
+    {
+      "severity": "info",
+      "code": "pm_census.coverage",
+      "message": "Polymarket 逐笔普查覆盖",
+      "evidence": {
+        "partitions": 1326,
+        "trades": 855614453,
+        "first": "2022-11-21",
+        "last": "2026-07-14",
+        "markets_seen": 2787765
+      }
+    },
+    {
+      "severity": "warning",
+      "code": "pm_census.venue_columns_absent",
+      "message": "两段 tape 都不含 venue_class / is_relay / protocol / exchange / tx_hash / log_index，因此 relay 剔除与 unknown venue 隔离在现有数据上无法执行；M1 manifest 曾把这些字段标为『仅扩展段』，与实测不符，已更正",
+      "evidence": {
+        "present_columns": {
+          "hf": [],
+          "ext": []
+        },
+        "wanted": [
+          "venue_class",
+          "is_relay",
+          "protocol",
+          "exchange",
+          "tx_hash",
+          "log_index"
+        ]
+      }
+    },
+    {
+      "severity": "warning",
+      "code": "pm_census.duplicate_legs_provisional",
+      "message": "重复腿抽样审计：缺 tx_hash / log_index，只能检出 (市场, asset, 时间, maker, taker, 价格, 名义额) 完全相同的行；中继腿若字段不完全相同则检不出，因此 notional 类指标一律 provisional",
+      "evidence": {
+        "sampled_partitions": 24,
+        "rows": 13327237,
+        "exact_duplicates": 462520,
+        "rate": 0.03470486793324078,
+        "detail": [
+          {
+            "partition": "2022-11-21.parquet",
+            "rows": 28,
+            "exact_duplicates": 6
+          },
+          {
+            "partition": "2023-01-22.parquet",
+            "rows": 95,
+            "exact_duplicates": 1
+          },
+          {
+            "partition": "2023-03-18.parquet",
+            "rows": 810,
+            "exact_duplicates": 12
+          },
+          {
+            "partition": "2023-05-12.parquet",
+            "rows": 366,
+            "exact_duplicates": 2
+          },
+          {
+            "partition": "2023-07-06.parquet",
+            "rows": 413,
+            "exact_duplicates": 11
+          },
+          {
+            "partition": "2023-08-30.parquet",
+            "rows": 398,
+            "exact_duplicates": 1
+          },
+          {
+            "partition": "2023-10-24.parquet",
+            "rows": 943,
+            "exact_duplicates": 5
+          },
+          {
+            "partition": "2023-12-18.parquet",
+            "rows": 623,
+            "exact_duplicates": 2
+          },
+          {
+            "partition": "2024-02-11.parquet",
+            "rows": 1380,
+            "exact_duplicates": 16
+          },
+          {
+            "partition": "2024-04-06.parquet",
+            "rows": 756,
+            "exact_duplicates": 11
+          }
+        ]
+      }
+    },
+    {
+      "severity": "warning",
+      "code": "pm_census.neg_risk_absent_in_both_segments",
+      "message": "全史普查中 neg_risk 为真的 (市场, 日) 数为 0：两段 tape 都不含 NegRisk Exchange 成交。canonical plan §2.1 关于『扩展段含 negRisk、约占名义额 27.6%』的表述与实测不符，需要文档归一化裁决；negRisk 缺口未被扩展段补上",
+      "evidence": {
+        "neg_risk_market_days": 0,
+        "partitions": 1326,
+        "sampled_rows_confirming": 13327237
+      }
+    },
+    {
+      "severity": "info",
+      "code": "pm_census.asset_outcome_mapping",
+      "message": "抽样核对 tape 的 asset→(市场, 结果序号) 映射与 asset_map.parquet",
+      "evidence": {
+        "sampled_partitions": 24,
+        "distinct_triples_checked": 70747,
+        "mismatched": 0,
+        "not_in_asset_map": 0
+      }
+    },
+    {
+      "severity": "warning",
+      "code": "pm_census.segment_concentration",
+      "message": "Polymarket 逐笔在 ARAD 样本段之间极度不均衡；样本段划分按裁决不在本票修改，普查结果供后续按 Study Family 决定各机制的段划分",
+      "evidence": {
+        "discovery": {
+          "trades": 7193579,
+          "share": 0.00841
+        },
+        "historical_validation": {
+          "trades": 96565106,
+          "share": 0.11286
+        },
+        "contaminated_audit": {
+          "trades": 751855768,
+          "share": 0.87873
+        }
+      }
+    }
+  ],
+  "assumptions": [
+    "市场存在性只由首笔公开成交决定；eligible_from = block_timestamp + 冻结的可得性延迟。",
+    "流动性资格只由决策时点之前**已完整结束**的分区日计算，不参与成员资格判定。",
+    "滚动名义额一律 provisional：两段 tape 都没有 venue/relay 列，中继腿无法剔除。",
+    "不建立全局优质市场表；门槛由每个 Study 自行冻结后传入。",
+    "接缝日（2026-04-28）在两段各有一个分区，同一 (日, 市场) 合并为一行后再计活跃天数。",
+    "普查是 label-blind 的：resolution / winner / resolved_at 在读取层被拒绝。"
+  ],
+  "blockers": [
+    "两段 tape 都不含 venue_class / is_relay / protocol / exchange / tx_hash / log_index，relay 剔除与 unknown venue 隔离在现有数据上无法执行。M1 manifest 曾把这 7 个字段标为『仅扩展段』，与实测不符（两段各 24 列且完全相同），已作为 M1 缺陷记录。在补齐链上字段之前，一切名义额类指标只能作 provisional。",
+    "语义映射（地缘 / 能源 / 商品关联）不在本票范围：必须从原始市场标题、描述与创建时间构造版本化映射，另立票。在此之前 PM 侧没有可用的机制分组。",
+    "negRisk 成交在两段 tape 中都不存在（全史 neg_risk 为真的市场日为 0，19 个抽样分区 3750 万行逐行确认）。canonical plan §2.1 关于『扩展段含 negRisk、约占名义额 27.6%』的表述与实测不符，需要文档归一化裁决。按裁决 negRisk 回补与 2026-07-14 之后续爬不作为前置条件；只有普查证明缺口会阻断目标机制时，才单独申请 acquisition 授权。",
+    "抽样重复腿检出率 3.47%（24 个分区 1333 万行中 46.3 万行与另一行完全相同）。缺 tx_hash / log_index，无法区分中继腿与真实重复成交，因此名义额类指标一律 provisional，且成员资格不得由名义额单独决定。"
+  ],
+  "fingerprint": "ed0a0ef34c241b6fdeb95f6d9ee13a3007e4380497f66dd2ac1febc792ea4441"
+}

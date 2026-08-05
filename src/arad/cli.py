@@ -6,6 +6,9 @@ M1: `python -m arad.cli data-audit [--config configs/data_sources.yaml] [--out a
 M2: `python -m arad.cli spine build|replay|verify [--config configs/spine_sc.yaml]`
 构建 SC 窄切片 Temporal Spine。bar 与控制视图写入 gitignored 的 `data/`，
 manifest 与人工回放清单写入 `artifacts/manifests/`。
+
+M2.5: `python -m arad.cli pm-index build [--config configs/pm_index.yaml]`
+Polymarket 只读、label-blind 普查与 PIT Market Index。
 """
 
 from __future__ import annotations
@@ -82,6 +85,13 @@ def main(argv: list[str] | None = None) -> int:
             p.add_argument("--workers", type=int, default=None)
             p.add_argument("--limit-days", type=int, default=None, help="只构建最近 N 个交易日（冒烟用）")
 
+    pmi = sub.add_parser("pm-index", help="Polymarket 只读普查与 PIT Market Index（M2.5）")
+    pmi_sub = pmi.add_subparsers(dest="pm_cmd", required=True)
+    pmb = pmi_sub.add_parser("build", help="普查、建索引、审计并生成 manifest")
+    pmb.add_argument("--config", default="configs/pm_index.yaml")
+    pmb.add_argument("--force", action="store_true")
+    pmb.add_argument("--workers", type=int, default=None)
+
     args = parser.parse_args(argv)
     if args.cmd == "data-audit":
         return data_audit(args.config, args.out)
@@ -98,6 +108,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.spine_cmd == "replay":
             return spine_replay(args.config)
         return spine_verify(args.config)
+    if args.cmd == "pm-index":
+        from .temporal.pm_pipeline import pm_index_build
+
+        return pm_index_build(args.config, force=args.force, workers=args.workers)
     return 1
 
 

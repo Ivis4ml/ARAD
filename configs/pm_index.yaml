@@ -1,0 +1,31 @@
+# M2.5：Polymarket 只读普查与 PIT Market Index 的构建参数。
+# 来源仓库一律只读；negRisk 回补与续爬属 acquisition 流程，需人类单独授权。
+
+source:
+  roots:
+    hf: /Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket/daily_aligned
+    ext: /Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket/features/extension_tape
+
+output:
+  data_dir: data/pm_index
+  manifest_dir: artifacts/manifests
+
+build:
+  workers: 8
+
+index:
+  # block_timestamp 按 M1 合同已是撮合时刻的保守下界；延迟为 0 时仍不构成前视。
+  # 该值一经冻结即进入产物指纹，改动会使全部下游产物失效。
+  availability_delay_seconds: 0
+  # 滚动流动性窗口。它只用于普查报告，不构成任何全局成员资格判定。
+  lookback_days: 7
+
+audit:
+  sample_partitions: 24
+  asset_map: /Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket_chain/asset_map.parquet
+
+inputs:
+  polymarket_manifest: artifacts/manifests/polymarket_tape.json
+
+sc:
+  target_parquet: data/spine/sc/target_sc_rv_next_session.parquet
