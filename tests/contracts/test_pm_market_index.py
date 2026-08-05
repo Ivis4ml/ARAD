@@ -23,8 +23,10 @@ from arad.data_catalog.pm_census import (
     require_label_blind,
 )
 from arad.temporal.pm_market_index import (
+    OrphanCensusPartition,
     PitMarketIndex,
     PitMarketIndexConfig,
+    complete_days_before,
     kish_n_eff,
 )
 
@@ -54,6 +56,7 @@ def md(rows: list[tuple]) -> pa.Table:
         cols["active_seconds"].append(trades)
         cols["price_changes"].append(max(0, trades - 1))
         cols["max_gap_seconds"].append(max(0, off_last - off_first))
+        cols["assets"].append(2)
         cols["neg_risk"].append(False)
     return pa.table(cols, schema=MARKET_DAY_SCHEMA)
 
@@ -258,13 +261,16 @@ def test_kish_n_eff_penalises_concentration():
 @pytest.mark.skipif(not os.path.exists(HF), reason="缺少 Polymarket 来源数据")
 def test_real_partition_census_is_deterministic_and_label_blind():
     path = os.path.join(HF, "2024-06-03.parquet")
-    a = census_partition(path, "2024-06-03")
-    b = census_partition(path, "2024-06-03")
-    assert a.to_pylist() == b.to_pylist()
-    assert a.num_rows > 0
-    assert set(a.column_names) & OUTCOME_COLUMNS == set()
-    assert min(a.column("trades").to_pylist()) >= 1
-    assert min(a.column("active_seconds").to_pylist()) >= 1
+    a_assets, a_markets = census_partition(path, "2024-06-03")
+    b_assets, b_markets = census_partition(path, "2024-06-03")
+    assert a_assets.to_pylist() == b_assets.to_pylist()
+    assert a_markets.to_pylist() == b_markets.to_pylist()
+    assert a_markets.num_rows > 0
+    assert a_assets.num_rows >= a_markets.num_rows  # 每个市场至少一个 outcome token
+    assert set(a_markets.column_names) & OUTCOME_COLUMNS == set()
+    assert set(a_assets.column_names) & OUTCOME_COLUMNS == set()
+    assert min(a_markets.column("trades").to_pylist()) >= 1
+    assert min(a_markets.column("active_seconds").to_pylist()) >= 1
 
 
 # ---------------------------------------------------------------- 审计产物
@@ -301,11 +307,13 @@ def test_manifest_records_the_negrisk_and_duplicate_leg_audits(pm_manifest):
     assert "pm_census.duplicate_legs_provisional" in codes
 
 
-def test_manifest_reports_effective_sample_size_not_just_row_counts(pm_manifest):
-    """逐笔行数不是独立样本量：n_eff 必须与 nominal 一起出现。"""
-    n_eff = pm_manifest["coverage"]["effective_sample_size"]
-    assert n_eff["nominal_trades"] > n_eff["kish_n_eff_over_markets"]
-    assert n_eff["kish_n_eff_over_days"] < n_eff["distinct_utc_days"]
+def test_manifest_reports_concentration_and_disclaims_effective_sample_size(pm_manifest):
+    """集中度不是统计有效样本量，产物里必须写明，不能被当成功效分母。"""
+    conc = pm_manifest["coverage"]["trade_concentration"]
+    assert conc["is_effective_sample_size"] is False
+    assert "不是" in conc["note"]
+    assert conc["nominal_trades"] > conc["kish_concentration_equivalent_over_markets"]
+    assert conc["kish_concentration_equivalent_over_days"] < conc["distinct_utc_days"]
 
 
 def test_manifest_does_not_alter_the_canonical_sample_split(pm_manifest):
@@ -318,3 +326,166 @@ def test_manifest_does_not_alter_the_canonical_sample_split(pm_manifest):
 def test_census_coverage_reports_the_true_date_range(pm_manifest):
     finding = next(f for f in pm_manifest["findings"] if f["code"] == "pm_census.coverage")
     assert finding["evidence"]["first"] < finding["evidence"]["last"]
+
+
+# ---------------------------------------------------------------- 缓存与孤儿
+
+import shutil
+
+
+def _tiny_tape(path, ts_values, price=0.5, cid="0xc", asset="a1", prices=None):
+    import pyarrow.parquet as pq
+
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    n = len(ts_values)
+    pq.write_table(
+        pa.table(
+            {
+                "condition_id": pa.array([cid] * n, pa.string()),
+                "asset_id": pa.array([asset] * n, pa.string()),
+                "outcome_seq": pa.array([0] * n, pa.int64()),
+                "block_timestamp": pa.array(ts_values, pa.int64()),
+                "price": pa.array(prices or [price] * n, pa.float64()),
+                "usdc_amount": pa.array([10.0] * n, pa.float64()),
+                "neg_risk": pa.array([False] * n, pa.bool_()),
+            }
+        ),
+        path,
+    )
+
+
+def test_equal_length_content_rewrite_changes_the_partition_digest(tmp_path):
+    """等长内容改写必须被检出，否则会错误复用 sidecar 与派生产物。"""
+    from arad.data_catalog.pm_census import partition_digest
+
+    p = str(tmp_path / "hf" / "2024-01-01.parquet")
+    _tiny_tape(p, [1_704_070_800, 1_704_070_900])
+    before = partition_digest(p)
+    _tiny_tape(p, [1_704_070_800, 1_704_070_900], price=0.9)  # 行数与列数完全相同
+    after = partition_digest(p)
+    assert before != after
+
+
+def test_rebuild_after_equal_length_rewrite_updates_the_census(tmp_path):
+    from arad.data_catalog.pm_census import build_census
+
+    root = str(tmp_path / "hf")
+    out = str(tmp_path / "out")
+    p = os.path.join(root, "2024-01-01.parquet")
+    _tiny_tape(p, [1_704_070_800, 1_704_070_900], prices=[0.5, 0.5])
+    first, _ = build_census({"hf": root}, out, workers=1)
+    # 行数、列数、文件结构完全相同，只改一个价格：派生的 price_changes 由 0 变 1
+    _tiny_tape(p, [1_704_070_800, 1_704_070_900], prices=[0.5, 0.9])
+    second, _ = build_census({"hf": root}, out, workers=1)
+    assert first[0]["source_digest"] != second[0]["source_digest"]
+    assert first[0]["fingerprint_market_day"] != second[0]["fingerprint_market_day"]
+    assert second[0]["fingerprint_market_day"]
+
+
+def test_deleting_a_source_partition_prunes_its_census_output(tmp_path):
+    from arad.data_catalog.pm_census import build_census
+
+    root, out = str(tmp_path / "hf"), str(tmp_path / "out")
+    _tiny_tape(os.path.join(root, "2024-01-01.parquet"), [1_704_070_800])
+    _tiny_tape(os.path.join(root, "2024-01-02.parquet"), [1_704_157_200])
+    build_census({"hf": root}, out, workers=1)
+    assert len(os.listdir(os.path.join(out, "market_day"))) == 2
+    os.remove(os.path.join(root, "2024-01-02.parquet"))
+    summaries, findings = build_census({"hf": root}, out, workers=1)
+    assert len(summaries) == 1
+    assert len(os.listdir(os.path.join(out, "market_day"))) == 1
+    assert findings[0].evidence["pruned_orphan_count"] == 3
+
+
+def test_index_refuses_to_load_orphan_partitions(tmp_path):
+    from arad.data_catalog.pm_census import build_census
+
+    root, out = str(tmp_path / "hf"), str(tmp_path / "out")
+    _tiny_tape(os.path.join(root, "2024-01-01.parquet"), [1_704_070_800])
+    summaries, _ = build_census({"hf": root}, out, workers=1)
+    shutil.copy(
+        os.path.join(out, "market_day", "hf_2024-01-01.parquet"),
+        os.path.join(out, "market_day", "hf_2099-01-01.parquet"),
+    )
+    with pytest.raises(OrphanCensusPartition):
+        PitMarketIndex.from_census_dir(out, expected_keys={s["key"] for s in summaries})
+
+
+def test_census_verify_detects_tampered_output(tmp_path):
+    from arad.data_catalog.pm_census import build_census, verify_census
+
+    root, out = str(tmp_path / "hf"), str(tmp_path / "out")
+    _tiny_tape(os.path.join(root, "2024-01-01.parquet"), [1_704_070_800])
+    build_census({"hf": root}, out, workers=1)
+    checked, bad = verify_census(out)
+    assert checked == 1 and bad == []
+    os.remove(os.path.join(out, "market_day", "hf_2024-01-01.parquet"))
+    checked, bad = verify_census(out)
+    assert bad == ["hf_2024-01-01"]
+
+
+# ---------------------------------------------------------------- 滚窗口径
+
+
+def test_complete_days_before_is_the_single_window_definition():
+    """非午夜 cutoff 也必须给满 N 个已完整结束的日；两处口径共用本函数。"""
+    days = complete_days_before(utc("2024-01-10", 12, 59), 7)
+    assert days == [f"2024-01-0{d}" for d in range(3, 10)]
+    assert len(days) == 7
+    midnight = complete_days_before(utc("2024-01-10"), 7)
+    assert midnight == [f"2024-01-0{d}" for d in range(3, 10)]
+
+
+def test_rolling_window_covers_exactly_lookback_complete_days():
+    rows = [(f"2024-01-{d:02d}", "m", 1, 1.0, 10, 20) for d in range(1, 11)]
+    idx = index(rows)
+    got = idx.eligibility_at(utc("2024-01-10", 12, 59), lookback_days=7).to_pylist()[0]
+    assert got["rolling_active_days"] == 7
+
+
+# ---------------------------------------------------------------- asset 级
+
+
+def test_asset_level_presence_is_available(tmp_path):
+    from arad.data_catalog.pm_census import build_census
+
+    root, out = str(tmp_path / "hf"), str(tmp_path / "out")
+    _tiny_tape(os.path.join(root, "2024-01-01.parquet"), [1_704_070_800], asset="yes")
+    _tiny_tape(os.path.join(root, "2024-01-02.parquet"), [1_704_157_200], asset="no")
+    build_census({"hf": root}, out, workers=1)
+    idx = PitMarketIndex.from_census_dir(out)
+    assert set(idx.asset_presence.column("asset_id").to_pylist()) == {"yes", "no"}
+    early = idx.assets_present_at(utc("2024-01-02"))
+    assert early.column("asset_id").to_pylist() == ["yes"]
+
+
+def test_price_changes_are_computed_per_asset_not_per_market(tmp_path):
+    """同一 condition 下 YES/NO 价格不同；混算会制造伪跳变。"""
+    import pyarrow.parquet as pq
+
+    from arad.data_catalog.pm_census import census_partition
+
+    path = str(tmp_path / "2024-01-01.parquet")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    # 两个 token 交替成交，各自价格恒定：真实价格变化数应为 0
+    pq.write_table(
+        pa.table(
+            {
+                "condition_id": pa.array(["0xc"] * 6, pa.string()),
+                "asset_id": pa.array(["yes", "no"] * 3, pa.string()),
+                "outcome_seq": pa.array([0, 1] * 3, pa.int64()),
+                "block_timestamp": pa.array(
+                    [1_704_070_800 + i for i in range(6)], pa.int64()
+                ),
+                "price": pa.array([0.7, 0.3] * 3, pa.float64()),
+                "usdc_amount": pa.array([1.0] * 6, pa.float64()),
+                "neg_risk": pa.array([False] * 6, pa.bool_()),
+            }
+        ),
+        path,
+    )
+    asset_tbl, market_tbl = census_partition(path, "2024-01-01")
+    assert sorted(asset_tbl.column("price_changes").to_pylist()) == [0, 0]
+    assert market_tbl.column("price_changes").to_pylist() == [0]
+    assert market_tbl.column("assets").to_pylist() == [2]
+    assert market_tbl.column("active_seconds").to_pylist() == [6]

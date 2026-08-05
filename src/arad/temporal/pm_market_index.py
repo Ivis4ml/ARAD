@@ -36,6 +36,19 @@ PRESENCE_SCHEMA = pa.schema(
     ]
 )
 
+ASSET_PRESENCE_SCHEMA = pa.schema(
+    [
+        ("asset_id", pa.string()),
+        ("condition_id", pa.string()),
+        ("first_trade_ts", pa.int64()),
+        ("eligible_from", pa.timestamp("us", tz="UTC")),
+    ]
+)
+
+
+class OrphanCensusPartition(RuntimeError):
+    """普查目录里存在来源已消失的孤儿产物。索引拒绝加载。"""
+
 
 @dataclass(frozen=True)
 class PitMarketIndexConfig:
@@ -71,27 +84,101 @@ def _day_bounds(date_str: str) -> tuple[datetime, datetime]:
     return day, day + timedelta(days=1)
 
 
+def complete_days_before(cutoff: datetime, lookback_days: int) -> list[str]:
+    """决策时点之前**最近 lookback_days 个已完整结束**的 UTC 分区日。
+
+    这是滚动窗口的唯一定义，`eligibility_at` 与普查的 cutoff 统计共用它：
+    此前两处各写一套（一处按"日起点落在窗口内"、一处按"往回数 N 个日期"），
+    对非午夜 cutoff 会相差一天。
+    """
+    if lookback_days <= 0:
+        raise ValueError("lookback_days 必须为正")
+    cut = cutoff.astimezone(UTC)
+    days: list[str] = []
+    k = 0
+    while len(days) < lookback_days:
+        k += 1
+        candidate = (cut - timedelta(days=k)).date()
+        if datetime.combine(candidate, datetime.min.time(), tzinfo=UTC) + timedelta(days=1) <= cut:
+            days.append(candidate.isoformat())
+        if k > lookback_days + 2:
+            break
+    return sorted(days)
+
+
 class PitMarketIndex:
     """由普查产物构造的点时化市场索引。"""
 
-    def __init__(self, market_day: pa.Table, *, config: PitMarketIndexConfig | None = None):
+    def __init__(
+        self,
+        market_day: pa.Table,
+        *,
+        asset_day: pa.Table | None = None,
+        config: PitMarketIndexConfig | None = None,
+    ):
         self.config = config or PitMarketIndexConfig()
         self.market_day = self._collapse(market_day)
-        self._presence = self._build_presence(self.market_day, self.config)
-        self._day_end_us = self._day_end_column(self.market_day)
-        self._day_start_us = self._day_start_column(self.market_day)
+        self.asset_day = (
+            self._collapse_assets(asset_day) if asset_day is not None else None
+        )
+        self._presence = self._build_presence(
+            self.market_day, self.config, key="condition_id"
+        )
+        self._asset_presence = (
+            self._build_presence(self.asset_day, self.config, key="asset_id")
+            if self.asset_day is not None
+            else None
+        )
 
     # ------------------------------------------------------------ 构造
 
     @classmethod
     def from_census_dir(
-        cls, root: str, *, config: PitMarketIndexConfig | None = None
+        cls,
+        root: str,
+        *,
+        config: PitMarketIndexConfig | None = None,
+        expected_keys: set[str] | None = None,
     ) -> PitMarketIndex:
-        files = sorted(glob.glob(os.path.join(root, "market_day", "*.parquet")))
-        if not files:
-            raise FileNotFoundError(f"{root} 下没有普查产物；请先运行 pm-index census")
-        tables = [pq.read_table(p) for p in files]
-        return cls(pa.concat_tables(tables), config=config)
+        """加载普查产物。给出 expected_keys 时拒绝孤儿分区（来源已删除的旧产物）。"""
+        market_files = sorted(glob.glob(os.path.join(root, "market_day", "*.parquet")))
+        if not market_files:
+            raise FileNotFoundError(f"{root} 下没有普查产物；请先运行 pm-index build")
+        if expected_keys is not None:
+            found = {os.path.basename(p)[: -len(".parquet")] for p in market_files}
+            orphans = sorted(found - expected_keys)
+            if orphans:
+                raise OrphanCensusPartition(
+                    f"普查目录含 {len(orphans)} 个来源已消失的孤儿分区："
+                    f"{orphans[:5]}；索引拒绝加载，请重跑 build 以清理"
+                )
+        asset_files = sorted(glob.glob(os.path.join(root, "asset_day", "*.parquet")))
+        market = pa.concat_tables([pq.read_table(p) for p in market_files])
+        asset = (
+            pa.concat_tables([pq.read_table(p) for p in asset_files]) if asset_files else None
+        )
+        return cls(market, asset_day=asset, config=config)
+
+    @staticmethod
+    def _collapse_assets(asset_day: pa.Table) -> pa.Table:
+        if asset_day.num_rows == 0:
+            return asset_day
+        g = pa.TableGroupBy(asset_day, ["date", "condition_id", "asset_id"]).aggregate(
+            [("trades", "sum"), ("notional", "sum"), ("first_ts", "min"),
+             ("last_ts", "max"), ("outcome_seq", "min")]
+        )
+        return pa.table(
+            {
+                "date": g.column("date"),
+                "condition_id": g.column("condition_id"),
+                "asset_id": g.column("asset_id"),
+                "outcome_seq": pc.cast(g.column("outcome_seq_min"), pa.int64()),
+                "trades": pc.cast(g.column("trades_sum"), pa.int64()),
+                "notional": pc.cast(g.column("notional_sum"), pa.float64()),
+                "first_ts": pc.cast(g.column("first_ts_min"), pa.int64()),
+                "last_ts": pc.cast(g.column("last_ts_max"), pa.int64()),
+            }
+        ).sort_by([("date", "ascending"), ("asset_id", "ascending")])
 
     @staticmethod
     def _collapse(market_day: pa.Table) -> pa.Table:
@@ -124,38 +211,24 @@ class PitMarketIndex:
         ).sort_by([("date", "ascending"), ("condition_id", "ascending")])
 
     @staticmethod
-    def _build_presence(market_day: pa.Table, config: PitMarketIndexConfig) -> pa.Table:
-        if market_day.num_rows == 0:
-            return PRESENCE_SCHEMA.empty_table()
-        grouped = pa.TableGroupBy(market_day, ["condition_id"]).aggregate(
-            [("first_ts", "min")]
-        )
+    def _build_presence(
+        day_table: pa.Table, config: PitMarketIndexConfig, *, key: str
+    ) -> pa.Table:
+        schema = PRESENCE_SCHEMA if key == "condition_id" else ASSET_PRESENCE_SCHEMA
+        if day_table is None or day_table.num_rows == 0:
+            return schema.empty_table()
+        keys = [key] if key == "condition_id" else ["asset_id", "condition_id"]
+        grouped = pa.TableGroupBy(day_table, keys).aggregate([("first_ts", "min")])
         first = pc.cast(grouped.column("first_ts_min"), pa.int64())
         eligible = pc.cast(
             pc.multiply(pc.add(first, config.availability_delay_seconds), 1_000_000),
             pa.timestamp("us", tz="UTC"),
         )
-        return pa.table(
-            {
-                "condition_id": grouped.column("condition_id"),
-                "first_trade_ts": first,
-                "eligible_from": eligible,
-            },
-            schema=PRESENCE_SCHEMA,
-        ).sort_by([("eligible_from", "ascending"), ("condition_id", "ascending")])
-
-    @staticmethod
-    def _day_end_column(market_day: pa.Table) -> pa.Array:
-        return pa.array(
-            [int(_day_bounds(d)[1].timestamp() * 1_000_000) for d in market_day.column("date").to_pylist()],
-            pa.int64(),
-        )
-
-    @staticmethod
-    def _day_start_column(market_day: pa.Table) -> pa.Array:
-        return pa.array(
-            [int(_day_bounds(d)[0].timestamp() * 1_000_000) for d in market_day.column("date").to_pylist()],
-            pa.int64(),
+        cols = {k: grouped.column(k) for k in keys}
+        cols["first_trade_ts"] = first
+        cols["eligible_from"] = eligible
+        return pa.table(cols, schema=schema).sort_by(
+            [("eligible_from", "ascending"), (key, "ascending")]
         )
 
     # ------------------------------------------------------------ 查询
@@ -163,6 +236,19 @@ class PitMarketIndex:
     @property
     def presence(self) -> pa.Table:
         return self._presence
+
+    @property
+    def asset_presence(self) -> pa.Table:
+        """asset 级点时化身份。与市场级同规则：首笔公开成交之后才存在。"""
+        if self._asset_presence is None:
+            raise ValueError("本索引未加载 asset_day 普查产物，无 asset 级身份")
+        return self._asset_presence
+
+    def assets_present_at(self, cutoff: datetime) -> pa.Table:
+        _require_utc(cutoff, "cutoff")
+        table = self.asset_presence
+        cut = pa.scalar(cutoff.astimezone(UTC), pa.timestamp("us", tz="UTC"))
+        return table.filter(pc.less(table.column("eligible_from"), cut))
 
     def present_at(self, cutoff: datetime) -> pa.Table:
         """在决策时点已存在的市场：eligible_from **严格早于** cutoff。"""
@@ -178,17 +264,10 @@ class PitMarketIndex:
         门槛由调用方（Study）冻结后自行施加。
         """
         _require_utc(cutoff, "cutoff")
-        if lookback_days <= 0:
-            raise ValueError("lookback_days 必须为正")
-        cut_us = int(cutoff.astimezone(UTC).timestamp() * 1_000_000)
-        window_start_us = int(
-            (cutoff.astimezone(UTC) - timedelta(days=lookback_days)).timestamp() * 1_000_000
+        days = complete_days_before(cutoff, lookback_days)
+        window = self.market_day.filter(
+            pc.is_in(self.market_day.column("date"), value_set=pa.array(days, pa.string()))
         )
-        mask = pc.and_(
-            pc.less_equal(self._day_end_us, cut_us),
-            pc.greater_equal(self._day_start_us, window_start_us),
-        )
-        window = self.market_day.filter(mask)
         present = self.present_at(cutoff)
         if window.num_rows == 0:
             return _empty_eligibility(present)
@@ -252,7 +331,9 @@ class PitMarketIndex:
         dates = self.market_day.column("date").to_pylist()
         return {
             "markets": self._presence.num_rows,
+            "assets": self._asset_presence.num_rows if self._asset_presence is not None else None,
             "market_days": self.market_day.num_rows,
+            "asset_days": self.asset_day.num_rows if self.asset_day is not None else None,
             "first_date": min(dates) if dates else None,
             "last_date": max(dates) if dates else None,
             "config": self.config.describe(),

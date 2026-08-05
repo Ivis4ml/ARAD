@@ -2,7 +2,7 @@
   "source_id": "cls_telegraph",
   "root_uri": "/Users/xinyu/Code/AR-Polymarket/Crawler/cls-data/data/output",
   "scanner_version": "0.2.0",
-  "generated_at": "2026-08-05T19:24:33.729204+00:00",
+  "generated_at": "2026-08-05T22:23:18.619668+00:00",
   "time_semantics": {
     "event_time": "电报发布时刻（文件名日期 + Time）",
     "publication_time": "等同 event_time（财联社滚动列表实时发布）",

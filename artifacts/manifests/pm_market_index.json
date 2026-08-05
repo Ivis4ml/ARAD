@@ -1,13 +1,33 @@
 {
   "spine_id": "pm-market-index",
-  "code_version": "census-0.1.0/index-pit-market-index-v1",
-  "generated_at": "2026-08-05T21:54:48.377512+00:00",
-  "config_digest": "c23afb721e9967724f6298035d26156c31c2694bb23bde83bc67b28bdb38a0b5",
+  "code_version": "census-0.2.0/index-pit-market-index-v1/src-3d79afd5c5df106a",
+  "generated_at": "2026-08-05T22:34:14.762585+00:00",
+  "config_digest": "ea9c612eaa486b1b4dce3eb1a0a35e5f553ec0f5c2979a9aaeb12353df2f4e6e",
   "inputs": {
     "polymarket_tape": {
-      "fingerprint": "85c32698ad823146969d787ff5afc801f27124c17b81e0043e3fc8236aeb24b1",
+      "fingerprint": "3d14332d44631c22eae943e84b4a1f9ee58a6017e7617fae91df7335f81a4dd2",
       "source_snapshot_digest": "ab281d5d20706fa3e5d19089ceb9dcaa81fc5991f76b810d0d760459f9d49e64",
       "scanner_version": "0.2.0"
+    },
+    "polymarket_tape_partitions": {
+      "fingerprint": "48dead616401283aa2fb345ddb86cb6a0f9b62579d3df5bce0e4ff2bed3637f5",
+      "source_snapshot_digest": "parquet_footer_sha256_per_partition",
+      "scanner_version": "0.2.0"
+    },
+    "asset_map": {
+      "fingerprint": "1cbde3309c7e9bffb249c846a2abdfe60086cc33b1ba344d477f3fc2156f6883",
+      "source_snapshot_digest": "parquet_footer_sha256",
+      "scanner_version": ""
+    },
+    "markets_clob": {
+      "fingerprint": "9574c9012b690d3d094fcf42dc942052133ffdd252077cfd592176ef18fd3fff",
+      "source_snapshot_digest": "parquet_footer_sha256",
+      "scanner_version": ""
+    },
+    "sc_target": {
+      "fingerprint": "fc1e06e0a93223225b945c16009f8b0097c0bef36fea4c24ee930ea9e10ec96e",
+      "source_snapshot_digest": "parquet_footer_sha256",
+      "scanner_version": ""
     }
   },
   "calendar": {
@@ -27,12 +47,28 @@
   "deprecated_sources": [],
   "datasets": [
     {
+      "name": "asset_presence",
+      "path": "data/pm_index/asset_presence.parquet",
+      "rows": 2126849,
+      "fingerprint": "9ed70715bd1015e98cd1fd6459d9ef843dc6c3c04316f1c676eababe3b9c703a",
+      "partitions": 0,
+      "note": ""
+    },
+    {
+      "name": "asset_day",
+      "path": "data/pm_index/asset_day",
+      "rows": 4606736,
+      "fingerprint": "edcbce86cabb8701693072a63a8a97478520e09f8fbff308d69acabcddc8bd1d",
+      "partitions": 1326,
+      "note": "逐分区产物逻辑指纹的确定性合并（不是来源摘要）"
+    },
+    {
       "name": "market_day",
       "path": "data/pm_index/market_day",
       "rows": 2787765,
-      "fingerprint": "fb3d5c86aec7e00532cc516fb7abd7dff5a7b4550fb2c6a592d340a35bfa2fcf",
+      "fingerprint": "eb69993bcd60a658b27a7fefaa91fb14d6a30763cd2bfe4daa0b8bd9e5de0637",
       "partitions": 1326,
-      "note": ""
+      "note": "逐分区产物逻辑指纹的确定性合并（不是来源摘要）"
     },
     {
       "name": "market_presence",
@@ -54,7 +90,9 @@
   "coverage": {
     "index": {
       "markets": 1208594,
+      "assets": 2126849,
       "market_days": 2784797,
+      "asset_days": 4602522,
       "first_date": "2022-11-21",
       "last_date": "2026-07-14",
       "config": {
@@ -94,14 +132,15 @@
       "median_active_markets": 601,
       "max_active_markets": 66523
     },
-    "effective_sample_size": {
+    "trade_concentration": {
       "nominal_trades": 855614453,
       "distinct_markets": 1208594,
       "distinct_utc_days": 1325,
-      "kish_n_eff_over_markets": 113631.1,
-      "kish_n_eff_over_days": 225.3,
+      "kish_concentration_equivalent_over_markets": 113631.1,
+      "kish_concentration_equivalent_over_days": 225.3,
       "sc_cutoffs_with_any_active_market": 1774,
-      "note": "逐笔行数不是独立样本量。市场维 Kish n_eff 远小于市场数说明成交高度集中；真正的推断单位应是市场创新、时间窗口、SC session 或 Episode，由 Study 在冻结时声明。"
+      "is_effective_sample_size": false,
+      "note": "以上是按成交笔数加权的 Kish 集中度等价数，**不是**统计有效样本量：未考虑序列相关、Episode 与市场簇。真正的 n_eff 需要双向 cluster、HAC 与 block bootstrap，属评价机（M3）范围。此处只说明逐笔行数远不是独立样本量。"
     }
   },
   "findings": [
@@ -112,15 +151,29 @@
       "evidence": {
         "partitions": 1326,
         "trades": 855614453,
+        "markets_seen": 2787765,
+        "assets_seen": 4606736,
         "first": "2022-11-21",
         "last": "2026-07-14",
-        "markets_seen": 2787765
+        "rebuilt_partitions": 1326,
+        "pruned_orphan_count": 0,
+        "pruned_orphans": []
+      }
+    },
+    {
+      "severity": "info",
+      "code": "pm_census.determinism_verified",
+      "message": "从已物化产物重算逐分区指纹并与 sidecar 比对",
+      "evidence": {
+        "partitions_checked": 1326,
+        "mismatched": [],
+        "mismatched_count": 0
       }
     },
     {
       "severity": "warning",
       "code": "pm_census.venue_columns_absent",
-      "message": "两段 tape 都不含 venue_class / is_relay / protocol / exchange / tx_hash / log_index，因此 relay 剔除与 unknown venue 隔离在现有数据上无法执行；M1 manifest 曾把这些字段标为『仅扩展段』，与实测不符，已更正",
+      "message": "两段 tape 都不含 venue_class / is_relay / protocol / exchange / tx_hash / log_index，因此 relay 剔除与 unknown venue 隔离在现有数据上无法执行",
       "evidence": {
         "present_columns": {
           "hf": [],
@@ -202,11 +255,11 @@
     {
       "severity": "warning",
       "code": "pm_census.neg_risk_absent_in_both_segments",
-      "message": "全史普查中 neg_risk 为真的 (市场, 日) 数为 0：两段 tape 都不含 NegRisk Exchange 成交。canonical plan §2.1 关于『扩展段含 negRisk、约占名义额 27.6%』的表述与实测不符，需要文档归一化裁决；negRisk 缺口未被扩展段补上",
+      "message": "全史普查中 neg_risk 为真的 (市场, 日) 数为 0：两段 tape 都不含 NegRisk Exchange 成交，扩展段未补上 HF 段的 negRisk 缺口",
       "evidence": {
         "neg_risk_market_days": 0,
         "partitions": 1326,
-        "sampled_rows_confirming": 13327237
+        "sampled_rows_in_dedup_audit": 13327237
       }
     },
     {
@@ -251,8 +304,8 @@
   "blockers": [
     "两段 tape 都不含 venue_class / is_relay / protocol / exchange / tx_hash / log_index，relay 剔除与 unknown venue 隔离在现有数据上无法执行。M1 manifest 曾把这 7 个字段标为『仅扩展段』，与实测不符（两段各 24 列且完全相同），已作为 M1 缺陷记录。在补齐链上字段之前，一切名义额类指标只能作 provisional。",
     "语义映射（地缘 / 能源 / 商品关联）不在本票范围：必须从原始市场标题、描述与创建时间构造版本化映射，另立票。在此之前 PM 侧没有可用的机制分组。",
-    "negRisk 成交在两段 tape 中都不存在（全史 neg_risk 为真的市场日为 0，19 个抽样分区 3750 万行逐行确认）。canonical plan §2.1 关于『扩展段含 negRisk、约占名义额 27.6%』的表述与实测不符，需要文档归一化裁决。按裁决 negRisk 回补与 2026-07-14 之后续爬不作为前置条件；只有普查证明缺口会阻断目标机制时，才单独申请 acquisition 授权。",
-    "抽样重复腿检出率 3.47%（24 个分区 1333 万行中 46.3 万行与另一行完全相同）。缺 tx_hash / log_index，无法区分中继腿与真实重复成交，因此名义额类指标一律 provisional，且成员资格不得由名义额单独决定。"
+    "negRisk 成交在两段 tape 中都不存在（见 finding pm_census.neg_risk_absent_in_both_segments 的结构化证据）。按裁决 negRisk 回补与 2026-07-14 之后续爬不作为前置条件；只有普查证明缺口会阻断目标机制时，才单独申请 acquisition 授权。",
+    "抽样重复腿检出率见 finding pm_census.duplicate_legs_provisional 的结构化证据。缺 tx_hash / log_index，无法区分中继腿与真实重复成交，因此名义额类指标一律 provisional，且成员资格不得由名义额单独决定。"
   ],
-  "fingerprint": "ed0a0ef34c241b6fdeb95f6d9ee13a3007e4380497f66dd2ac1febc792ea4441"
+  "fingerprint": "8f6bd45ffe33758937760eefb9c283bd29dc66ca964c97c77b9497533c975b94"
 }

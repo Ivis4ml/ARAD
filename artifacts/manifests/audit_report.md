@@ -3,7 +3,7 @@
 ## commodity_tick
 
 - 根路径：`/Users/xinyu/Code/AR-Polymarket/chinese-commodity`
-- 指纹：`9274edb0b7ffbda7…`  生成于 2026-08-05T19:24:29.061418+00:00
+- 指纹：`9274edb0b7ffbda7…`  生成于 2026-08-05T22:23:14.151005+00:00
 - 内容身份：`zip_central_directory_sha256` = `7852e168131679aa…`
   - 保证等级：对每个 zip 条目的 (解码文件名, CRC32, 原始大小) 按序聚合 sha256。可检测：任何改变条目 CRC 的内容修改（含等长替换）、条目增删与改名。不可检测：CRC32 碰撞级别的构造性篡改。
 - zip_count: 66
@@ -25,7 +25,7 @@
 ## polymarket_tape
 
 - 根路径：`/Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket/daily_aligned + /Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket/features/extension_tape`
-- 指纹：`85c32698ad823146…`  生成于 2026-08-05T19:24:31.987214+00:00
+- 指纹：`3d14332d44631c22…`  生成于 2026-08-05T22:23:16.872196+00:00
 - 内容身份：`parquet_footer_sha256` = `ab281d5d20706fa3…`
   - 保证等级：parquet footer 字节聚合哈希（含全部行组的列统计、偏移与布局）加文件大小。可检测：schema 变化、行组增删、任何改变列统计或布局的内容修改。不可检测：等长且不改变任何列 min/max 统计与页偏移的数据页篡改。
 - hf: {'partitions': 1248, 'rows': 601934424, 'first_date': '2022-11-21', 'last_date': '2026-04-28', 'schema_signatures': 1}
@@ -37,14 +37,15 @@
 |---|---|---|
 | warning | `polymarket.schema_conflict` | 两段 tape 存在 15 处列类型冲突，UNION 前必须统一 |
 | info | `polymarket.seam` | 接缝无重叠：范围间隔 248 秒，复合键交集为 0 |
-| warning | `polymarket.provisional_facts` | 以下事实为 provisional：relay legs 清理完备性、unknown venue 分布、negRisk 在扩展段的覆盖率；HF 段确定不含 negRisk tape |
+| warning | `polymarket.provisional_facts` | 以下事实为 provisional：relay legs 清理完备性与 unknown venue 分布（两段都缺 venue/relay 列，现有数据上不可审计）。negRisk：两段实测均未见 neg_risk 为真的成交（见 M2.5 全史普查），扩展段并未补上 HF 段的 negRisk 缺口 |
+| warning | `polymarket.chain_columns_absent` | 设计文档声称存在的链上列在两段实测中都不存在；relay 剔除、unknown venue 隔离与逐笔主键去重在现有数据上无法执行 |
 
 质量闸门：通过
 
 ## cls_telegraph
 
 - 根路径：`/Users/xinyu/Code/AR-Polymarket/Crawler/cls-data/data/output`
-- 指纹：`75a41c172ef67a10…`  生成于 2026-08-05T19:24:33.729204+00:00
+- 指纹：`75a41c172ef67a10…`  生成于 2026-08-05T22:23:18.619668+00:00
 - 内容身份：`content_sha256` = `2a2418f159858ec0…`
   - 保证等级：对全部 CSV 文件的原始字节按文件名序聚合 sha256（全文哈希）。可检测：任何内容修改（含等长替换）、文件增删。无已知盲区。
 - files: 2361

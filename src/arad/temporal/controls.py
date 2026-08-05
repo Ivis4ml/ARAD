@@ -22,6 +22,7 @@ import csv
 import glob
 import os
 import re
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
 import pyarrow as pa
@@ -85,6 +86,20 @@ PM_REGISTRY_DEPRECATION = (
 
 class DeprecatedSourceError(RuntimeError):
     """访问了已弃用并隔离的数据源。这是硬边界，不是提醒。"""
+
+
+@dataclass(frozen=True)
+class QuarantinedSource:
+    """隔离源的只读载体。**刻意不是 PitSeries**：不能被 as-of join 消费。
+
+    M3 的 Evidence Ledger 尚不存在，因此这里不宣称"已记账"；当前保证只有两条：
+    类型边界（无法进入 PIT 查询路径）与 manifest 中的弃用记录。
+    """
+
+    source_id: str
+    table: pa.Table
+    quarantine_reason: str
+    ledger_recorded: bool = False
 
 _CLS_DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 
@@ -290,10 +305,19 @@ def pm_registry_manifest(path: str) -> SourceManifest:
 
 def load_pm_registry_series(
     path: str, *, product: str, quarantine_ack: str = ""
-) -> PitSeries:
-    """**已弃用**。默认拒绝加载；仅在显式给出隔离理由时放行，供只读 QA 对照。"""
+) -> QuarantinedSource:
+    """**已弃用**。默认拒绝加载。
+
+    即使给出隔离理由，返回的也是 `QuarantinedSource` 而不是 `PitSeries`：
+    类型上就无法进入 as-of join 或任何 PIT 查询路径。理由必须至少 20 字，
+    避免用一个空格绕过边界。
+    """
     if not quarantine_ack:
         raise DeprecatedSourceError(PM_REGISTRY_DEPRECATION)
+    if len(quarantine_ack.strip()) < 20:
+        raise DeprecatedSourceError(
+            "quarantine_ack 必须是一段可审计的具体理由（至少 20 字），不接受占位字符串"
+        )
     manifest = pm_registry_manifest(path)
     table = pq.read_table(path, columns=list(PM_ALLOWED_FIELDS))
     rows = [r for r in table.to_pylist() if r["product"] == product]
@@ -305,7 +329,13 @@ def load_pm_registry_series(
         [datetime.fromtimestamp(r["admit_ts"], tz=SHANGHAI) for r in rows],
         pa.timestamp("us", tz="Asia/Shanghai"),
     )
-    return PitSeries(name="pm_cn_registry_v3", table=pa.table(out), manifest=manifest)
+    _ = manifest  # 合同仅用于文档化字段禁用，不再构造可查询序列
+    return QuarantinedSource(
+        source_id="pm_cn_registry_v3",
+        table=pa.table(out),
+        quarantine_reason=quarantine_ack,
+        ledger_recorded=False,
+    )
 
 
 def pm_registry_deprecation_record(path: str) -> dict:
@@ -321,6 +351,6 @@ def pm_registry_deprecation_record(path: str) -> dict:
             "从原始 Polymarket tape 推导的 PIT Market Index："
             "存在性由首笔公开成交决定，流动性资格由过去窗口决定，两者分离"
         ),
-        "allowed_use": "仅可作为被隔离的只读 QA 对照，且必须显式传入 quarantine_ack 并记入账本",
+        "allowed_use": ("仅可作为被隔离的只读 QA 对照：需显式传入具体理由，返回 QuarantinedSource ""而非 PitSeries，类型上无法进入 PIT 查询路径。M3 账本尚不存在，不宣称已记账"),
         "forbidden_use": "市场来源、市场语义映射、任何研究输入、M3 evaluator、M4 Study",
     }

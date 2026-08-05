@@ -101,17 +101,43 @@ def test_polymarket_snapshot_declares_guarantee(tmp_path):
 # ---------- P1: 全分区 schema 漂移 ----------
 
 def _write_pm(path, ts_values, extra_col=False, asset="a1"):
+    """写出与实测同构的最小 tape 分区。
+
+    字段合同由实测 schema 生成（M1 第三轮修复），因此 fixture 必须覆盖注解里
+    声明的全部列，否则扫描器会正确地报告"注解引用了不存在的列"。
+    """
     import os
 
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    n = len(ts_values)
     data = {
         "block_timestamp": pa.array(ts_values, type=pa.int64()),
-        "asset_id": pa.array([asset] * len(ts_values), type=pa.string()),
-        "price": pa.array([0.5] * len(ts_values), type=pa.float64()),
-        "usdc_amount": pa.array([100.0] * len(ts_values), type=pa.float64()),
+        "asset_id": pa.array([asset] * n, type=pa.string()),
+        "price": pa.array([0.5] * n, type=pa.float64()),
+        "usdc_amount": pa.array([100.0] * n, type=pa.float64()),
+        "maker": pa.array(["0xm"] * n, type=pa.string()),
+        "taker": pa.array(["0xt"] * n, type=pa.string()),
+        "taker_direction": pa.array(["BUY"] * n, type=pa.string()),
+        "fee_usdc": pa.array([0.0] * n, type=pa.float64()),
+        "condition_id": pa.array(["0xc"] * n, type=pa.string()),
+        "outcome_seq": pa.array([0] * n, type=pa.int64()),
+        "neg_risk": pa.array([False] * n, type=pa.bool_()),
+        "category": pa.array(["Politics"] * n, type=pa.string()),
+        "category_refined": pa.array(["Politics"] * n, type=pa.string()),
+        "outcome_label": pa.array(["Yes"] * n, type=pa.string()),
+        "winning_outcome_label": pa.array([None] * n, type=pa.string()),
+        "resolution_status": pa.array([None] * n, type=pa.string()),
+        "taker_base_fee": pa.array([0.0] * n, type=pa.float64()),
+        "maker_base_fee": pa.array([0.0] * n, type=pa.float64()),
+        "opens_at": pa.array([None] * n, type=pa.timestamp("us")),
+        "close_at": pa.array([None] * n, type=pa.timestamp("us")),
+        "resolved_at": pa.array([None] * n, type=pa.timestamp("us")),
+        "market_slug": pa.array(["slug"] * n, type=pa.string()),
+        "p_event": pa.array([0.5] * n, type=pa.float64()),
+        "D": pa.array([1] * n, type=pa.int8()),
     }
     if extra_col:
-        data["drifted"] = pa.array([1] * len(ts_values), type=pa.int32())
+        data["drifted"] = pa.array([1] * n, type=pa.int32())
     pq.write_table(pa.table(data), path)
 
 
@@ -152,14 +178,21 @@ def test_seam_clean_when_keys_disjoint(tmp_path):
 
 # ---------- P1: provisional 字段默认禁止 ----------
 
+def _scanned(tmp_path):
+    hf, ext = tmp_path / "hf", tmp_path / "ext"
+    _write_pm(str(hf / "date=2026-04-28" / "a.parquet"), [1_745_800_000])
+    _write_pm(str(ext / "2026-04-28.parquet"), [1_745_820_000])
+    return pm_scanner.scan(str(hf), str(ext), "2026-04-28")
+
+
 def test_provisional_field_blocked_by_default(tmp_path):
-    m = pm_scanner.scan(str(tmp_path / "hf"), str(tmp_path / "ext"), "2026-04-28")
+    m = _scanned(tmp_path)
     with pytest.raises(ProvisionalFieldAccess):
         m.require_analysis_view(["price", "neg_risk"])
 
 
 def test_provisional_field_needs_reasoned_override(tmp_path):
-    m = pm_scanner.scan(str(tmp_path / "hf"), str(tmp_path / "ext"), "2026-04-28")
+    m = _scanned(tmp_path)
     with pytest.raises(ProvisionalFieldAccess):
         m.require_analysis_view(["neg_risk"], allow_provisional={"neg_risk"})
     ok = m.require_analysis_view(
@@ -171,7 +204,7 @@ def test_provisional_field_needs_reasoned_override(tmp_path):
 
 
 def test_analysis_fields_excludes_provisional(tmp_path):
-    m = pm_scanner.scan(str(tmp_path / "hf"), str(tmp_path / "ext"), "2026-04-28")
+    m = _scanned(tmp_path)
     fields = set(m.analysis_fields())
     assert "neg_risk" not in fields
     assert "price" in fields

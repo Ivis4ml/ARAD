@@ -2,7 +2,7 @@
   "source_id": "polymarket_tape",
   "root_uri": "/Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket/daily_aligned + /Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket/features/extension_tape",
   "scanner_version": "0.2.0",
-  "generated_at": "2026-08-05T19:24:31.987214+00:00",
+  "generated_at": "2026-08-05T22:23:16.872196+00:00",
   "time_semantics": {
     "event_time": "CLOB 撮合时间（不可观测）",
     "publication_time": "block_timestamp（链上出块，实测平均滞后撮合约 2 秒，逐笔滞后未知）",
@@ -13,8 +13,17 @@
   },
   "fields": [
     {
+      "name": "D",
+      "dtype": "int8",
+      "semantic": "归一方向 ±1",
+      "unit": "",
+      "banned": false,
+      "banned_reason": "",
+      "provisional": false
+    },
+    {
       "name": "asset_id",
-      "dtype": "string",
+      "dtype": "hf:large_string / ext:string",
       "semantic": "结果代币标识",
       "unit": "",
       "banned": false,
@@ -31,89 +40,8 @@
       "provisional": false
     },
     {
-      "name": "price",
-      "dtype": "float64",
-      "semantic": "成交概率价",
-      "unit": "[0,1]",
-      "banned": false,
-      "banned_reason": "",
-      "provisional": false
-    },
-    {
-      "name": "maker",
-      "dtype": "string",
-      "semantic": "maker 钱包地址",
-      "unit": "",
-      "banned": false,
-      "banned_reason": "",
-      "provisional": false
-    },
-    {
-      "name": "taker",
-      "dtype": "string",
-      "semantic": "taker 钱包地址",
-      "unit": "",
-      "banned": false,
-      "banned_reason": "",
-      "provisional": false
-    },
-    {
-      "name": "taker_direction",
-      "dtype": "string",
-      "semantic": "taker 方向 BUY/SELL",
-      "unit": "",
-      "banned": false,
-      "banned_reason": "",
-      "provisional": false
-    },
-    {
-      "name": "usdc_amount",
-      "dtype": "float64",
-      "semantic": "名义金额",
-      "unit": "USDC",
-      "banned": false,
-      "banned_reason": "",
-      "provisional": false
-    },
-    {
-      "name": "fee_usdc",
-      "dtype": "float64",
-      "semantic": "手续费",
-      "unit": "USDC",
-      "banned": false,
-      "banned_reason": "",
-      "provisional": false
-    },
-    {
-      "name": "condition_id",
-      "dtype": "string",
-      "semantic": "市场键",
-      "unit": "",
-      "banned": false,
-      "banned_reason": "",
-      "provisional": false
-    },
-    {
-      "name": "outcome_seq",
-      "dtype": "int",
-      "semantic": "结果序号",
-      "unit": "",
-      "banned": false,
-      "banned_reason": "",
-      "provisional": false
-    },
-    {
-      "name": "neg_risk",
-      "dtype": "hf:large_string / ext:bool",
-      "semantic": "negRisk 市场标记（两段类型冲突，口径未统一）",
-      "unit": "",
-      "banned": false,
-      "banned_reason": "",
-      "provisional": true
-    },
-    {
       "name": "category",
-      "dtype": "string",
+      "dtype": "hf:large_string / ext:string",
       "semantic": "市场类别（元数据回填）",
       "unit": "",
       "banned": false,
@@ -122,7 +50,7 @@
     },
     {
       "name": "category_refined",
-      "dtype": "string",
+      "dtype": "hf:large_string / ext:string",
       "semantic": "细化类别（元数据回填）",
       "unit": "",
       "banned": false,
@@ -130,62 +58,8 @@
       "provisional": false
     },
     {
-      "name": "outcome_label",
-      "dtype": "string",
-      "semantic": "本代币对应结果标签",
-      "unit": "",
-      "banned": false,
-      "banned_reason": "",
-      "provisional": false
-    },
-    {
-      "name": "winning_outcome_label",
-      "dtype": "string",
-      "semantic": "最终获胜结果标签",
-      "unit": "",
-      "banned": true,
-      "banned_reason": "结算结果，历史分析中为未来信息",
-      "provisional": false
-    },
-    {
-      "name": "resolution_status",
-      "dtype": "string",
-      "semantic": "结算状态",
-      "unit": "",
-      "banned": true,
-      "banned_reason": "结算生命周期信息，历史分析中为未来信息",
-      "provisional": false
-    },
-    {
-      "name": "taker_base_fee",
-      "dtype": "float64",
-      "semantic": "taker 基础费率",
-      "unit": "",
-      "banned": false,
-      "banned_reason": "",
-      "provisional": false
-    },
-    {
-      "name": "maker_base_fee",
-      "dtype": "float64",
-      "semantic": "maker 基础费率",
-      "unit": "",
-      "banned": false,
-      "banned_reason": "",
-      "provisional": false
-    },
-    {
-      "name": "opens_at",
-      "dtype": "timestamp",
-      "semantic": "市场开放时间（元数据，可能回填修订）",
-      "unit": "",
-      "banned": false,
-      "banned_reason": "",
-      "provisional": true
-    },
-    {
       "name": "close_at",
-      "dtype": "timestamp",
+      "dtype": "hf:timestamp[us, tz=UTC] / ext:timestamp[us]",
       "semantic": "市场关闭时间（元数据，可能回填修订）",
       "unit": "",
       "banned": false,
@@ -193,17 +67,44 @@
       "provisional": true
     },
     {
-      "name": "resolved_at",
-      "dtype": "timestamp",
-      "semantic": "市场结算时间",
+      "name": "condition_id",
+      "dtype": "hf:large_string / ext:string",
+      "semantic": "市场键",
       "unit": "",
-      "banned": true,
-      "banned_reason": "结算时间不得替代历史可用时间；仅可用于事后生命周期分析",
+      "banned": false,
+      "banned_reason": "",
+      "provisional": false
+    },
+    {
+      "name": "fee_usdc",
+      "dtype": "double",
+      "semantic": "手续费",
+      "unit": "USDC",
+      "banned": false,
+      "banned_reason": "",
+      "provisional": false
+    },
+    {
+      "name": "maker",
+      "dtype": "hf:large_string / ext:string",
+      "semantic": "maker 钱包地址",
+      "unit": "",
+      "banned": false,
+      "banned_reason": "",
+      "provisional": false
+    },
+    {
+      "name": "maker_base_fee",
+      "dtype": "double",
+      "semantic": "maker 基础费率",
+      "unit": "",
+      "banned": false,
+      "banned_reason": "",
       "provisional": false
     },
     {
       "name": "market_slug",
-      "dtype": "string",
+      "dtype": "hf:large_string / ext:string",
       "semantic": "市场 slug",
       "unit": "",
       "banned": false,
@@ -211,8 +112,44 @@
       "provisional": false
     },
     {
+      "name": "neg_risk",
+      "dtype": "hf:large_string / ext:bool",
+      "semantic": "negRisk 市场标记（两段类型冲突，口径未统一；全史实测未见为真的成交）",
+      "unit": "",
+      "banned": false,
+      "banned_reason": "",
+      "provisional": true
+    },
+    {
+      "name": "opens_at",
+      "dtype": "hf:timestamp[us, tz=UTC] / ext:timestamp[us]",
+      "semantic": "市场开放时间（元数据，可能回填修订）",
+      "unit": "",
+      "banned": false,
+      "banned_reason": "",
+      "provisional": true
+    },
+    {
+      "name": "outcome_label",
+      "dtype": "hf:large_string / ext:string",
+      "semantic": "本代币对应结果标签",
+      "unit": "",
+      "banned": false,
+      "banned_reason": "",
+      "provisional": false
+    },
+    {
+      "name": "outcome_seq",
+      "dtype": "int64",
+      "semantic": "结果序号",
+      "unit": "",
+      "banned": false,
+      "banned_reason": "",
+      "provisional": false
+    },
+    {
       "name": "p_event",
-      "dtype": "float64",
+      "dtype": "double",
       "semantic": "归一事件概率",
       "unit": "",
       "banned": false,
@@ -220,76 +157,76 @@
       "provisional": false
     },
     {
-      "name": "D",
-      "dtype": "int8",
-      "semantic": "归一方向 ±1",
+      "name": "price",
+      "dtype": "double",
+      "semantic": "成交概率价",
+      "unit": "[0,1]",
+      "banned": false,
+      "banned_reason": "",
+      "provisional": false
+    },
+    {
+      "name": "resolution_status",
+      "dtype": "hf:large_string / ext:string",
+      "semantic": "结算状态",
+      "unit": "",
+      "banned": true,
+      "banned_reason": "结算生命周期信息，历史分析中为未来信息",
+      "provisional": false
+    },
+    {
+      "name": "resolved_at",
+      "dtype": "hf:timestamp[us, tz=UTC] / ext:timestamp[us]",
+      "semantic": "市场结算时间",
+      "unit": "",
+      "banned": true,
+      "banned_reason": "结算时间不得替代历史可用时间；仅可用于事后生命周期分析",
+      "provisional": false
+    },
+    {
+      "name": "taker",
+      "dtype": "hf:large_string / ext:string",
+      "semantic": "taker 钱包地址",
       "unit": "",
       "banned": false,
       "banned_reason": "",
       "provisional": false
     },
     {
-      "name": "block_number",
-      "dtype": "int64",
-      "semantic": "区块号（仅扩展段）",
+      "name": "taker_base_fee",
+      "dtype": "double",
+      "semantic": "taker 基础费率",
       "unit": "",
       "banned": false,
       "banned_reason": "",
       "provisional": false
     },
     {
-      "name": "log_index",
-      "dtype": "int64",
-      "semantic": "日志序号（仅扩展段）",
+      "name": "taker_direction",
+      "dtype": "hf:large_string / ext:string",
+      "semantic": "taker 方向 BUY/SELL",
       "unit": "",
       "banned": false,
       "banned_reason": "",
       "provisional": false
     },
     {
-      "name": "tx_hash",
-      "dtype": "string",
-      "semantic": "交易哈希（仅扩展段）",
-      "unit": "",
+      "name": "usdc_amount",
+      "dtype": "double",
+      "semantic": "名义金额",
+      "unit": "USDC",
       "banned": false,
       "banned_reason": "",
       "provisional": false
     },
     {
-      "name": "exchange",
-      "dtype": "string",
-      "semantic": "交易所合约地址（仅扩展段）",
+      "name": "winning_outcome_label",
+      "dtype": "hf:large_string / ext:string",
+      "semantic": "最终获胜结果标签",
       "unit": "",
-      "banned": false,
-      "banned_reason": "",
+      "banned": true,
+      "banned_reason": "结算结果，历史分析中为未来信息",
       "provisional": false
-    },
-    {
-      "name": "venue_class",
-      "dtype": "string",
-      "semantic": "场馆分类（仅扩展段，清理完备性未审计）",
-      "unit": "",
-      "banned": false,
-      "banned_reason": "",
-      "provisional": true
-    },
-    {
-      "name": "protocol",
-      "dtype": "string",
-      "semantic": "协议版本（仅扩展段）",
-      "unit": "",
-      "banned": false,
-      "banned_reason": "",
-      "provisional": false
-    },
-    {
-      "name": "is_relay",
-      "dtype": "bool",
-      "semantic": "中继腿标记（仅扩展段，清理完备性未审计）",
-      "unit": "",
-      "banned": false,
-      "banned_reason": "",
-      "provisional": true
     }
   ],
   "partitions": [
@@ -13646,8 +13583,25 @@
     {
       "severity": "warning",
       "code": "polymarket.provisional_facts",
-      "message": "以下事实为 provisional：relay legs 清理完备性、unknown venue 分布、negRisk 在扩展段的覆盖率；HF 段确定不含 negRisk tape",
+      "message": "以下事实为 provisional：relay legs 清理完备性与 unknown venue 分布（两段都缺 venue/relay 列，现有数据上不可审计）。negRisk：两段实测均未见 neg_risk 为真的成交（见 M2.5 全史普查），扩展段并未补上 HF 段的 negRisk 缺口",
       "evidence": {}
+    },
+    {
+      "severity": "warning",
+      "code": "polymarket.chain_columns_absent",
+      "message": "设计文档声称存在的链上列在两段实测中都不存在；relay 剔除、unknown venue 隔离与逐笔主键去重在现有数据上无法执行",
+      "evidence": {
+        "missing": [
+          "block_number",
+          "exchange",
+          "is_relay",
+          "log_index",
+          "protocol",
+          "tx_hash",
+          "venue_class"
+        ],
+        "observed_columns": 24
+      }
     }
   ],
   "facts": {
@@ -13733,5 +13687,5 @@
     "digest": "ab281d5d20706fa3e5d19089ceb9dcaa81fc5991f76b810d0d760459f9d49e64",
     "guarantee": "parquet footer 字节聚合哈希（含全部行组的列统计、偏移与布局）加文件大小。可检测：schema 变化、行组增删、任何改变列统计或布局的内容修改。不可检测：等长且不改变任何列 min/max 统计与页偏移的数据页篡改。"
   },
-  "fingerprint": "85c32698ad823146969d787ff5afc801f27124c17b81e0043e3fc8236aeb24b1"
+  "fingerprint": "3d14332d44631c22eae943e84b4a1f9ee58a6017e7617fae91df7335f81a4dd2"
 }

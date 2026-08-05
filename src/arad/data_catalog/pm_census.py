@@ -1,10 +1,14 @@
 """Polymarket 逐笔的只读、label-blind 普查（M2.5 第一部分）。
 
-只读取时间、市场标识、价格与名义额；结果字段（`resolution_status`、
-`winning_outcome_label`、`resolved_at`）在读取层就被拒绝，不是靠约定回避。
+只读取时间、市场/资产标识、结果序号、价格与名义额；结果字段
+（`resolution_status`、`winning_outcome_label`、`resolved_at`）在读取层被拒绝。
 
-按日分区流式聚合：每个分区只读需要的列，聚合成逐 (市场, 日) 一行后即释放，
-855M 行不进内存。每个分区写一份 sidecar，键为分区的内容指纹，重跑可恢复。
+**价格变化与无成交间隔按 (市场, 资产) 计算**：同一 condition 下 YES 与 NO 是两个
+互补的 outcome token，价格序列不同，混在一起会制造伪跳变。市场级的活跃秒数按
+condition 去重统计，避免两个 token 同秒成交被重复计数。
+
+内容身份取 parquet FileMetaData 的**页脚字节**：行数与文件大小相同的等长内容改写
+也会改变列块偏移与统计量，因此能被检出（行数/字节数级的摘要不能）。
 """
 
 from __future__ import annotations
@@ -13,6 +17,8 @@ import glob
 import hashlib
 import json
 import os
+import struct
+import time
 from concurrent.futures import ProcessPoolExecutor
 
 import pyarrow as pa
@@ -22,10 +28,18 @@ import pyarrow.parquet as pq
 from .schema import QualityFinding, Severity
 from .timeguard import require_epoch_seconds
 
-CENSUS_VERSION = "0.1.0"
+CENSUS_VERSION = "0.2.0"
 
 #: 普查允许读取的列。任何结果字段都不在此列。
-CENSUS_COLUMNS = ("condition_id", "block_timestamp", "price", "usdc_amount", "neg_risk")
+CENSUS_COLUMNS = (
+    "condition_id",
+    "asset_id",
+    "outcome_seq",
+    "block_timestamp",
+    "price",
+    "usdc_amount",
+    "neg_risk",
+)
 
 #: 结果字段：读取层硬拒绝。label-blind 是能力边界，不是提醒。
 OUTCOME_COLUMNS = frozenset(
@@ -33,8 +47,25 @@ OUTCOME_COLUMNS = frozenset(
 )
 
 #: 去重审计需要的额外列（仅在抽样审计中读取）。
-DEDUP_COLUMNS = ("condition_id", "asset_id", "block_timestamp", "maker", "taker", "price",
-                 "usdc_amount")
+DEDUP_COLUMNS = (
+    "condition_id", "asset_id", "block_timestamp", "maker", "taker", "price", "usdc_amount",
+)
+
+ASSET_DAY_SCHEMA = pa.schema(
+    [
+        ("date", pa.string()),
+        ("condition_id", pa.string()),
+        ("asset_id", pa.string()),
+        ("outcome_seq", pa.int64()),
+        ("trades", pa.int64()),
+        ("notional", pa.float64()),
+        ("first_ts", pa.int64()),
+        ("last_ts", pa.int64()),
+        ("active_seconds", pa.int64()),
+        ("price_changes", pa.int64()),
+        ("max_gap_seconds", pa.int64()),
+    ]
+)
 
 MARKET_DAY_SCHEMA = pa.schema(
     [
@@ -47,6 +78,7 @@ MARKET_DAY_SCHEMA = pa.schema(
         ("active_seconds", pa.int64()),
         ("price_changes", pa.int64()),
         ("max_gap_seconds", pa.int64()),
+        ("assets", pa.int64()),
         ("neg_risk", pa.bool_()),
     ]
 )
@@ -68,14 +100,27 @@ def require_label_blind(columns) -> list[str]:
 
 
 def partition_digest(path: str) -> str:
-    """分区的内容身份：行数、字节数与 footer 关键元数据的聚合。"""
-    md = pq.ParquetFile(path).metadata
-    st = os.stat(path)
-    blob = f"{os.path.basename(path)}|{md.num_rows}|{md.num_row_groups}|{st.st_size}"
-    return hashlib.sha256(blob.encode()).hexdigest()
+    """分区的内容身份：parquet 页脚（FileMetaData）字节的 sha256 加文件大小。
+
+    页脚含每个列块的偏移、压缩大小与统计量，因此等长内容改写也会改变它。
+    仅按行数与字节数构造的摘要做不到这一点，会错误复用缓存。
+    """
+    size = os.path.getsize(path)
+    with open(path, "rb") as f:
+        f.seek(size - 8)
+        tail = f.read(8)
+        if tail[4:] != b"PAR1":
+            raise ValueError(f"{path} 不是 parquet 文件（尾部魔数不匹配）")
+        footer_len = struct.unpack("<I", tail[:4])[0]
+        f.seek(size - 8 - footer_len)
+        footer = f.read(footer_len)
+    h = hashlib.sha256()
+    h.update(footer)
+    h.update(str(size).encode())
+    return h.hexdigest()
 
 
-def _bool_array(column: pa.ChunkedArray | pa.Array) -> pa.Array:
+def _bool_array(column) -> pa.Array:
     """neg_risk 在两段的类型不同（bool 与字符串），统一为 bool。"""
     arr = column.combine_chunks() if isinstance(column, pa.ChunkedArray) else column
     if pa.types.is_boolean(arr.type):
@@ -88,94 +133,175 @@ def _prepend(values: pa.Array, first, dtype) -> pa.Array:
     return pa.concat_arrays([pa.array([first], dtype), values.cast(dtype)])
 
 
-def census_partition(path: str, date_key: str) -> pa.Table:
-    """把一个日分区聚合成逐 (市场, 日) 一行。"""
-    table = pq.read_table(path, columns=require_label_blind(CENSUS_COLUMNS))
-    if table.num_rows == 0:
-        return MARKET_DAY_SCHEMA.empty_table()
-    table = table.sort_by(
-        [("condition_id", "ascending"), ("block_timestamp", "ascending")]
-    )
-    n = table.num_rows
-    cid = table.column("condition_id").combine_chunks()
-    ts = table.column("block_timestamp").combine_chunks().cast(pa.int64())
-    price = table.column("price").combine_chunks().cast(pa.float64())
+def _encode(column) -> tuple[pa.Array, pa.Array]:
+    """字符串列编码为 int32 码加字典，控制大分区的排序内存。"""
+    arr = column.combine_chunks() if isinstance(column, pa.ChunkedArray) else column
+    enc = arr.dictionary_encode()
+    return enc.indices.cast(pa.int32()), enc.dictionary
 
-    require_epoch_seconds(pc.min(ts).as_py(), field="block_timestamp")
-    require_epoch_seconds(pc.max(ts).as_py(), field="block_timestamp")
 
+def _series_metrics(sorted_tbl: pa.Table, group_cols: list[str]):
+    """在已按 group_cols 与 ts 排序的表上计算组内价格变化与无成交间隔。"""
+    n = sorted_tbl.num_rows
+    ts = sorted_tbl.column("ts").combine_chunks()
+    price = sorted_tbl.column("price").combine_chunks()
     if n == 1:
         same = pa.array([False], pa.bool_())
         gap = pa.array([None], pa.int64())
         changed = pa.array([False], pa.bool_())
     else:
-        same = _prepend(pc.equal(cid.slice(1), cid.slice(0, n - 1)), False, pa.bool_())
+        same = None
+        for name in group_cols:
+            k = sorted_tbl.column(name).combine_chunks()
+            eq = pc.equal(k.slice(1), k.slice(0, n - 1))
+            same = eq if same is None else pc.and_(same, eq)
+        same = _prepend(same, False, pa.bool_())
         raw_gap = _prepend(pc.subtract(ts.slice(1), ts.slice(0, n - 1)), None, pa.int64())
         gap = pc.if_else(same, raw_gap, pa.scalar(None, pa.int64()))
-        raw_changed = _prepend(
-            pc.not_equal(price.slice(1), price.slice(0, n - 1)), False, pa.bool_()
+        changed = pc.and_kleene(
+            same,
+            _prepend(pc.not_equal(price.slice(1), price.slice(0, n - 1)), False, pa.bool_()),
         )
-        changed = pc.and_kleene(same, raw_changed)
-    # 新的一秒：换市场，或与前一笔不同秒
     new_second = pc.or_kleene(pc.invert(same), pc.greater(pc.fill_null(gap, 1), 0))
-
-    work = pa.table(
-        {
-            "condition_id": cid,
-            "ts": ts,
-            "usdc": table.column("usdc_amount").combine_chunks().cast(pa.float64()),
-            "gap": gap,
-            "new_second": pc.cast(pc.fill_null(new_second, True), pa.int64()),
-            "changed": pc.cast(pc.fill_null(changed, False), pa.int64()),
-            "neg": pc.cast(_bool_array(table.column("neg_risk")), pa.int64()),
-        }
+    return (
+        gap,
+        pc.cast(pc.fill_null(changed, False), pa.int64()),
+        pc.cast(pc.fill_null(new_second, True), pa.int64()),
     )
-    grouped = pa.TableGroupBy(work, ["condition_id"], use_threads=False).aggregate(
+
+
+def _asset_level(work: pa.Table, date_key: str, cid_values, asset_values) -> pa.Table:
+    s = work.sort_by([("cid", "ascending"), ("asset", "ascending"), ("ts", "ascending")])
+    gap, changed, new_second = _series_metrics(s, ["cid", "asset"])
+    s = s.append_column("gap", gap)
+    s = s.append_column("changed", changed)
+    s = s.append_column("new_second", new_second)
+    g = pa.TableGroupBy(s, ["cid", "asset"], use_threads=False).aggregate(
         [
-            ("ts", "count"),
-            ("ts", "min"),
-            ("ts", "max"),
-            ("usdc", "sum"),
-            ("gap", "max"),
-            ("new_second", "sum"),
-            ("changed", "sum"),
-            ("neg", "max"),
+            ("ts", "count"), ("ts", "min"), ("ts", "max"), ("usdc", "sum"),
+            ("gap", "max"), ("new_second", "sum"), ("changed", "sum"),
+            ("outcome_seq", "min"),
         ]
     )
-    out = pa.table(
+    return pa.table(
         {
-            "date": pa.array([date_key] * grouped.num_rows, pa.string()),
-            "condition_id": grouped.column("condition_id"),
-            "trades": pc.cast(grouped.column("ts_count"), pa.int64()),
-            "notional": pc.cast(grouped.column("usdc_sum"), pa.float64()),
-            "first_ts": pc.cast(grouped.column("ts_min"), pa.int64()),
-            "last_ts": pc.cast(grouped.column("ts_max"), pa.int64()),
-            "active_seconds": pc.cast(grouped.column("new_second_sum"), pa.int64()),
-            "price_changes": pc.cast(grouped.column("changed_sum"), pa.int64()),
-            "max_gap_seconds": pc.cast(
-                pc.fill_null(grouped.column("gap_max"), 0), pa.int64()
-            ),
-            "neg_risk": pc.greater(grouped.column("neg_max"), 0),
+            "date": pa.array([date_key] * g.num_rows, pa.string()),
+            "condition_id": pc.take(cid_values, g.column("cid")),
+            "asset_id": pc.take(asset_values, g.column("asset")),
+            "outcome_seq": pc.cast(g.column("outcome_seq_min"), pa.int64()),
+            "trades": pc.cast(g.column("ts_count"), pa.int64()),
+            "notional": pc.cast(g.column("usdc_sum"), pa.float64()),
+            "first_ts": pc.cast(g.column("ts_min"), pa.int64()),
+            "last_ts": pc.cast(g.column("ts_max"), pa.int64()),
+            "active_seconds": pc.cast(g.column("new_second_sum"), pa.int64()),
+            "price_changes": pc.cast(g.column("changed_sum"), pa.int64()),
+            "max_gap_seconds": pc.cast(pc.fill_null(g.column("gap_max"), 0), pa.int64()),
+        },
+        schema=ASSET_DAY_SCHEMA,
+    ).sort_by([("condition_id", "ascending"), ("asset_id", "ascending")])
+
+
+def _market_level(work: pa.Table, date_key: str, cid_values, asset_tbl: pa.Table) -> pa.Table:
+    s = work.sort_by([("cid", "ascending"), ("ts", "ascending")])
+    gap, _changed, new_second = _series_metrics(s, ["cid"])
+    s = s.append_column("gap", gap)
+    s = s.append_column("new_second", new_second)
+    g = pa.TableGroupBy(s, ["cid"], use_threads=False).aggregate(
+        [
+            ("ts", "count"), ("ts", "min"), ("ts", "max"), ("usdc", "sum"),
+            ("new_second", "sum"), ("neg", "max"),
+        ]
+    )
+    market = pa.table(
+        {
+            "date": pa.array([date_key] * g.num_rows, pa.string()),
+            "condition_id": pc.take(cid_values, g.column("cid")),
+            "trades": pc.cast(g.column("ts_count"), pa.int64()),
+            "notional": pc.cast(g.column("usdc_sum"), pa.float64()),
+            "first_ts": pc.cast(g.column("ts_min"), pa.int64()),
+            "last_ts": pc.cast(g.column("ts_max"), pa.int64()),
+            "active_seconds": pc.cast(g.column("new_second_sum"), pa.int64()),
+            "neg_risk": pc.greater(g.column("neg_max"), 0),
+        }
+    )
+    # 市场级 price_changes 是各 asset 序列变化数之和：绝不跨 outcome 比较价格。
+    # 两张表的 condition_id 集合相同（每个市场至少一个 asset），按键排序后逐列对齐，
+    # 不用 join：join 在千万行级分区上会走 acero 并占用额外内存。
+    per_market = pa.TableGroupBy(asset_tbl, ["condition_id"], use_threads=False).aggregate(
+        [("price_changes", "sum"), ("asset_id", "count"), ("max_gap_seconds", "max")]
+    ).sort_by([("condition_id", "ascending")])
+    market = market.sort_by([("condition_id", "ascending")])
+    if market.num_rows != per_market.num_rows:
+        raise ValueError(
+            f"市场级与资产级聚合的市场数不一致：{market.num_rows} vs {per_market.num_rows}"
+        )
+    return pa.table(
+        {
+            "date": market.column("date"),
+            "condition_id": market.column("condition_id"),
+            "trades": market.column("trades"),
+            "notional": market.column("notional"),
+            "first_ts": market.column("first_ts"),
+            "last_ts": market.column("last_ts"),
+            "active_seconds": market.column("active_seconds"),
+            "price_changes": pc.cast(per_market.column("price_changes_sum"), pa.int64()),
+            "max_gap_seconds": pc.cast(per_market.column("max_gap_seconds_max"), pa.int64()),
+            "assets": pc.cast(per_market.column("asset_id_count"), pa.int64()),
+            "neg_risk": market.column("neg_risk"),
         },
         schema=MARKET_DAY_SCHEMA,
     )
-    return out.sort_by([("condition_id", "ascending")])
+
+
+def census_partition(path: str, date_key: str) -> tuple[pa.Table, pa.Table]:
+    """把一个日分区聚合成 (asset_day, market_day) 两张表。"""
+    raw = pq.read_table(path, columns=require_label_blind(CENSUS_COLUMNS))
+    if raw.num_rows == 0:
+        return ASSET_DAY_SCHEMA.empty_table(), MARKET_DAY_SCHEMA.empty_table()
+
+    cid_codes, cid_values = _encode(raw.column("condition_id"))
+    asset_codes, asset_values = _encode(raw.column("asset_id"))
+    work = pa.table(
+        {
+            "cid": cid_codes,
+            "asset": asset_codes,
+            "outcome_seq": raw.column("outcome_seq").combine_chunks().cast(pa.int64()),
+            "ts": raw.column("block_timestamp").combine_chunks().cast(pa.int64()),
+            "price": raw.column("price").combine_chunks().cast(pa.float64()),
+            "usdc": raw.column("usdc_amount").combine_chunks().cast(pa.float64()),
+            "neg": pc.cast(_bool_array(raw.column("neg_risk")), pa.int64()),
+        }
+    )
+    del raw
+    require_epoch_seconds(pc.min(work.column("ts")).as_py(), field="block_timestamp")
+    require_epoch_seconds(pc.max(work.column("ts")).as_py(), field="block_timestamp")
+
+    asset_tbl = _asset_level(work, date_key, cid_values, asset_values)
+    market_tbl = _market_level(work, date_key, cid_values, asset_tbl)
+    return asset_tbl, market_tbl
 
 
 def _census_task(task: dict) -> dict:
-    table = census_partition(task["path"], task["date"])
-    pq.write_table(table, os.path.join(task["out_market_day"], f"{task['key']}.parquet"))
+    from ..temporal.manifest import fingerprint_table
+
+    asset_tbl, market_tbl = census_partition(task["path"], task["date"])
+    pq.write_table(asset_tbl, os.path.join(task["out_asset_day"], f"{task['key']}.parquet"))
+    pq.write_table(market_tbl, os.path.join(task["out_market_day"], f"{task['key']}.parquet"))
     summary = {
         "key": task["key"],
         "date": task["date"],
         "segment": task["segment"],
-        "digest": task["digest"],
-        "markets": table.num_rows,
-        "trades": int(pc.sum(table.column("trades")).as_py() or 0),
-        "notional": float(pc.sum(table.column("notional")).as_py() or 0.0),
+        "source_digest": task["digest"],
+        "census_version": CENSUS_VERSION,
+        "markets": market_tbl.num_rows,
+        "assets": asset_tbl.num_rows,
+        "trades": int(pc.sum(market_tbl.column("trades")).as_py() or 0),
+        "notional": float(pc.sum(market_tbl.column("notional")).as_py() or 0.0),
         "neg_risk_markets": int(
-            pc.sum(pc.cast(table.column("neg_risk"), pa.int64())).as_py() or 0
+            pc.sum(pc.cast(market_tbl.column("neg_risk"), pa.int64())).as_py() or 0
         ),
+        "fingerprint_asset_day": fingerprint_table(asset_tbl),
+        "fingerprint_market_day": fingerprint_table(market_tbl),
     }
     with open(os.path.join(task["out_days"], f"{task['key']}.json"), "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False)
@@ -191,45 +317,95 @@ def discover_partitions(roots: dict[str, str]) -> list[tuple[str, str, str]]:
     return sorted(out)
 
 
+def prune_orphans(out_dir: str, valid_keys: set[str]) -> list[str]:
+    """删除来源分区已消失的产物。否则索引会继续加载孤儿数据。"""
+    removed = []
+    for sub in ("_partitions", "asset_day", "market_day"):
+        base = os.path.join(out_dir, sub)
+        if not os.path.isdir(base):
+            continue
+        for path in sorted(glob.glob(os.path.join(base, "*"))):
+            key = os.path.basename(path).rsplit(".", 1)[0]
+            if key not in valid_keys:
+                os.remove(path)
+                removed.append(os.path.relpath(path, out_dir))
+    return removed
+
+
 def build_census(
-    roots: dict[str, str], out_dir: str, *, workers: int = 8, force: bool = False
+    roots: dict[str, str],
+    out_dir: str,
+    *,
+    workers: int = 8,
+    force: bool = False,
+    heartbeat_path: str | None = None,
 ) -> tuple[list[dict], list[QualityFinding]]:
-    out_market_day = os.path.join(out_dir, "market_day")
-    out_days = os.path.join(out_dir, "_partitions")
-    for d in (out_market_day, out_days):
+    dirs = {
+        "asset_day": os.path.join(out_dir, "asset_day"),
+        "market_day": os.path.join(out_dir, "market_day"),
+        "_partitions": os.path.join(out_dir, "_partitions"),
+    }
+    for d in dirs.values():
         os.makedirs(d, exist_ok=True)
 
+    partitions = discover_partitions(roots)
+    valid_keys = {f"{segment}_{date_key}" for date_key, segment, _ in partitions}
+    removed = prune_orphans(out_dir, valid_keys)
+
     tasks, done = [], {}
-    for date_key, segment, path in discover_partitions(roots):
+    for date_key, segment, path in partitions:
         key = f"{segment}_{date_key}"
-        sidecar = os.path.join(out_days, f"{key}.json")
+        sidecar = os.path.join(dirs["_partitions"], f"{key}.json")
         digest = partition_digest(path)
-        if not force and os.path.exists(sidecar):
+        outputs_present = all(
+            os.path.exists(os.path.join(dirs[s], f"{key}.parquet"))
+            for s in ("asset_day", "market_day")
+        )
+        if not force and os.path.exists(sidecar) and outputs_present:
             with open(sidecar, encoding="utf-8") as f:
                 cached = json.load(f)
-            if cached.get("digest") == digest:
+            if (
+                cached.get("source_digest") == digest
+                and cached.get("census_version") == CENSUS_VERSION
+            ):
                 done[key] = cached
                 continue
         tasks.append(
             {
-                "path": path,
-                "key": key,
-                "date": date_key,
-                "segment": segment,
+                "path": path, "key": key, "date": date_key, "segment": segment,
                 "digest": digest,
-                "out_market_day": out_market_day,
-                "out_days": out_days,
+                "out_asset_day": dirs["asset_day"],
+                "out_market_day": dirs["market_day"],
+                "out_days": dirs["_partitions"],
             }
         )
+
     if tasks:
+        state = {"finished": 0, "started": time.monotonic()}
+
+        def beat(summary: dict) -> None:
+            state["finished"] += 1
+            done[summary["key"]] = summary
+            if heartbeat_path and (state["finished"] % 25 == 0 or state["finished"] == len(tasks)):
+                with open(heartbeat_path, "w", encoding="utf-8") as f:
+                    json.dump(
+                        {
+                            "stage": "census",
+                            "done": state["finished"],
+                            "total": len(tasks),
+                            "elapsed_seconds": round(time.monotonic() - state["started"], 1),
+                            "last_key": summary["key"],
+                        },
+                        f,
+                    )
+
         if workers > 1:
             with ProcessPoolExecutor(max_workers=workers) as pool:
                 for summary in pool.map(_census_task, tasks, chunksize=1):
-                    done[summary["key"]] = summary
+                    beat(summary)
         else:
             for task in tasks:
-                summary = _census_task(task)
-                done[summary["key"]] = summary
+                beat(_census_task(task))
 
     summaries = [done[k] for k in sorted(done)]
     findings = [
@@ -240,13 +416,38 @@ def build_census(
             evidence={
                 "partitions": len(summaries),
                 "trades": sum(s["trades"] for s in summaries),
+                "markets_seen": sum(s["markets"] for s in summaries),
+                "assets_seen": sum(s["assets"] for s in summaries),
                 "first": min((s["date"] for s in summaries), default=None),
                 "last": max((s["date"] for s in summaries), default=None),
-                "markets_seen": sum(s["markets"] for s in summaries),
+                "rebuilt_partitions": len(tasks),
+                "pruned_orphan_count": len(removed),
+                "pruned_orphans": removed[:20],
             },
         )
     ]
     return summaries, findings
+
+
+def verify_census(out_dir: str) -> tuple[int, list[str]]:
+    """从已物化产物重算指纹并与 sidecar 比对。返回 (核对数, 不一致的键)。"""
+    from ..temporal.manifest import fingerprint_table
+
+    checked, bad = 0, []
+    for sidecar in sorted(glob.glob(os.path.join(out_dir, "_partitions", "*.json"))):
+        with open(sidecar, encoding="utf-8") as f:
+            rec = json.load(f)
+        key = rec["key"]
+        ok = True
+        for sub, field in (("asset_day", "fingerprint_asset_day"),
+                           ("market_day", "fingerprint_market_day")):
+            path = os.path.join(out_dir, sub, f"{key}.parquet")
+            if not os.path.exists(path) or fingerprint_table(pq.read_table(path)) != rec.get(field):
+                ok = False
+        checked += 1
+        if not ok:
+            bad.append(key)
+    return checked, bad
 
 
 def audit_neg_risk_coverage(summaries: list[dict], sampled_rows: int) -> QualityFinding:
@@ -257,13 +458,12 @@ def audit_neg_risk_coverage(summaries: list[dict], sampled_rows: int) -> Quality
         code="pm_census.neg_risk_absent_in_both_segments",
         message=(
             "全史普查中 neg_risk 为真的 (市场, 日) 数为 0：两段 tape 都不含 NegRisk "
-            "Exchange 成交。canonical plan §2.1 关于『扩展段含 negRisk、约占名义额 27.6%』"
-            "的表述与实测不符，需要文档归一化裁决；negRisk 缺口未被扩展段补上"
+            "Exchange 成交，扩展段未补上 HF 段的 negRisk 缺口"
         ),
         evidence={
             "neg_risk_market_days": markets,
             "partitions": len(summaries),
-            "sampled_rows_confirming": sampled_rows,
+            "sampled_rows_in_dedup_audit": sampled_rows,
         },
     )
 
@@ -283,8 +483,7 @@ def audit_missing_venue_columns(roots: dict[str, str]) -> QualityFinding:
         code="pm_census.venue_columns_absent",
         message=(
             "两段 tape 都不含 venue_class / is_relay / protocol / exchange / tx_hash / "
-            "log_index，因此 relay 剔除与 unknown venue 隔离在现有数据上无法执行；"
-            "M1 manifest 曾把这些字段标为『仅扩展段』，与实测不符，已更正"
+            "log_index，因此 relay 剔除与 unknown venue 隔离在现有数据上无法执行"
         ),
         evidence={"present_columns": present, "wanted": wanted},
     )
@@ -302,15 +501,13 @@ def audit_duplicate_legs(paths: list[str]) -> QualityFinding:
             [("block_timestamp", "count")]
         )
         n_dup = int(
-            pc.sum(
-                pc.subtract(grouped.column("block_timestamp_count"), 1)
-            ).as_py()
-            or 0
+            pc.sum(pc.subtract(grouped.column("block_timestamp_count"), 1)).as_py() or 0
         )
         total += table.num_rows
         dup += n_dup
         per_partition.append(
-            {"partition": os.path.basename(path), "rows": table.num_rows, "exact_duplicates": n_dup}
+            {"partition": os.path.basename(path), "rows": table.num_rows,
+             "exact_duplicates": n_dup}
         )
     return QualityFinding(
         severity=Severity.WARNING,

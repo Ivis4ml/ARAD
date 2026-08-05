@@ -23,6 +23,8 @@ index:
 audit:
   sample_partitions: 24
   asset_map: /Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket_chain/asset_map.parquet
+  # 只作经 PIT 审计的原始元数据来源登记；语义映射另立票（Decision Map #12）
+  markets_clob: /Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket_chain/markets_clob.parquet
 
 inputs:
   polymarket_manifest: artifacts/manifests/polymarket_tape.json

@@ -110,9 +110,23 @@ def test_polymarket_scanner_flags_seam_overlap_as_error(tmp_path):
     assert seam_finding.evidence["range_overlap"] is True
 
 
-def test_polymarket_resolved_at_is_banned(tmp_path):
-    m = pm_scanner.scan(str(tmp_path), str(tmp_path), "2026-04-28")
-    assert "resolved_at" in m.banned_fields()
+def test_polymarket_resolved_at_is_banned():
+    """字段合同来自实测 schema，因此用真实 manifest 断言禁用集合。"""
+    from arad.data_catalog.schema import load_manifest
+
+    m = load_manifest("artifacts/manifests/polymarket_tape.json")
+    assert {"resolved_at", "winning_outcome_label", "resolution_status"} <= m.banned_fields()
+
+
+def test_polymarket_contract_only_declares_columns_that_exist():
+    """M1 第三轮修复：合同曾声明 7 个数据里没有的链上列，导致下游以为 relay 可审计。"""
+    from arad.data_catalog.schema import load_manifest
+
+    m = load_manifest("artifacts/manifests/polymarket_tape.json")
+    names = {f.name for f in m.fields}
+    assert names & {"tx_hash", "log_index", "venue_class", "is_relay", "protocol", "exchange"} == set()
+    finding = next(f for f in m.findings if f.code == "polymarket.chain_columns_absent")
+    assert set(finding.evidence["missing"]) >= {"is_relay", "venue_class", "tx_hash"}
 
 
 # ---------- cls ----------

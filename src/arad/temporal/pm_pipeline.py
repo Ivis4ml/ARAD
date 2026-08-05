@@ -22,6 +22,8 @@ from ..data_catalog.pm_census import (
     audit_neg_risk_coverage,
     build_census,
     discover_partitions,
+    partition_digest,
+    verify_census,
 )
 from ..data_catalog.schema import QualityFinding, Severity, load_manifest
 from .episode import SampleSegment, classify_segment
@@ -34,7 +36,12 @@ from .manifest import (
     fingerprint_table,
     write_spine_manifest,
 )
-from .pm_market_index import PitMarketIndex, PitMarketIndexConfig, kish_n_eff
+from .pm_market_index import (
+    PitMarketIndex,
+    PitMarketIndexConfig,
+    complete_days_before,
+    kish_n_eff,
+)
 
 ASSUMPTIONS = [
     "市场存在性只由首笔公开成交决定；eligible_from = block_timestamp + 冻结的可得性延迟。",
@@ -57,18 +64,79 @@ BLOCKERS = [
         "创建时间构造版本化映射，另立票。在此之前 PM 侧没有可用的机制分组。"
     ),
     (
-        "negRisk 成交在两段 tape 中都不存在（全史 neg_risk 为真的市场日为 0，"
-        "19 个抽样分区 3750 万行逐行确认）。canonical plan §2.1 关于『扩展段含 negRisk、"
-        "约占名义额 27.6%』的表述与实测不符，需要文档归一化裁决。按裁决 negRisk 回补"
+        "negRisk 成交在两段 tape 中都不存在（见 finding "
+        "pm_census.neg_risk_absent_in_both_segments 的结构化证据）。按裁决 negRisk 回补"
         "与 2026-07-14 之后续爬不作为前置条件；只有普查证明缺口会阻断目标机制时，"
         "才单独申请 acquisition 授权。"
     ),
     (
-        "抽样重复腿检出率 3.47%（24 个分区 1333 万行中 46.3 万行与另一行完全相同）。"
+        "抽样重复腿检出率见 finding pm_census.duplicate_legs_provisional 的结构化证据。"
         "缺 tx_hash / log_index，无法区分中继腿与真实重复成交，因此名义额类指标"
         "一律 provisional，且成员资格不得由名义额单独决定。"
     ),
 ]
+
+
+_CODE_FILES = (
+    "data_catalog/pm_census.py",
+    "temporal/pm_market_index.py",
+    "temporal/pm_pipeline.py",
+)
+
+
+def _code_digest() -> str:
+    """产生本流水线的代码内容哈希，取代手写版本号。"""
+    import hashlib
+
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    h = hashlib.sha256()
+    for rel in _CODE_FILES:
+        with open(os.path.join(base, rel), "rb") as f:
+            h.update(f.read())
+    return h.hexdigest()[:16]
+
+
+def _file_digest(path: str) -> str:
+    if not os.path.exists(path):
+        return ""
+    if path.endswith(".parquet"):
+        return partition_digest(path)
+    import hashlib
+
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _input_refs(cfg: dict, pm_manifest, summaries: list[dict]) -> dict[str, InputRef]:
+    """登记全部参与产物生成的输入，包括参照表与 SC 目标表。"""
+    refs = {
+        "polymarket_tape": InputRef(
+            fingerprint=pm_manifest.fingerprint,
+            source_snapshot_digest=(
+                pm_manifest.source_snapshot.digest if pm_manifest.source_snapshot else ""
+            ),
+            scanner_version=pm_manifest.scanner_version,
+        ),
+        "polymarket_tape_partitions": InputRef(
+            fingerprint=combine_digests([s["source_digest"] for s in summaries]),
+            source_snapshot_digest="parquet_footer_sha256_per_partition",
+            scanner_version=CENSUS_VERSION,
+        ),
+    }
+    for name, path in (
+        ("asset_map", cfg["audit"]["asset_map"]),
+        ("markets_clob", cfg["audit"].get("markets_clob", "")),
+        ("sc_target", cfg["sc"]["target_parquet"]),
+    ):
+        if path:
+            refs[name] = InputRef(
+                fingerprint=_file_digest(path),
+                source_snapshot_digest="parquet_footer_sha256" if path.endswith(".parquet") else "sha256",
+            )
+    return refs
 
 
 def load_config(path: str) -> dict:
@@ -139,11 +207,8 @@ def observations_at_cutoffs(
                 hi = mid
         present = lo
         active: set[int] = set()
-        for k in range(1, lookback_days + 1):
-            day = (cut - timedelta(days=k)).date().isoformat()
-            # 只纳入已完整结束的分区日
-            if datetime.fromisoformat(day).replace(tzinfo=UTC) + timedelta(days=1) <= cut:
-                active |= by_day.get(day, set())
+        for day in complete_days_before(cut, lookback_days):
+            active |= by_day.get(day, set())
         rows.append(
             {
                 "cutoff": cut,
@@ -173,8 +238,14 @@ def observations_at_cutoffs(
     return table, summary
 
 
-def effective_sample_size(index: PitMarketIndex, cutoff_table: pa.Table) -> dict:
-    """有效样本量估计。逐笔行数不是独立样本量，这里给出三个维度的对照。"""
+def trade_concentration(index: PitMarketIndex, cutoff_table: pa.Table) -> dict:
+    """成交集中度，**不是**统计有效样本量。
+
+    这里的 Kish 等价数只按成交笔数加权衡量集中度，没有考虑序列相关、Episode 或
+    市场簇。真正的 n_eff 需要双向 cluster、HAC 与 block bootstrap，属评价机
+    （Merge-Plan-2 §5.4，M3）范围。本字段只用于说明"逐笔行数远不是独立样本量"，
+    不得直接用作任何功效计算的分母。
+    """
     md = index.market_day
     per_market = collections.Counter()
     per_day = collections.Counter()
@@ -193,13 +264,16 @@ def effective_sample_size(index: PitMarketIndex, cutoff_table: pa.Table) -> dict
         "nominal_trades": nominal,
         "distinct_markets": len(per_market),
         "distinct_utc_days": len(per_day),
-        "kish_n_eff_over_markets": round(kish_n_eff(list(per_market.values())), 1),
-        "kish_n_eff_over_days": round(kish_n_eff(list(per_day.values())), 1),
+        "kish_concentration_equivalent_over_markets": round(
+            kish_n_eff(list(per_market.values())), 1
+        ),
+        "kish_concentration_equivalent_over_days": round(kish_n_eff(list(per_day.values())), 1),
         "sc_cutoffs_with_any_active_market": len(active),
+        "is_effective_sample_size": False,
         "note": (
-            "逐笔行数不是独立样本量。市场维 Kish n_eff 远小于市场数说明成交高度集中；"
-            "真正的推断单位应是市场创新、时间窗口、SC session 或 Episode，"
-            "由 Study 在冻结时声明。"
+            "以上是按成交笔数加权的 Kish 集中度等价数，**不是**统计有效样本量："
+            "未考虑序列相关、Episode 与市场簇。真正的 n_eff 需要双向 cluster、HAC 与 "
+            "block bootstrap，属评价机（M3）范围。此处只说明逐笔行数远不是独立样本量。"
         ),
     }
 
@@ -257,15 +331,33 @@ def pm_index_build(
 
     print("census: streaming per-partition aggregation (label-blind)...", flush=True)
     summaries, findings = build_census(
-        roots, out_dir, workers=workers or int(cfg["build"]["workers"]), force=force
+        roots,
+        out_dir,
+        workers=workers or int(cfg["build"]["workers"]),
+        force=force,
+        heartbeat_path=os.path.join(out_dir, "_heartbeat.json"),
     )
 
     print("building PIT market index...", flush=True)
     config = PitMarketIndexConfig(
         availability_delay_seconds=int(cfg["index"]["availability_delay_seconds"])
     )
-    index = PitMarketIndex.from_census_dir(out_dir, config=config)
+    index = PitMarketIndex.from_census_dir(
+        out_dir, config=config, expected_keys={s["key"] for s in summaries}
+    )
     pq.write_table(index.presence, os.path.join(out_dir, "market_presence.parquet"))
+    pq.write_table(index.asset_presence, os.path.join(out_dir, "asset_presence.parquet"))
+
+    checked, bad = verify_census(out_dir)
+    findings.append(
+        QualityFinding(
+            severity=Severity.ERROR if bad else Severity.INFO,
+            code="pm_census.determinism_verified",
+            message="从已物化产物重算逐分区指纹并与 sidecar 比对",
+            evidence={"partitions_checked": checked, "mismatched": bad[:10],
+                      "mismatched_count": len(bad)},
+        )
+    )
 
     print("auditing venue columns, duplicate legs and asset mapping...", flush=True)
     partitions = discover_partitions(roots)
@@ -289,7 +381,7 @@ def pm_index_build(
             index, cutoffs, lookback_days=int(cfg["index"]["lookback_days"])
         )
         pq.write_table(cutoff_table, os.path.join(out_dir, "sc_cutoff_observations.parquet"))
-        n_eff = effective_sample_size(index, cutoff_table)
+        n_eff = trade_concentration(index, cutoff_table)
     else:
         findings.append(
             QualityFinding(
@@ -319,11 +411,30 @@ def pm_index_build(
     pm_manifest = load_manifest(cfg["inputs"]["polymarket_manifest"])
     datasets = [
         {
+            "name": "asset_presence",
+            "path": os.path.join(out_dir, "asset_presence.parquet"),
+            "rows": index.asset_presence.num_rows,
+            "fingerprint": fingerprint_table(index.asset_presence),
+        },
+        {
+            "name": "asset_day",
+            "path": os.path.join(out_dir, "asset_day"),
+            "rows": sum(s["assets"] for s in summaries),
+            "partitions": len(summaries),
+            "fingerprint": combine_digests(
+                [s["fingerprint_asset_day"] for s in summaries]
+            ),
+            "note": "逐分区产物逻辑指纹的确定性合并（不是来源摘要）",
+        },
+        {
             "name": "market_day",
             "path": os.path.join(out_dir, "market_day"),
             "rows": sum(s["markets"] for s in summaries),
             "partitions": len(summaries),
-            "fingerprint": combine_digests([s["digest"] for s in summaries]),
+            "fingerprint": combine_digests(
+                [s["fingerprint_market_day"] for s in summaries]
+            ),
+            "note": "逐分区产物逻辑指纹的确定性合并（不是来源摘要）",
         },
         {
             "name": "market_presence",
@@ -344,17 +455,9 @@ def pm_index_build(
 
     manifest = SpineManifest(
         spine_id="pm-market-index",
-        code_version=f"census-{CENSUS_VERSION}/index-{config.version}",
+        code_version=f"census-{CENSUS_VERSION}/index-{config.version}/src-{_code_digest()}",
         config_digest=digest_json(cfg),
-        inputs={
-            "polymarket_tape": InputRef(
-                fingerprint=pm_manifest.fingerprint,
-                source_snapshot_digest=(
-                    pm_manifest.source_snapshot.digest if pm_manifest.source_snapshot else ""
-                ),
-                scanner_version=pm_manifest.scanner_version,
-            )
-        },
+        inputs=_input_refs(cfg, pm_manifest, summaries),
         calendar={"utc_partitions": len(summaries)},
         session_table={"note": "PM 无交易时段概念；对齐由 SC 决策 cutoff 驱动"},
         dominant_rule=config.describe(),
@@ -362,7 +465,7 @@ def pm_index_build(
             "index": index.facts(),
             "segments": profile,
             "sc_cutoff_observations": obs_summary,
-            "effective_sample_size": n_eff,
+            "trade_concentration": n_eff,
         },
         datasets=[DatasetRef(**d) for d in datasets],
         findings=findings,

@@ -165,6 +165,111 @@ def _seam_rowkeys(files: list[str]) -> set[tuple] | None:
     return keys
 
 
+#: 字段合同的注解覆盖层。语义、禁用与 provisional 标记按列名给出；
+#: 字段清单本身**由实测 schema 决定**，不在此硬编码。M1 首版曾把文档叙述里的
+#: 链上列（tx_hash / venue_class / is_relay 等）直接写进合同，实测两段都没有这些列，
+#: 造成下游以为 relay 审计可执行。现在缺列会产生 error 级 finding 并阻断质量闸门。
+FIELD_ANNOTATIONS: dict[str, dict] = {
+    "asset_id": {"semantic": "结果代币标识"},
+    "block_timestamp": {"semantic": "链上出块时间（保守可用时间）", "unit": "epoch 秒 UTC"},
+    "price": {"semantic": "成交概率价", "unit": "[0,1]"},
+    "maker": {"semantic": "maker 钱包地址"},
+    "taker": {"semantic": "taker 钱包地址"},
+    "taker_direction": {"semantic": "taker 方向 BUY/SELL"},
+    "usdc_amount": {"semantic": "名义金额", "unit": "USDC"},
+    "fee_usdc": {"semantic": "手续费", "unit": "USDC"},
+    "condition_id": {"semantic": "市场键"},
+    "outcome_seq": {"semantic": "结果序号"},
+    "neg_risk": {
+        "semantic": "negRisk 市场标记（两段类型冲突，口径未统一；全史实测未见为真的成交）",
+        "provisional": True,
+    },
+    "category": {"semantic": "市场类别（元数据回填）"},
+    "category_refined": {"semantic": "细化类别（元数据回填）"},
+    "outcome_label": {"semantic": "本代币对应结果标签"},
+    "winning_outcome_label": {
+        "semantic": "最终获胜结果标签",
+        "banned": True,
+        "banned_reason": "结算结果，历史分析中为未来信息",
+    },
+    "resolution_status": {
+        "semantic": "结算状态",
+        "banned": True,
+        "banned_reason": "结算生命周期信息，历史分析中为未来信息",
+    },
+    "taker_base_fee": {"semantic": "taker 基础费率"},
+    "maker_base_fee": {"semantic": "maker 基础费率"},
+    "opens_at": {"semantic": "市场开放时间（元数据，可能回填修订）", "provisional": True},
+    "close_at": {"semantic": "市场关闭时间（元数据，可能回填修订）", "provisional": True},
+    "resolved_at": {
+        "semantic": "市场结算时间",
+        "banned": True,
+        "banned_reason": "结算时间不得替代历史可用时间；仅可用于事后生命周期分析",
+    },
+    "market_slug": {"semantic": "市场 slug"},
+    "p_event": {"semantic": "归一事件概率"},
+    "D": {"semantic": "归一方向 ±1"},
+}
+
+#: 设计文档曾声称存在、但必须由实测确认的链上列。缺失即报告，不再写进合同。
+EXPECTED_CHAIN_COLUMNS = (
+    "block_number", "log_index", "tx_hash", "exchange", "venue_class", "protocol", "is_relay",
+)
+
+
+def _build_field_contract(
+    hf_schema: dict[str, str], ext_schema: dict[str, str]
+) -> tuple[list[FieldAvailability], list[QualityFinding]]:
+    """字段合同由**实测列**生成，注解只作覆盖层。
+
+    - 实测有列但无注解：仍进合同，标 provisional（语义未声明即不可消费）；
+    - 注解有名但实测无列：不进合同，产生 error 级 finding；
+    - 设计文档声称存在的链上列缺失：单独产生 error 级 finding。
+    """
+    findings: list[QualityFinding] = []
+    observed = dict(hf_schema)
+    for name, dtype in ext_schema.items():
+        if name in observed and observed[name] != dtype:
+            observed[name] = f"hf:{observed[name]} / ext:{dtype}"
+        else:
+            observed.setdefault(name, dtype)
+
+    fields: list[FieldAvailability] = []
+    for name in sorted(observed):
+        anno = dict(FIELD_ANNOTATIONS.get(name, {}))
+        if not anno:
+            anno = {
+                "semantic": "实测存在但未声明语义；没有合同即不可消费",
+                "provisional": True,
+            }
+        fields.append(FieldAvailability(name=name, dtype=observed[name], **anno))
+
+    declared_only = sorted(set(FIELD_ANNOTATIONS) - set(observed))
+    if declared_only:
+        findings.append(
+            QualityFinding(
+                severity=Severity.ERROR,
+                code="polymarket.annotated_field_absent",
+                message="字段注解引用了实测不存在的列；合同不得声明数据里没有的字段",
+                evidence={"names": declared_only},
+            )
+        )
+    missing_chain = sorted(set(EXPECTED_CHAIN_COLUMNS) - set(observed))
+    if missing_chain:
+        findings.append(
+            QualityFinding(
+                severity=Severity.WARNING,
+                code="polymarket.chain_columns_absent",
+                message=(
+                    "设计文档声称存在的链上列在两段实测中都不存在；"
+                    "relay 剔除、unknown venue 隔离与逐笔主键去重在现有数据上无法执行"
+                ),
+                evidence={"missing": missing_chain, "observed_columns": len(observed)},
+            )
+        )
+    return fields, findings
+
+
 def scan(hf_root: str, ext_root: str, seam_date: str) -> SourceManifest:
     findings: list[QualityFinding] = []
     h = hashlib.sha256()
@@ -246,63 +351,16 @@ def scan(hf_root: str, ext_root: str, seam_date: str) -> SourceManifest:
             severity=Severity.WARNING,
             code="polymarket.provisional_facts",
             message=(
-                "以下事实为 provisional：relay legs 清理完备性、unknown venue 分布、"
-                "negRisk 在扩展段的覆盖率；HF 段确定不含 negRisk tape"
+                "以下事实为 provisional：relay legs 清理完备性与 unknown venue 分布"
+                "（两段都缺 venue/relay 列，现有数据上不可审计）。"
+                "negRisk：两段实测均未见 neg_risk 为真的成交（见 M2.5 全史普查），"
+                "扩展段并未补上 HF 段的 negRisk 缺口"
             ),
         )
     )
 
-    fields = [
-        FieldAvailability(name="asset_id", dtype="string", semantic="结果代币标识"),
-        FieldAvailability(name="block_timestamp", dtype="int64",
-                          semantic="链上出块时间（保守可用时间）", unit="epoch 秒 UTC"),
-        FieldAvailability(name="price", dtype="float64", semantic="成交概率价", unit="[0,1]"),
-        FieldAvailability(name="maker", dtype="string", semantic="maker 钱包地址"),
-        FieldAvailability(name="taker", dtype="string", semantic="taker 钱包地址"),
-        FieldAvailability(name="taker_direction", dtype="string", semantic="taker 方向 BUY/SELL"),
-        FieldAvailability(name="usdc_amount", dtype="float64", semantic="名义金额", unit="USDC"),
-        FieldAvailability(name="fee_usdc", dtype="float64", semantic="手续费", unit="USDC"),
-        FieldAvailability(name="condition_id", dtype="string", semantic="市场键"),
-        FieldAvailability(name="outcome_seq", dtype="int", semantic="结果序号"),
-        FieldAvailability(name="neg_risk", dtype="hf:large_string / ext:bool",
-                          semantic="negRisk 市场标记（两段类型冲突，口径未统一）",
-                          provisional=True),
-        FieldAvailability(name="category", dtype="string", semantic="市场类别（元数据回填）"),
-        FieldAvailability(name="category_refined", dtype="string", semantic="细化类别（元数据回填）"),
-        FieldAvailability(name="outcome_label", dtype="string", semantic="本代币对应结果标签"),
-        FieldAvailability(
-            name="winning_outcome_label", dtype="string", semantic="最终获胜结果标签",
-            banned=True, banned_reason="结算结果，历史分析中为未来信息",
-        ),
-        FieldAvailability(
-            name="resolution_status", dtype="string", semantic="结算状态",
-            banned=True, banned_reason="结算生命周期信息，历史分析中为未来信息",
-        ),
-        FieldAvailability(name="taker_base_fee", dtype="float64", semantic="taker 基础费率"),
-        FieldAvailability(name="maker_base_fee", dtype="float64", semantic="maker 基础费率"),
-        FieldAvailability(name="opens_at", dtype="timestamp",
-                          semantic="市场开放时间（元数据，可能回填修订）", provisional=True),
-        FieldAvailability(name="close_at", dtype="timestamp",
-                          semantic="市场关闭时间（元数据，可能回填修订）", provisional=True),
-        FieldAvailability(
-            name="resolved_at", dtype="timestamp", semantic="市场结算时间",
-            banned=True,
-            banned_reason="结算时间不得替代历史可用时间；仅可用于事后生命周期分析",
-        ),
-        FieldAvailability(name="market_slug", dtype="string", semantic="市场 slug"),
-        FieldAvailability(name="p_event", dtype="float64", semantic="归一事件概率"),
-        FieldAvailability(name="D", dtype="int8", semantic="归一方向 ±1"),
-        # 扩展段独有的链上主键与场馆列
-        FieldAvailability(name="block_number", dtype="int64", semantic="区块号（仅扩展段）"),
-        FieldAvailability(name="log_index", dtype="int64", semantic="日志序号（仅扩展段）"),
-        FieldAvailability(name="tx_hash", dtype="string", semantic="交易哈希（仅扩展段）"),
-        FieldAvailability(name="exchange", dtype="string", semantic="交易所合约地址（仅扩展段）"),
-        FieldAvailability(name="venue_class", dtype="string",
-                          semantic="场馆分类（仅扩展段，清理完备性未审计）", provisional=True),
-        FieldAvailability(name="protocol", dtype="string", semantic="协议版本（仅扩展段）"),
-        FieldAvailability(name="is_relay", dtype="bool",
-                          semantic="中继腿标记（仅扩展段，清理完备性未审计）", provisional=True),
-    ]
+    fields, field_findings = _build_field_contract(hf_types, ext_types)
+    findings.extend(field_findings)
 
     ts = TimeSemantics(
         event_time="CLOB 撮合时间（不可观测）",

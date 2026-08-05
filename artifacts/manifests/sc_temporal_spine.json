@@ -1,7 +1,7 @@
 {
   "spine_id": "sc-temporal-spine",
   "code_version": "0.1.0",
-  "generated_at": "2026-08-05T21:43:50.514345+00:00",
+  "generated_at": "2026-08-05T22:34:27.927791+00:00",
   "config_digest": "40e3b70830a020596f1e71989a877d1183ef950b30016f7664b8472066f917ae",
   "inputs": {
     "commodity_tick": {
@@ -15,7 +15,7 @@
       "scanner_version": "0.2.0"
     },
     "polymarket_tape": {
-      "fingerprint": "85c32698ad823146969d787ff5afc801f27124c17b81e0043e3fc8236aeb24b1",
+      "fingerprint": "3d14332d44631c22eae943e84b4a1f9ee58a6017e7617fae91df7335f81a4dd2",
       "source_snapshot_digest": "ab281d5d20706fa3e5d19089ceb9dcaa81fc5991f76b810d0d760459f9d49e64",
       "scanner_version": "0.2.0"
     }
@@ -185,7 +185,7 @@
       "decided_by": "human",
       "reason": "cn_registry_v3.parquet 已于 2026-08-05 由人类裁决弃用并隔离，不得作为市场来源、市场映射或任何研究输入，也不得进入 M3 evaluator 或 M4 Study。三条理由：(1) 成员资格是全窗口筛选（累计名义额需达 10 万美元），在决策时点不可知，存在幸存者偏差；(2) theme/product/sigma 是前一代系统的语义映射种子，未过 PIT、语义与 provenance 审计；(3) 覆盖仅 2026-01-04 至 2026-07-13，整段位于 contaminated audit 区间。替代方案是从原始 tape 推导的 PIT Market Index。如需把它当作被隔离的 QA 参照，必须显式传入 quarantine_ack 并把理由记入账本。",
       "replacement": "从原始 Polymarket tape 推导的 PIT Market Index：存在性由首笔公开成交决定，流动性资格由过去窗口决定，两者分离",
-      "allowed_use": "仅可作为被隔离的只读 QA 对照，且必须显式传入 quarantine_ack 并记入账本",
+      "allowed_use": "仅可作为被隔离的只读 QA 对照：需显式传入具体理由，返回 QuarantinedSource 而非 PitSeries，类型上无法进入 PIT 查询路径。M3 账本尚不存在，不宣称已记账",
       "forbidden_use": "市场来源、市场语义映射、任何研究输入、M3 evaluator、M4 Study"
     }
   ],
@@ -423,5 +423,5 @@
     "Alpha-Data curve_daily.parquet 仅覆盖 2026-01-05 至 2026-07-13，只能作该窗口的独立交叉核对，无法覆盖 discovery 与 historical validation 段的日频等价性检查。",
     "郑商所 Turnover 口径与日内倒退的全品种普查仍为 provisional（M1 遗留）；SC 属 INE，本票未触及该问题。"
   ],
-  "fingerprint": "6a05b7e4f2ef77966ed1d6015e40fa8c972e40de26ba660834cd7dfa847bf236"
+  "fingerprint": "d66384b1b9978ba5c90b4317dcc27f97e8265debee583c1531bb65322b8dd0bb"
 }

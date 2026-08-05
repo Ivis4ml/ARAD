@@ -68,6 +68,18 @@
 | 市场目录 | `asset_map` 约 351 万行，`markets_clob` 约 177 万行；链上分析层与 HF 层存在类型差异 |
 | 财联社 | 2,361 个日 CSV，文件日期连续覆盖 2020-01-01 至 2026-06-18；字段包含 Title、Content、Labels 和互动量；互动量历史不可用 |
 
+**2026-08-05 追加的 verified facts（M2.5 全史普查，见 `artifacts/manifests/pm_market_index.json`）**：
+
+| 事实 | 证据 |
+|---|---|
+| 两段 tape 各只有 24 列且完全相同 | 1,248 + 78 个分区各 1 种 schema 签名；`venue_class`/`is_relay`/`protocol`/`exchange`/`tx_hash`/`log_index` 在两段都不存在，relay 剔除与 unknown venue 隔离在现有数据上不可执行 |
+| 两段都不含 negRisk 成交 | 全史 `neg_risk` 为真的 (市场, 日) 数为 0；扩展段未补上 HF 段的 negRisk 缺口 |
+| 逐笔在样本段间极度不均衡 | 855,614,453 笔中 discovery 段 0.84%、historical validation 段 11.29%、contaminated audit 段 87.87% |
+| 抽样重复腿检出率 3.47% | 24 个分区 1,333 万行中 46.3 万行与另一行完全相同；缺 `tx_hash`/`log_index` 无法区分中继腿与真实重复，名义额类指标一律 provisional |
+| asset→(市场, 结果序号) 映射一致 | 抽样 70,747 组与 `polymarket_chain/asset_map.parquet` 零不一致 |
+
+上述事实不改变 §4 的样本段划分；2026 仍是 contaminated audit。
+
 ### 2.2 财联社内容完整性：72.5%–88.6% 的抽查结论经复核不成立，99%–100% 维持
 
 本节初稿曾依据"目标日回填条数 ÷ 次日参考快照条数"得到 72.5%–88.6% 的覆盖率，
