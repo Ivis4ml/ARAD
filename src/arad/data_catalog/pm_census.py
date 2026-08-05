@@ -20,7 +20,8 @@ import json
 import os
 import threading
 import time
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from typing import Self
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -33,6 +34,73 @@ CENSUS_VERSION = "0.3.0"
 
 #: 心跳写入周期（秒）。按时间而非完成个数，使单分区卡死也能被观测到。
 HEARTBEAT_SECONDS = 5.0
+
+
+class Heartbeat:
+    """按时间周期写入的进度心跳，覆盖长任务的**每一个**阶段。
+
+    心跳线程在分区发现与哈希开始之前就启动：整文件哈希本身是长阶段
+    （16.6 GB），全缓存重跑时又没有任何 census 任务，若等到任务生成后才起心跳，
+    这段时间在外部完全不可观测。
+    """
+
+    def __init__(self, path: str | None, *, interval: float = HEARTBEAT_SECONDS):
+        self.path = path
+        self.interval = interval
+        self._state: dict = {"stage": "starting", "done": 0, "total": 0, "current": None}
+        self._started = time.monotonic()
+        self._last_progress = self._started
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def _write(self) -> None:
+        if not self.path:
+            return
+        now = time.monotonic()
+        payload = dict(self._state)
+        payload["elapsed_seconds"] = round(now - self._started, 1)
+        payload["seconds_since_last_progress"] = round(now - self._last_progress, 1)
+        tmp = f"{self.path}.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False)
+        os.replace(tmp, self.path)
+
+    def start(self) -> Self:
+        if self.path and self._thread is None:
+            os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
+            self._write()
+            self._thread = threading.Thread(target=self._loop, daemon=True)
+            self._thread.start()
+        return self
+
+    def _loop(self) -> None:
+        while not self._stop.wait(self.interval):
+            self._write()
+
+    def stage(self, name: str, *, total: int = 0) -> None:
+        self._state.update({"stage": name, "done": 0, "total": total, "current": None})
+        self._last_progress = time.monotonic()
+        self._write()
+
+    def progress(self, done: int, current: str | None = None) -> None:
+        self._state["done"] = done
+        self._state["current"] = current
+        self._last_progress = time.monotonic()
+
+    def stop(self) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=1)
+            self._thread = None
+        self._state["stage"] = "finished"
+        self._write()
+
+    def __enter__(self) -> Self:
+        self.start()
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self.stop()
 
 #: 普查允许读取的列。任何结果字段都不在此列。
 CENSUS_COLUMNS = (
@@ -358,7 +426,7 @@ def build_census(
     *,
     workers: int = 8,
     force: bool = False,
-    heartbeat_path: str | None = None,
+    heartbeat: Heartbeat | None = None,
 ) -> tuple[list[dict], list[QualityFinding]]:
     dirs = {
         "asset_day": os.path.join(out_dir, "asset_day"),
@@ -368,15 +436,31 @@ def build_census(
     for d in dirs.values():
         os.makedirs(d, exist_ok=True)
 
+    hb = heartbeat or Heartbeat(None)
+    hb.stage("discovering")
     partitions = discover_partitions(roots)
     valid_keys = {f"{segment}_{date_key}" for date_key, segment, _ in partitions}
+    hb.stage("pruning", total=len(partitions))
     removed = prune_orphans(out_dir, valid_keys)
+
+    # 整文件哈希是长阶段：并行计算并逐个上报进度，使其可被外部观测
+    hb.stage("hashing", total=len(partitions))
+    digests: dict[str, str] = {}
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        futures = {
+            pool.submit(file_digest, path): f"{segment}_{date_key}"
+            for date_key, segment, path in partitions
+        }
+        for i, future in enumerate(as_completed(futures), start=1):
+            key = futures[future]
+            digests[key] = future.result()
+            hb.progress(i, key)
 
     tasks, done = [], {}
     for date_key, segment, path in partitions:
         key = f"{segment}_{date_key}"
         sidecar = os.path.join(dirs["_partitions"], f"{key}.json")
-        digest = partition_digest(path)
+        digest = digests[key]
         outputs_present = all(
             os.path.exists(os.path.join(dirs[s], f"{key}.parquet"))
             for s in ("asset_day", "market_day")
@@ -400,61 +484,21 @@ def build_census(
             }
         )
 
+    hb.stage("census", total=len(tasks))
     if tasks:
-        state = {
-            "finished": 0,
-            "started": time.monotonic(),
-            "last_progress": time.monotonic(),
-            "last_key": None,
-        }
-        stop = threading.Event()
-
-        def write_beat() -> None:
-            now = time.monotonic()
-            with open(heartbeat_path, "w", encoding="utf-8") as f:
-                json.dump(
-                    {
-                        "stage": "census",
-                        "done": state["finished"],
-                        "total": len(tasks),
-                        "elapsed_seconds": round(now - state["started"], 1),
-                        "seconds_since_last_completion": round(now - state["last_progress"], 1),
-                        "last_key": state["last_key"],
-                    },
-                    f,
-                )
-
-        def ticker() -> None:
-            # 按时间周期写心跳，而不是按完成个数：单分区卡死时心跳仍在跳，
-            # seconds_since_last_completion 会持续增长，卡死可被外部观测到
-            while not stop.wait(HEARTBEAT_SECONDS):
-                write_beat()
-
-        thread = None
-        if heartbeat_path:
-            write_beat()
-            thread = threading.Thread(target=ticker, daemon=True)
-            thread.start()
-
-        def beat(summary: dict) -> None:
-            state["finished"] += 1
-            state["last_progress"] = time.monotonic()
-            state["last_key"] = summary["key"]
-            done[summary["key"]] = summary
-
-        try:
-            if workers > 1:
-                with ProcessPoolExecutor(max_workers=workers) as pool:
-                    for summary in pool.map(_census_task, tasks, chunksize=1):
-                        beat(summary)
-            else:
-                for task in tasks:
-                    beat(_census_task(task))
-        finally:
-            stop.set()
-            if thread is not None:
-                thread.join(timeout=1)
-                write_beat()
+        finished = 0
+        if workers > 1:
+            with ProcessPoolExecutor(max_workers=workers) as pool:
+                for summary in pool.map(_census_task, tasks, chunksize=1):
+                    finished += 1
+                    done[summary["key"]] = summary
+                    hb.progress(finished, summary["key"])
+        else:
+            for task in tasks:
+                summary = _census_task(task)
+                finished += 1
+                done[summary["key"]] = summary
+                hb.progress(finished, summary["key"])
 
     summaries = [done[k] for k in sorted(done)]
     findings = [
@@ -478,7 +522,9 @@ def build_census(
     return summaries, findings
 
 
-def verify_artifact_integrity(out_dir: str) -> tuple[int, list[str]]:
+def verify_artifact_integrity(
+    out_dir: str, *, heartbeat: Heartbeat | None = None
+) -> tuple[int, list[str]]:
     """把已物化产物与同次生成的 sidecar 比对。
 
     这证明的是**产物完整性**（写盘后未被改动或丢失），不是独立重建确定性；
@@ -486,8 +532,11 @@ def verify_artifact_integrity(out_dir: str) -> tuple[int, list[str]]:
     """
     from ..temporal.manifest import fingerprint_table
 
+    sidecars = sorted(glob.glob(os.path.join(out_dir, "_partitions", "*.json")))
+    if heartbeat is not None:
+        heartbeat.stage("verifying_artifact_integrity", total=len(sidecars))
     checked, bad = 0, []
-    for sidecar in sorted(glob.glob(os.path.join(out_dir, "_partitions", "*.json"))):
+    for sidecar in sidecars:
         with open(sidecar, encoding="utf-8") as f:
             rec = json.load(f)
         key = rec["key"]
@@ -498,13 +547,19 @@ def verify_artifact_integrity(out_dir: str) -> tuple[int, list[str]]:
             if not os.path.exists(path) or fingerprint_table(pq.read_table(path)) != rec.get(field):
                 ok = False
         checked += 1
+        if heartbeat is not None:
+            heartbeat.progress(checked, key)
         if not ok:
             bad.append(key)
     return checked, bad
 
 
 def verify_rebuild_determinism(
-    roots: dict[str, str], out_dir: str, sample: int = 12
+    roots: dict[str, str],
+    out_dir: str,
+    sample: int = 12,
+    *,
+    heartbeat: Heartbeat | None = None,
 ) -> tuple[int, list[str]]:
     """从**来源**独立重跑若干分区，与已物化产物的指纹比对。
 
@@ -517,6 +572,8 @@ def verify_rebuild_determinism(
         return 0, []
     step = max(1, len(partitions) // sample)
     picked = partitions[::step][:sample]
+    if heartbeat is not None:
+        heartbeat.stage("verifying_rebuild_determinism", total=len(picked))
     checked, bad = 0, []
     for date_key, segment, path in picked:
         key = f"{segment}_{date_key}"
@@ -527,6 +584,8 @@ def verify_rebuild_determinism(
             rec = json.load(f)
         asset_tbl, market_tbl = census_partition(path, date_key)
         checked += 1
+        if heartbeat is not None:
+            heartbeat.progress(checked, key)
         if (
             fingerprint_table(asset_tbl) != rec.get("fingerprint_asset_day")
             or fingerprint_table(market_tbl) != rec.get("fingerprint_market_day")

@@ -601,3 +601,61 @@ def test_index_rejects_missing_asset_day_partitions(tmp_path):
     os.remove(os.path.join(out, "asset_day", "hf_2024-01-01.parquet"))
     with pytest.raises(OrphanCensusPartition):
         PitMarketIndex.from_census_dir(out, expected_keys={s["key"] for s in summaries})
+
+
+# ---------------------------------------------------------------- 心跳
+
+
+def test_heartbeat_covers_the_hashing_stage_even_when_everything_is_cached(tmp_path):
+    """全缓存重跑没有任何 census 任务，但整文件哈希阶段仍是长阶段，必须有心跳。"""
+    import json as _json
+
+    from arad.data_catalog.pm_census import Heartbeat, build_census
+
+    root, out = str(tmp_path / "hf"), str(tmp_path / "out")
+    _tiny_tape(os.path.join(root, "2024-01-01.parquet"), [1_704_070_800])
+    beat_path = os.path.join(out, "_heartbeat.json")
+    with Heartbeat(beat_path, interval=0.01) as hb:
+        build_census({"hf": root}, out, workers=1, heartbeat=hb)
+    with open(beat_path, encoding="utf-8") as f:
+        first = _json.load(f)
+    assert first["stage"] == "finished"
+
+    stages = []
+    real_stage = Heartbeat.stage
+
+    def record(self, name, *, total=0):
+        stages.append(name)
+        real_stage(self, name, total=total)
+
+    Heartbeat.stage = record
+    try:
+        with Heartbeat(beat_path, interval=0.01) as hb:
+            summaries, _ = build_census({"hf": root}, out, workers=1, heartbeat=hb)
+    finally:
+        Heartbeat.stage = real_stage
+    assert summaries and summaries[0]["key"] == "hf_2024-01-01"
+    # 全缓存：census 阶段没有任务，但 hashing 阶段仍被上报
+    assert stages[:3] == ["discovering", "pruning", "hashing"]
+    assert "census" in stages
+
+
+def test_heartbeat_reports_progress_and_stall_time(tmp_path):
+    import json as _json
+    import time as _time
+
+    from arad.data_catalog.pm_census import Heartbeat
+
+    path = os.path.join(tmp_path, "_hb.json")
+    hb = Heartbeat(path, interval=0.02).start()
+    hb.stage("hashing", total=3)
+    hb.progress(1, "hf_2024-01-01")
+    _time.sleep(0.08)
+    with open(path, encoding="utf-8") as f:
+        payload = _json.load(f)
+    assert payload["stage"] == "hashing"
+    assert payload["total"] == 3 and payload["done"] == 1
+    assert payload["current"] == "hf_2024-01-01"
+    # 卡住时该字段持续增长，外部据此判断是否停滞
+    assert payload["seconds_since_last_progress"] > 0
+    hb.stop()

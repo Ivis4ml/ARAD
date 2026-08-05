@@ -72,7 +72,7 @@
 
 | 事实 | 证据 |
 |---|---|
-| 两段 tape 各只有 24 列且完全相同 | 1,248 + 78 个分区各 1 种 schema 签名；`venue_class`/`is_relay`/`protocol`/`exchange`/`tx_hash`/`log_index` 在两段都不存在，relay 剔除与 unknown venue 隔离在现有数据上不可执行 |
+| 两段 tape 列名集合相同、均为 24 列（类型仍有 15 处冲突） | 1,248 + 78 个分区各 1 种 schema 签名；`venue_class`/`is_relay`/`protocol`/`exchange`/`tx_hash`/`log_index` 在两段都不存在，relay 剔除与 unknown venue 隔离在现有数据上不可执行 |
 | 两段都不含 negRisk 成交 | 全史 `neg_risk` 为真的 (市场, 日) 数为 0；扩展段未补上 HF 段的 negRisk 缺口 |
 | 逐笔在样本段间极度不均衡 | 855,614,453 笔中 discovery 段 0.84%、historical validation 段 11.29%、contaminated audit 段 87.87% |
 | 抽样重复腿检出率 3.47% | 24 个分区 1,333 万行中 46.3 万行与另一行完全相同；缺 `tx_hash`/`log_index` 无法区分中继腿与真实重复，名义额类指标一律 provisional |

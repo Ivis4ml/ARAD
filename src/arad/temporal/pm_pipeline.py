@@ -1,7 +1,7 @@
 """M2.5 编排：只读普查 → PIT Market Index → 审计与 manifest。
 
 不生成 PM tick × SC tick 的逐秒对齐表。本流水线只回答"在每个 SC 决策 cutoff 上，
-按点时化规则有多少市场可用、能形成多少 PM 观测、有效样本量大概是多少"，
+按点时化规则有多少市场可用、能形成多少 PM 观测、成交集中度诊断如何"，
 特征本身留待 Study 在其冻结的 cutoff 上按需生成。
 """
 
@@ -19,6 +19,7 @@ import yaml
 from ..data_catalog.pm_census import (
     CENSUS_VERSION,
     DIGEST_METHOD,
+    Heartbeat,
     audit_duplicate_legs,
     audit_missing_venue_columns,
     audit_neg_risk_coverage,
@@ -59,7 +60,8 @@ BLOCKERS = [
     (
         "两段 tape 都不含 venue_class / is_relay / protocol / exchange / tx_hash / log_index，"
         "relay 剔除与 unknown venue 隔离在现有数据上无法执行。M1 manifest 曾把这 7 个字段"
-        "标为『仅扩展段』，与实测不符（两段各 24 列且完全相同），已作为 M1 缺陷记录。"
+        "标为『仅扩展段』，与实测不符（两段**列名集合相同、均为 24 列**，但类型存在 "
+        "15 处冲突），已作为 M1 缺陷记录。"
         "在补齐链上字段之前，一切名义额类指标只能作 provisional。"
     ),
     (
@@ -325,15 +327,17 @@ def pm_index_build(
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(manifest_dir, exist_ok=True)
 
+    hb = Heartbeat(os.path.join(out_dir, "_heartbeat.json")).start()
     print("census: streaming per-partition aggregation (label-blind)...", flush=True)
     summaries, findings = build_census(
         roots,
         out_dir,
         workers=workers or int(cfg["build"]["workers"]),
         force=force,
-        heartbeat_path=os.path.join(out_dir, "_heartbeat.json"),
+        heartbeat=hb,
     )
 
+    hb.stage("indexing")
     print("building PIT market index...", flush=True)
     config = PitMarketIndexConfig(
         availability_delay_seconds=int(cfg["index"]["availability_delay_seconds"])
@@ -344,7 +348,7 @@ def pm_index_build(
     pq.write_table(index.presence, os.path.join(out_dir, "market_presence.parquet"))
     pq.write_table(index.asset_presence, os.path.join(out_dir, "asset_presence.parquet"))
 
-    checked, bad = verify_artifact_integrity(out_dir)
+    checked, bad = verify_artifact_integrity(out_dir, heartbeat=hb)
     findings.append(
         QualityFinding(
             severity=Severity.ERROR if bad else Severity.INFO,
@@ -358,7 +362,7 @@ def pm_index_build(
         )
     )
     r_checked, r_bad = verify_rebuild_determinism(
-        roots, out_dir, sample=int(cfg["audit"]["determinism_sample"])
+        roots, out_dir, sample=int(cfg["audit"]["determinism_sample"]), heartbeat=hb
     )
     findings.append(
         QualityFinding(
@@ -370,6 +374,7 @@ def pm_index_build(
         )
     )
 
+    hb.stage("auditing")
     print("auditing venue columns, duplicate legs and asset mapping...", flush=True)
     partitions = discover_partitions(roots)
     step = max(1, len(partitions) // int(cfg["audit"]["sample_partitions"]))
@@ -380,6 +385,7 @@ def pm_index_build(
     findings.append(audit_neg_risk_coverage(summaries, int(dup.evidence.get("rows", 0))))
     findings.append(audit_asset_outcome_mapping(sample_paths, cfg["audit"]["asset_map"]))
 
+    hb.stage("sc_cutoff_observations")
     print("counting observations at SC decision cutoffs...", flush=True)
     target_path = cfg["sc"]["target_parquet"]
     cutoff_table = None
@@ -498,5 +504,6 @@ def pm_index_build(
     )
     path = os.path.join(manifest_dir, "pm_market_index.json")
     write_spine_manifest(manifest, path)
+    hb.stop()
     print(f"wrote {path} (fingerprint {manifest.fingerprint[:16]})")
     return 0 if manifest.gate_passed() else 2

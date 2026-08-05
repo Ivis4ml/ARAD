@@ -1,7 +1,7 @@
 {
   "spine_id": "pm-market-index",
-  "code_version": "census-0.3.0/index-pit-market-index-v1/src-4f0bb7f8efba2b39",
-  "generated_at": "2026-08-05T23:12:22.687068+00:00",
+  "code_version": "census-0.3.0/index-pit-market-index-v1/src-39c1ed9c5d146fe2",
+  "generated_at": "2026-08-05T23:39:28.711804+00:00",
   "config_digest": "c06ae35b1e4f31604b13eb769c6b55c13537f3c2051c51ad1c190ea21dd6e1d3",
   "inputs": {
     "polymarket_tape": {
@@ -158,7 +158,7 @@
         "assets_seen": 4606736,
         "first": "2022-11-21",
         "last": "2026-07-14",
-        "rebuilt_partitions": 1326,
+        "rebuilt_partitions": 0,
         "pruned_orphan_count": 0,
         "pruned_orphans": []
       }
@@ -315,10 +315,10 @@
     "普查是 label-blind 的：resolution / winner / resolved_at 在读取层被拒绝。"
   ],
   "blockers": [
-    "两段 tape 都不含 venue_class / is_relay / protocol / exchange / tx_hash / log_index，relay 剔除与 unknown venue 隔离在现有数据上无法执行。M1 manifest 曾把这 7 个字段标为『仅扩展段』，与实测不符（两段各 24 列且完全相同），已作为 M1 缺陷记录。在补齐链上字段之前，一切名义额类指标只能作 provisional。",
+    "两段 tape 都不含 venue_class / is_relay / protocol / exchange / tx_hash / log_index，relay 剔除与 unknown venue 隔离在现有数据上无法执行。M1 manifest 曾把这 7 个字段标为『仅扩展段』，与实测不符（两段**列名集合相同、均为 24 列**，但类型存在 15 处冲突），已作为 M1 缺陷记录。在补齐链上字段之前，一切名义额类指标只能作 provisional。",
     "语义映射（地缘 / 能源 / 商品关联）不在本票范围：必须从原始市场标题、描述与创建时间构造版本化映射，另立票。在此之前 PM 侧没有可用的机制分组。",
     "negRisk 成交在两段 tape 中都不存在（见 finding pm_census.neg_risk_absent_in_both_segments 的结构化证据）。按裁决 negRisk 回补与 2026-07-14 之后续爬不作为前置条件；只有普查证明缺口会阻断目标机制时，才单独申请 acquisition 授权。",
     "抽样重复腿检出率见 finding pm_census.duplicate_legs_provisional 的结构化证据。缺 tx_hash / log_index，无法区分中继腿与真实重复成交，因此名义额类指标一律 provisional，且成员资格不得由名义额单独决定。"
   ],
-  "fingerprint": "7e7a4a8497d06061600433c878123dab6e4607e0b59bca704d11201c75e9e729"
+  "fingerprint": "0e64a875a332db95ef4d212d201339a94f5869818abf3dead7113f3094d7d42c"
 }

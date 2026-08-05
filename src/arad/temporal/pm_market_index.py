@@ -159,7 +159,7 @@ class PitMarketIndex:
                     "普查产物与来源分区集合不一致，索引拒绝加载（请重跑 build）："
                     f"{ {k: v for k, v in problems.items() if v} }"
                 )
-        
+
         market = pa.concat_tables([pq.read_table(p) for p in market_files])
         asset = (
             pa.concat_tables([pq.read_table(p) for p in asset_files]) if asset_files else None
