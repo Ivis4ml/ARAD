@@ -152,23 +152,38 @@ def test_spine_calendar_agrees_with_the_m1_commodity_manifest(spine):
 
 def test_control_sources_declare_availability_rules(spine):
     ids = {c["source_id"] for c in spine["control_contracts"]}
-    assert {"cls_telegraph", "intl_brent", "pm_cn_registry_v3"} <= ids
+    assert {"cls_telegraph", "intl_brent"} <= ids
     for c in spine["control_contracts"]:
         assert c["availability_rule"]
 
 
-def test_registry_slice_bans_lookahead_and_unaudited_seed_fields(spine):
-    reg = next(c for c in spine["control_contracts"] if c["source_id"] == "pm_cn_registry_v3")
-    assert {"usdc_win", "n_win", "resolved_at", "sigma", "orientation", "exploratory"} <= set(
-        reg["banned_fields"]
+def test_cn_registry_v3_is_not_an_active_control_source(spine):
+    """人类裁决：cn_registry_v3 不得作为市场来源或任何研究输入。"""
+    ids = {c["source_id"] for c in spine["control_contracts"]}
+    assert "pm_cn_registry_v3" not in ids
+    names = {d["name"] for d in spine["datasets"]}
+    assert "controls_pm_market_slice" not in names
+
+
+def test_deprecation_of_cn_registry_v3_is_recorded_with_reasons(spine):
+    """弃用本身必须可追溯：记录理由、替代方案与禁止用途。"""
+    rec = next(
+        d for d in spine["deprecated_sources"] if d["source_id"] == "pm_cn_registry_v3"
     )
+    assert rec["status"] == "deprecated_quarantined"
+    assert "幸存者偏差" in rec["reason"]
+    assert "PIT Market Index" in rec["replacement"]
+    assert "M4 Study" in rec["forbidden_use"]
 
 
-def test_registry_contract_records_the_survivorship_caveat(spine):
-    """admit_ts 只点时化了准入时刻；成员资格仍是全窗口筛选，该缺陷必须写进合同。"""
-    reg = next(c for c in spine["control_contracts"] if c["source_id"] == "pm_cn_registry_v3")
-    assert "幸存者偏差" in reg["availability_rule"]
-    assert any("幸存者偏差" in b for b in spine["blockers"])
+def test_loading_the_deprecated_registry_fails_loudly():
+    """能力边界而非提示词：残留调用路径必须报错，不能静默拿到数据。"""
+    import pytest as _pytest
+
+    from arad.temporal.controls import DeprecatedSourceError, load_pm_registry_series
+
+    with _pytest.raises(DeprecatedSourceError):
+        load_pm_registry_series("/nonexistent.parquet", product="SC")
 
 
 # ---------------------------------------------------------------- 独立交叉核对

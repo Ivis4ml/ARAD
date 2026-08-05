@@ -115,6 +115,7 @@ class SpineManifest(BaseModel):
     dominant_rule: dict[str, Any] = Field(default_factory=dict)
     targets: list[TargetRecord] = Field(default_factory=list)
     control_contracts: list[ControlContract] = Field(default_factory=list)
+    deprecated_sources: list[dict[str, Any]] = Field(default_factory=list)
     datasets: list[DatasetRef] = Field(default_factory=list)
     coverage: dict[str, Any] = Field(default_factory=dict)
     findings: list[QualityFinding] = Field(default_factory=list)

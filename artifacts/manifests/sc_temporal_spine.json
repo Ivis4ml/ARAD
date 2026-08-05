@@ -1,7 +1,7 @@
 {
   "spine_id": "sc-temporal-spine",
   "code_version": "0.1.0",
-  "generated_at": "2026-08-05T21:27:59.496184+00:00",
+  "generated_at": "2026-08-05T21:43:50.514345+00:00",
   "config_digest": "40e3b70830a020596f1e71989a877d1183ef950b30016f7664b8472066f917ae",
   "inputs": {
     "commodity_tick": {
@@ -174,23 +174,19 @@
       ],
       "audited_override_reason": "M2 as-of 演示：brent_daily.csv 只有日期与数值，发布时点未经来源方核实；采用保守规则 D+1 06:00 Asia/Shanghai，晚于 ICE 结算与美市收盘的任何合理时点。核实来源与发布时刻属于 acquisition 流程，需人工授权。",
       "notes": "声明式合同，非扫描产物；发布时点核实属 acquisition 流程"
-    },
+    }
+  ],
+  "deprecated_sources": [
     {
       "source_id": "pm_cn_registry_v3",
       "root_uri": "/Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket/features/cn_registry_v3.parquet",
-      "availability_rule": "市场只有在 admit_ts 之后才被视为已进入研究可见集合。admit_ts 是窗口内累计名义额首次达到 100000 美元的链上时刻，构造上是点时化的；但**成员资格本身是全窗口筛选**（要求全窗口累计额达到同一门槛），在任一决策时点不可知，因此市场选择存在幸存者偏差，admit_ts 修不掉。登记表由既往系统冻结产出，theme/product/sigma 映射只作机制种子，必须在 Decision Map #5 重新通过 PIT、语义与 provenance 审计",
-      "timezone": "UTC（epoch 秒）",
-      "banned_fields": [
-        "exploratory",
-        "n_win",
-        "orientation",
-        "resolved_at",
-        "sigma",
-        "usdc_win"
-      ],
-      "provisional_fields": [],
-      "audited_override_reason": "",
-      "notes": "切片：product==SC，370 个 (市场, 品种) 对，主题分布 {'russia_ukraine': 53, 'mideast_conflict': 206, 'oil_price': 111}。来源：Alpha-Data/scripts/select_polymarket_markets.py（v3 为加长窗口重跑版）。只登记市场元数据与 admit_ts；逐笔 belief 序列不在 M2 范围，需 M5 完成 venue/relay/negRisk 审计后才能物化。"
+      "status": "deprecated_quarantined",
+      "decided_at": "2026-08-05",
+      "decided_by": "human",
+      "reason": "cn_registry_v3.parquet 已于 2026-08-05 由人类裁决弃用并隔离，不得作为市场来源、市场映射或任何研究输入，也不得进入 M3 evaluator 或 M4 Study。三条理由：(1) 成员资格是全窗口筛选（累计名义额需达 10 万美元），在决策时点不可知，存在幸存者偏差；(2) theme/product/sigma 是前一代系统的语义映射种子，未过 PIT、语义与 provenance 审计；(3) 覆盖仅 2026-01-04 至 2026-07-13，整段位于 contaminated audit 区间。替代方案是从原始 tape 推导的 PIT Market Index。如需把它当作被隔离的 QA 参照，必须显式传入 quarantine_ack 并把理由记入账本。",
+      "replacement": "从原始 Polymarket tape 推导的 PIT Market Index：存在性由首笔公开成交决定，流动性资格由过去窗口决定，两者分离",
+      "allowed_use": "仅可作为被隔离的只读 QA 对照，且必须显式传入 quarantine_ack 并记入账本",
+      "forbidden_use": "市场来源、市场语义映射、任何研究输入、M3 evaluator、M4 Study"
     }
   ],
   "datasets": [
@@ -231,14 +227,6 @@
       "path": "data/spine/controls/brent.parquet",
       "rows": 933,
       "fingerprint": "9e8f1c428f7f94ec4dce6b0999155efd55bba56da1dbf5321197ca78b0420089",
-      "partitions": 0,
-      "note": ""
-    },
-    {
-      "name": "controls_pm_market_slice",
-      "path": "data/spine/controls/pm_market_slice.parquet",
-      "rows": 370,
-      "fingerprint": "5dd47dcdc15c55dcfcdd3963a55e4192fab708b3ad648c674721721cca119527",
       "partitions": 0,
       "note": ""
     }
@@ -407,17 +395,12 @@
     },
     {
       "severity": "warning",
-      "code": "controls.pm_registry_contaminated_window_only",
-      "message": "Polymarket 市场登记表的 admit_ts 全部落在 contaminated audit 区间；以该切片为唯一市场来源的 Study 无法得到 discovery 或 historical validation 结论",
+      "code": "controls.pm_registry_deprecated",
+      "message": "cn_registry_v3.parquet 已弃用并隔离，不再作为市场来源或研究输入；Polymarket 侧的市场身份与点时资格改由 PIT Market Index 提供",
       "evidence": {
-        "markets": 370,
-        "themes": {
-          "russia_ukraine": 53,
-          "mideast_conflict": 206,
-          "oil_price": 111
-        },
-        "first_admit": "2026-01-05T04:35:29+08:00",
-        "last_admit": "2026-07-12T21:24:26+08:00"
+        "source": "/Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket/features/cn_registry_v3.parquet",
+        "decided_at": "2026-08-05",
+        "replacement": "pm_market_index"
       }
     }
   ],
@@ -440,5 +423,5 @@
     "Alpha-Data curve_daily.parquet 仅覆盖 2026-01-05 至 2026-07-13，只能作该窗口的独立交叉核对，无法覆盖 discovery 与 historical validation 段的日频等价性检查。",
     "郑商所 Turnover 口径与日内倒退的全品种普查仍为 provisional（M1 遗留）；SC 属 INE，本票未触及该问题。"
   ],
-  "fingerprint": "b50f9d29fc6c06cad31f47b28f7535fcb416d30c4ec5cbb9a83b173c43be8cff"
+  "fingerprint": "6a05b7e4f2ef77966ed1d6015e40fa8c972e40de26ba660834cd7dfa847bf236"
 }

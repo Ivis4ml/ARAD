@@ -8,12 +8,12 @@
 - 国际油价（Alpha-Data intl/brent_daily.csv）：只有日期与数值，没有发布时刻。
   发布时点未经来源方核实，因此 `value` 标为 provisional，采用保守规则
   "D 的收盘价在 D+1 06:00 Asia/Shanghai 可用"，消费需受审计 override。
-- Polymarket 市场登记表（冻结的 cn_registry_v3.parquet）：前一代系统 Alpha-Data 的
-  产物（构造脚本 scripts/select_polymarket_markets.py），一行是一个 (市场, 品种) 对。
-  只用 admit_ts 与市场元数据；`usdc_win`/`n_win`（全窗口累计量，前视）、
-  `sigma`/`orientation`/`exploratory`（未审计的映射种子）与 `resolved_at`（M1 已禁用）
-  一律 banned，各自理由见 PM_BANNED_FIELDS。tape 逐笔序列不在本票范围
-  （需要 M5 的 venue/relay/negRisk 审计后才能物化）。
+- Polymarket 市场登记表（cn_registry_v3.parquet）：**已弃用并隔离**（2026-08-05
+  人类裁决）。ARAD 不再以它作为市场来源、市场映射或研究输入。其替代是从原始 tape
+  推导的 PIT Market Index（存在性由首笔公开成交决定，流动性资格由过去窗口决定，
+  见 `temporal/pm_market_index.py`）。本模块保留一个会主动报错的加载函数，
+  使任何残留调用路径显式失败，而不是靠提示词约束（Merge-Plan-2 §7.2：
+  提示词不是安全边界）。
 """
 
 from __future__ import annotations
@@ -71,6 +71,20 @@ PM_BANNED_FIELDS = {
 
 #: 登记表的成员资格筛选：窗口内累计名义额需达到该门槛（来源脚本默认值）。
 PM_ADMISSION_MIN_USDC = 100_000.0
+
+PM_REGISTRY_DEPRECATION = (
+    "cn_registry_v3.parquet 已于 2026-08-05 由人类裁决弃用并隔离，不得作为市场来源、"
+    "市场映射或任何研究输入，也不得进入 M3 evaluator 或 M4 Study。三条理由："
+    "(1) 成员资格是全窗口筛选（累计名义额需达 10 万美元），在决策时点不可知，"
+    "存在幸存者偏差；(2) theme/product/sigma 是前一代系统的语义映射种子，"
+    "未过 PIT、语义与 provenance 审计；(3) 覆盖仅 2026-01-04 至 2026-07-13，"
+    "整段位于 contaminated audit 区间。替代方案是从原始 tape 推导的 PIT Market Index。"
+    "如需把它当作被隔离的 QA 参照，必须显式传入 quarantine_ack 并把理由记入账本。"
+)
+
+
+class DeprecatedSourceError(RuntimeError):
+    """访问了已弃用并隔离的数据源。这是硬边界，不是提醒。"""
 
 _CLS_DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 
@@ -265,7 +279,7 @@ def pm_registry_manifest(path: str) -> SourceManifest:
                 "在任一决策时点不可知，因此市场选择存在幸存者偏差，admit_ts 修不掉。"
                 "登记表由既往系统冻结产出，theme/product/sigma 映射只作机制种子，"
                 "必须在 Decision Map #5 重新通过 PIT、语义与 provenance 审计"
-            ),
+        ),
             timezone="UTC（epoch 秒）",
             unit_notes="admit_ts/first_ts/last_ts 为 epoch 秒；毫秒量级应触发单位断言失败",
         ),
@@ -274,7 +288,12 @@ def pm_registry_manifest(path: str) -> SourceManifest:
     )
 
 
-def load_pm_registry_series(path: str, *, product: str) -> PitSeries:
+def load_pm_registry_series(
+    path: str, *, product: str, quarantine_ack: str = ""
+) -> PitSeries:
+    """**已弃用**。默认拒绝加载；仅在显式给出隔离理由时放行，供只读 QA 对照。"""
+    if not quarantine_ack:
+        raise DeprecatedSourceError(PM_REGISTRY_DEPRECATION)
     manifest = pm_registry_manifest(path)
     table = pq.read_table(path, columns=list(PM_ALLOWED_FIELDS))
     rows = [r for r in table.to_pylist() if r["product"] == product]
@@ -289,19 +308,19 @@ def load_pm_registry_series(path: str, *, product: str) -> PitSeries:
     return PitSeries(name="pm_cn_registry_v3", table=pa.table(out), manifest=manifest)
 
 
-def pm_registry_contract(path: str, *, product: str, rows: int, themes: dict[str, int]) -> ControlContract:
-    m = pm_registry_manifest(path)
-    return ControlContract(
-        source_id="pm_cn_registry_v3",
-        root_uri=path,
-        availability_rule=m.time_semantics.availability_rule,
-        timezone=m.time_semantics.timezone,
-        banned_fields=sorted(m.banned_fields()),
-        provisional_fields=sorted(m.provisional_fields()),
-        notes=(
-            f"切片：product=={product}，{rows} 个 (市场, 品种) 对，主题分布 {themes}。"
-            "来源：Alpha-Data/scripts/select_polymarket_markets.py（v3 为加长窗口重跑版）。"
-            "只登记市场元数据与 admit_ts；逐笔 belief 序列不在 M2 范围，"
-            "需 M5 完成 venue/relay/negRisk 审计后才能物化。"
+def pm_registry_deprecation_record(path: str) -> dict:
+    """弃用记录。写进 spine manifest，使"这个来源被移除过"本身可追溯。"""
+    return {
+        "source_id": "pm_cn_registry_v3",
+        "root_uri": path,
+        "status": "deprecated_quarantined",
+        "decided_at": "2026-08-05",
+        "decided_by": "human",
+        "reason": PM_REGISTRY_DEPRECATION,
+        "replacement": (
+            "从原始 Polymarket tape 推导的 PIT Market Index："
+            "存在性由首笔公开成交决定，流动性资格由过去窗口决定，两者分离"
         ),
-    )
+        "allowed_use": "仅可作为被隔离的只读 QA 对照，且必须显式传入 quarantine_ack 并记入账本",
+        "forbidden_use": "市场来源、市场语义映射、任何研究输入、M3 evaluator、M4 Study",
+    }

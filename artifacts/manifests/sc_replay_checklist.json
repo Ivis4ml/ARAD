@@ -3,7 +3,7 @@
   "product": "sc",
   "seed": 20260805,
   "sample_size": 30,
-  "spine_fingerprint": "b50f9d29fc6c06cad31f47b28f7535fcb416d30c4ec5cbb9a83b173c43be8cff",
+  "spine_fingerprint": "6a05b7e4f2ef77966ed1d6015e40fa8c972e40de26ba660834cd7dfa847bf236",
   "entries": [
     {
       "index": 0,
@@ -56,12 +56,7 @@
           "value": 77.11
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 1,
@@ -114,12 +109,7 @@
           "value": 76.02
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 2,
@@ -172,12 +162,7 @@
           "value": 82.65
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 3,
@@ -230,12 +215,7 @@
           "value": 84.11
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 4,
@@ -288,12 +268,7 @@
           "value": 75.42
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 5,
@@ -346,12 +321,7 @@
           "value": 74.24
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 6,
@@ -404,12 +374,7 @@
           "value": 81.31
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 7,
@@ -462,12 +427,7 @@
           "value": 81.06
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 8,
@@ -520,12 +480,7 @@
           "value": 79.76
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 9,
@@ -578,12 +533,7 @@
           "value": 84.57
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 10,
@@ -636,12 +586,7 @@
           "value": 86.17
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 11,
@@ -694,12 +639,7 @@
           "value": 78.92
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 12,
@@ -752,12 +692,7 @@
           "value": 87.15
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 13,
@@ -810,12 +745,7 @@
           "value": 73.81
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 14,
@@ -868,12 +798,7 @@
           "value": 74.95
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 15,
@@ -926,12 +851,7 @@
           "value": 73.78
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 16,
@@ -984,12 +904,7 @@
           "value": 73.77
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 17,
@@ -1042,12 +957,7 @@
           "value": 74.68
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 18,
@@ -1100,12 +1010,7 @@
           "value": 66.58
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 19,
@@ -1158,12 +1063,7 @@
           "value": 73.21
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 20,
@@ -1216,12 +1116,7 @@
           "value": 69.14
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 21,
@@ -1274,12 +1169,7 @@
           "value": 67.87
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 22,
@@ -1332,12 +1222,7 @@
           "value": 63.01
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 23,
@@ -1390,12 +1275,7 @@
           "value": 64.81
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 24,
@@ -1448,12 +1328,7 @@
           "value": 63.7
         }
       ],
-      "unavailable_sources": [
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3"
-        }
-      ]
+      "unavailable_sources": []
     },
     {
       "index": 25,
@@ -1504,15 +1379,6 @@
           "lead_seconds": 10740,
           "quote_date": "2026-01-07",
           "value": 61.08
-        },
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3",
-          "availability_time": "2026-01-08T07:25:19+08:00",
-          "lead_seconds": 5621,
-          "admitted_markets": 18,
-          "last_slug": "israel-strikes-iran-by-january-16-2026-4",
-          "theme": "mideast_conflict"
         }
       ],
       "unavailable_sources": []
@@ -1566,15 +1432,6 @@
           "lead_seconds": 10740,
           "quote_date": "2026-01-15",
           "value": 66.16
-        },
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3",
-          "availability_time": "2026-01-16T07:23:22+08:00",
-          "lead_seconds": 5738,
-          "admitted_markets": 35,
-          "last_slug": "israel-strikes-iran-by-january-23-2026",
-          "theme": "mideast_conflict"
         }
       ],
       "unavailable_sources": []
@@ -1628,15 +1485,6 @@
           "lead_seconds": 226740,
           "quote_date": "2026-05-29",
           "value": 92.88
-        },
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3",
-          "availability_time": "2026-06-01T15:03:41+08:00",
-          "lead_seconds": 21319,
-          "admitted_markets": 328,
-          "last_slug": "will-russia-capture-lyman-by-december-31",
-          "theme": "russia_ukraine"
         }
       ],
       "unavailable_sources": []
@@ -1690,15 +1538,6 @@
           "lead_seconds": 53940,
           "quote_date": "2026-06-30",
           "value": 70.46
-        },
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3",
-          "availability_time": "2026-06-28T17:39:35+08:00",
-          "lead_seconds": 271165,
-          "admitted_markets": 362,
-          "last_slug": "strait-of-hormuz-traffic-returns-to-norm",
-          "theme": "mideast_conflict"
         }
       ],
       "unavailable_sources": []
@@ -1752,15 +1591,6 @@
           "lead_seconds": 313140,
           "quote_date": "2026-07-13",
           "value": 81.62
-        },
-        {
-          "feature": "pm_admitted_markets",
-          "source": "pm_cn_registry_v3",
-          "availability_time": "2026-07-12T21:24:26+08:00",
-          "lead_seconds": 430474,
-          "admitted_markets": 370,
-          "last_slug": "strait-of-hormuz-traffic-returns-to-norm",
-          "theme": "mideast_conflict"
         }
       ],
       "unavailable_sources": []

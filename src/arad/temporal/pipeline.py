@@ -15,7 +15,7 @@ import pyarrow.parquet as pq
 import yaml
 
 from ..data_catalog.schema import QualityFinding, Severity, load_manifest
-from .asof import PitSeries, asof_last, count_before
+from .asof import PitSeries, asof_last
 from .build import (
     build_bars,
     day_findings,
@@ -27,8 +27,7 @@ from .controls import (
     cls_contract,
     load_brent_series,
     load_cls_series,
-    load_pm_registry_series,
-    pm_registry_contract,
+    pm_registry_deprecation_record,
 )
 from .dominant import (
     DominantRule,
@@ -309,25 +308,22 @@ def spine_build(config_path: str, *, force: bool = False, workers: int | None = 
         cfg["controls"]["brent_csv"], start=first_day, end=last_day
     )
     pq.write_table(brent_series.table, os.path.join(controls_dir, "brent.parquet"))
-    pm_series = load_pm_registry_series(
-        cfg["controls"]["pm_registry"], product=cfg["controls"]["pm_product"]
-    )
-    pq.write_table(pm_series.table, os.path.join(controls_dir, "pm_market_slice.parquet"))
-    themes = dict(collections.Counter(pm_series.table.column("theme").to_pylist()))
-    admit = pm_series.table.column("available_time").to_pylist()
+    stale_slice = os.path.join(controls_dir, "pm_market_slice.parquet")
+    if os.path.exists(stale_slice):
+        os.remove(stale_slice)
+    deprecated = [pm_registry_deprecation_record(cfg["controls"]["pm_registry"])]
     findings.append(
         QualityFinding(
             severity=Severity.WARNING,
-            code="controls.pm_registry_contaminated_window_only",
+            code="controls.pm_registry_deprecated",
             message=(
-                "Polymarket 市场登记表的 admit_ts 全部落在 contaminated audit 区间；"
-                "以该切片为唯一市场来源的 Study 无法得到 discovery 或 historical validation 结论"
+                "cn_registry_v3.parquet 已弃用并隔离，不再作为市场来源或研究输入；"
+                "Polymarket 侧的市场身份与点时资格改由 PIT Market Index 提供"
             ),
             evidence={
-                "markets": pm_series.table.num_rows,
-                "themes": themes,
-                "first_admit": admit[0].isoformat() if admit else None,
-                "last_admit": admit[-1].isoformat() if admit else None,
+                "source": cfg["controls"]["pm_registry"],
+                "decided_at": "2026-08-05",
+                "replacement": "pm_market_index",
             },
         )
     )
@@ -335,12 +331,6 @@ def spine_build(config_path: str, *, force: bool = False, workers: int | None = 
     control_contracts = [
         cls_contract(cls_manifest, cfg["controls"]["cls_output_dir"], poll_delay),
         brent_contract(cfg["controls"]["brent_csv"]),
-        pm_registry_contract(
-            cfg["controls"]["pm_registry"],
-            product=cfg["controls"]["pm_product"],
-            rows=pm_series.table.num_rows,
-            themes=themes,
-        ),
     ]
 
     datasets = [
@@ -377,12 +367,6 @@ def spine_build(config_path: str, *, force: bool = False, workers: int | None = 
             path=os.path.join(controls_dir, "brent.parquet"),
             rows=brent_series.table.num_rows,
             fingerprint=fingerprint_table(brent_series.table),
-        ),
-        DatasetRef(
-            name="controls_pm_market_slice",
-            path=os.path.join(controls_dir, "pm_market_slice.parquet"),
-            rows=pm_series.table.num_rows,
-            fingerprint=fingerprint_table(pm_series.table),
         ),
     ]
 
@@ -426,6 +410,7 @@ def spine_build(config_path: str, *, force: bool = False, workers: int | None = 
         },
         targets=target_records,
         control_contracts=control_contracts,
+        deprecated_sources=deprecated,
         datasets=datasets,
         coverage={
             "trading_days_built": len(summaries),
@@ -451,7 +436,6 @@ def spine_build(config_path: str, *, force: bool = False, workers: int | None = 
         manifest_fingerprint=manifest.fingerprint,
         cls_series=cls_series,
         brent_series=brent_series,
-        pm_series=pm_series,
     )
 
     failed = [f for f in findings if f.severity == Severity.ERROR]
@@ -467,7 +451,6 @@ def spine_replay(
     manifest_fingerprint: str | None = None,
     cls_series: PitSeries | None = None,
     brent_series: PitSeries | None = None,
-    pm_series: PitSeries | None = None,
 ) -> int:
     cfg = load_config(config_path)
     product = PRODUCTS[cfg["product"]]
@@ -493,10 +476,6 @@ def spine_replay(
     if brent_series is None:
         brent_series = load_brent_series(
             cfg["controls"]["brent_csv"], start=date(1990, 1, 1), end=date(2100, 1, 1)
-        )
-    if pm_series is None:
-        pm_series = load_pm_registry_series(
-            cfg["controls"]["pm_registry"], product=cfg["controls"]["pm_product"]
         )
 
     daily = pads.dataset(os.path.join(data_dir, "bars_daily"), format="parquet").to_table(
@@ -574,23 +553,11 @@ def spine_replay(
             "value": got["value"],
         }
 
-    def pm_probe(row):
-        got = asof_last(pm_series, row["decision_time"], ["slug", "theme"])
-        if got is None:
-            return None
-        return {
-            "availability_time": got["available_time"],
-            "admitted_markets": count_before(pm_series, row["decision_time"]),
-            "last_slug": got["slug"][:40],
-            "theme": got["theme"],
-        }
-
     probes = [
         ("sc_bar_1min_close", "commodity_tick", minute_probe),
         ("sc_bar_daily_close", "commodity_tick", daily_probe),
         ("cls_last_telegraph", "cls_telegraph", cls_probe),
         ("brent_last_close", "intl_brent", brent_probe),
-        ("pm_admitted_markets", "pm_cn_registry_v3", pm_probe),
     ]
 
     seed = int(cfg["replay"]["seed"])
