@@ -2,6 +2,10 @@
 
 M1: `python -m arad.cli data-audit [--config configs/data_sources.yaml] [--out artifacts/manifests]`
 只读扫描三个数据源，生成机器 manifest 与人类审计报告。不解压、不物化、不回测。
+
+M2: `python -m arad.cli spine build|replay|verify [--config configs/spine_sc.yaml]`
+构建 SC 窄切片 Temporal Spine。bar 与控制视图写入 gitignored 的 `data/`，
+manifest 与人工回放清单写入 `artifacts/manifests/`。
 """
 
 from __future__ import annotations
@@ -63,9 +67,37 @@ def main(argv: list[str] | None = None) -> int:
     audit = sub.add_parser("data-audit", help="只读扫描三源并生成 manifest 与审计报告")
     audit.add_argument("--config", default="configs/data_sources.yaml")
     audit.add_argument("--out", default="artifacts/manifests")
+
+    spine = sub.add_parser("spine", help="SC 窄切片 Temporal Spine（M2）")
+    spine_sub = spine.add_subparsers(dest="spine_cmd", required=True)
+    for name, helptext in (
+        ("build", "构建 bar、主力视图、目标与控制视图"),
+        ("replay", "只重新生成人工回放清单"),
+        ("verify", "从已物化 bar 重建目标并比对指纹"),
+    ):
+        p = spine_sub.add_parser(name, help=helptext)
+        p.add_argument("--config", default="configs/spine_sc.yaml")
+        if name == "build":
+            p.add_argument("--force", action="store_true", help="忽略 sidecar 强制重建每一天")
+            p.add_argument("--workers", type=int, default=None)
+            p.add_argument("--limit-days", type=int, default=None, help="只构建最近 N 个交易日（冒烟用）")
+
     args = parser.parse_args(argv)
     if args.cmd == "data-audit":
         return data_audit(args.config, args.out)
+    if args.cmd == "spine":
+        from .temporal.pipeline import spine_build, spine_replay, spine_verify
+
+        if args.spine_cmd == "build":
+            return spine_build(
+                args.config,
+                force=args.force,
+                workers=args.workers,
+                limit_days=args.limit_days,
+            )
+        if args.spine_cmd == "replay":
+            return spine_replay(args.config)
+        return spine_verify(args.config)
     return 1
 
 

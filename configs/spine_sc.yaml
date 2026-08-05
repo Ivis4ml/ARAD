@@ -1,0 +1,49 @@
+# M2：SC 窄切片 Temporal Spine 的构建参数。
+# 来源仓库一律只读；任何数据获取或更新属于 acquisition 流程，需人类单独授权。
+
+product: sc
+
+source:
+  root: /Users/xinyu/Code/AR-Polymarket/chinese-commodity
+  layouts:
+    - "2022/*.zip"
+    - "2023/*.zip"
+    - "2024/*.zip"
+    - "2025*.zip"
+    - "2026*.zip"
+    - "202607/*.zip"
+
+output:
+  data_dir: data/spine/sc
+  controls_dir: data/spine/controls
+  manifest_dir: artifacts/manifests
+
+build:
+  workers: 8
+
+dominant:
+  metric: volume
+  tie_break: open_interest
+  # 交割月不允许回退：成交量在换月前后会来回抖动，允许回退会造成假换月
+  monotone_delivery: true
+
+episode:
+  # 同一交易日的夜盘与日盘共享信息环境，缺省合成一个 Episode
+  grain: trading_day
+
+replay:
+  seed: 20260805
+  sample_size: 30
+
+inputs:
+  commodity_manifest: artifacts/manifests/commodity_tick.json
+  cls_manifest: artifacts/manifests/cls_telegraph.json
+  polymarket_manifest: artifacts/manifests/polymarket_tape.json
+
+controls:
+  cls_output_dir: /Users/xinyu/Code/AR-Polymarket/Crawler/cls-data/data/output
+  cls_pattern: "财联社电报*.csv"
+  cls_poll_delay_seconds: 60
+  brent_csv: /Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/intl/brent_daily.csv
+  pm_registry: /Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket/features/cn_registry_v3.parquet
+  pm_product: SC

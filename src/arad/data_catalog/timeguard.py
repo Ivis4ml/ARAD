@@ -37,7 +37,22 @@ class SessionAttributionError(ValueError):
     """交易日归属规则被违反或输入不足以归属。"""
 
 
-def natural_date_of_tick(trading_day: date, tick_time: time, *, prev_trading_day: date) -> date:
+# 缺省归属窗口：(起始秒, 结束秒（不含）, 锚点, 相对锚点的自然日偏移)
+# 仅覆盖通用日盘与夜盘时段；品种级时段表通过 windows 参数传入更精确的定义。
+DEFAULT_NATURAL_DATE_WINDOWS: tuple[tuple[int, int, str, int], ...] = (
+    (8 * 3600, 16 * 3600, "trading_day", 0),
+    (20 * 3600, 24 * 3600, "prev_trading_day", 0),
+    (0, 3 * 3600, "prev_trading_day", 1),
+)
+
+
+def natural_date_of_tick(
+    trading_day: date,
+    tick_time: time,
+    *,
+    prev_trading_day: date,
+    windows: tuple[tuple[int, int, str, int], ...] | None = None,
+) -> date:
     """把 (TradingDay, UpdateTime) 归属到自然日。
 
     中国商品期货规则：夜盘（20:00 之后开始）归属下一交易日。因此
@@ -46,17 +61,18 @@ def natural_date_of_tick(trading_day: date, tick_time: time, *, prev_trading_day
     当 T 前一交易日为周五时为周六凌晨）。日盘时刻（08:00 至 16:00）发生在 T 当日。
 
     prev_trading_day 必须由调用方从交易日历提供；本函数拒绝自行猜测。
-    """
-    h = tick_time.hour
-    if 8 <= h < 16:
-        return trading_day
-    if 20 <= h < 24:
-        return prev_trading_day
-    if 0 <= h < 3:
-        # 夜盘跨零点段：发生在前一交易日的下一个自然日
-        from datetime import timedelta
 
-        return prev_trading_day + timedelta(days=1)
+    windows 允许品种级时段表覆盖缺省窗口（M2 扩展）：每项为
+    `(起始秒, 结束秒（不含）, 锚点, 自然日偏移)`，锚点取 `trading_day`
+    或 `prev_trading_day`。未落入任何窗口的时刻仍然报错，不做猜测。
+    """
+    from datetime import timedelta
+
+    sod = tick_time.hour * 3600 + tick_time.minute * 60 + tick_time.second
+    for lo, hi, anchor, offset in windows or DEFAULT_NATURAL_DATE_WINDOWS:
+        if lo <= sod < hi:
+            base = trading_day if anchor == "trading_day" else prev_trading_day
+            return base + timedelta(days=offset)
     raise SessionAttributionError(
         f"tick time {tick_time} outside known session windows for trading day {trading_day}"
     )

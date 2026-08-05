@@ -31,14 +31,45 @@
 - **Blocked by**: #3
 - **Type**: Prototype
 - **Question**: 如何从逐合约 tick 确定性地产生可交易主力、次主力与连续收益，同时避免换月前视？
-- **Answer**: 未回答。需要比较仅用 t-1 成交量/持仓的主力规则、固定换月规则和全合约 panel；来源自带乱码连续文件在审计前禁用。
+- **Answer**: **已回答（2026-08-05，M2 SC 窄切片完成）**。规则冻结为
+  `t1-volume-open_interest-monotone-v1`：主力取**前一交易日**成交量最大的合约，
+  依次以持仓量、合约代码为次级排序键，且交割月不允许回退。选择器对含当日或以后
+  数据的面板抛 `LookaheadError`（负向测试覆盖）；按 t-1 信息选出的合约当日无数据时
+  记为 no-trade，不用当日信息替换。909 个交易日中 45 个换月日。
+  **来源 `主力连续` 只作 QA 对照**：一致率 898/908 = 98.9%，分歧集中于
+  2024-10-09 至 10-18 与 2026-01-16 至 01-19 两个换月过渡窗口（别名是当日口径的
+  事后结果，与只用 t-1 信息的规则在换月前后本应不同；未据此调参）。
+  **时段表**按 Merge-Plan-2 §8.6 声明为版本化权威参照（INE 交易时间规则），
+  并用 909 日全史实测校验：日盘收盘恒为 15:00:00、夜盘收盘恒为 02:30:00、
+  夜盘首笔恒为 20:59:00（885 日有夜盘）、日盘首笔为 08:59:00 或 09:00:00，
+  全部落在声明窗口内；时段表之外的 tick 集中于 15:13 至 15:21（收盘后结算快照，
+  903 日共 18,113 行），已标记且不进入 bar。
+  **累计量**逐 tick 差分且不跨交易日；INE 同样存在 Turnover 日内倒退
+  （98 个交易日、213 行），原值与负差分一并保留，另出置零派生列，不做修复覆盖。
+  **物化**：909 日、64 个合约、3.4417 亿 tick → 8,481,512 根 1min bar 与
+  18,180 根日频 bar（`data/`，不入 git）。日频结果与独立参照
+  `Alpha-Data/data/intl/curve_daily.parquet` 在 2,500 个可比 (日, 合约) 上
+  仅 1 处成交量差 1 手、1 处持仓差 15 手（2026-03-03 sc2604）。
+  **目标**：primary `sc_rv_next_session` 与 diagnostic-only `sc_open_gap_absorption`
+  各 1,816 行（discovery 1,040 / historical validation 479 / contaminated audit 270），
+  `arad spine verify` 从已物化 bar 重建后指纹逐项 MATCH。
+  **仍未定稿**：经 roll 调整的连续价格序列。Merge-Plan-2 §8.8 要求收益/PnL、carry、
+  价格水平分别声明 roll 与 adjustment view；本票只产出换月标记与主力视图，
+  adjusted 连续序列留待 M5。
 
 ## #5 — 事件语义、映射与 Episode
 
 - **Blocked by**: #3
 - **Type**: Research
 - **Question**: 如何把 Polymarket 市场和 CLS 新闻映射为可泛化机制，并定义独立 Episode？
-- **Answer**: 未回答。必须同时做语义、机制和经验三层去重；旧手工 taxonomy 只能当种子，不能当真值。需要金标样本和跨模型一致性审计。
+- **Answer**: 部分回答。M2 关闭了**时间侧**：Episode 缺省按交易日成组（同一交易日的
+  夜盘与日盘共享信息环境），并提供 purge/embargo 与样本段污染标签
+  （discovery / historical validation / contaminated audit；forward 只在给出
+  freeze_at 与 embargo 时才成立，不写死日期）。**语义侧仍未回答**：必须同时做语义、
+  机制和经验三层去重；旧手工 taxonomy（`cn_registry_v3` 的 theme/product 映射）
+  只能当种子，不能当真值，需要金标样本和跨模型一致性审计。
+  新增约束：该登记表的市场覆盖仅 2026-01-04 至 2026-07-13，整段位于 contaminated
+  audit 区间，2022-2025 的市场发现需从 `markets_clob.parquet` 重建（M5）。
 
 ## #6 — Study 合同与不可变评估器
 
@@ -84,6 +115,11 @@
 
 ## 当前前沿
 
-票 #3 已关闭（M1 完成，含 2026-08-05 第二轮交叉审查验收修复）。
-下一项为 **#4 商品合约与连续序列** 的 SC 窄切片部分（Merge-Plan-2 的 M2），
-**开工前提**：计划 v1.0 定稿（交叉审查通过并冻结）。
+票 #3 已关闭（M1）。票 #4 已关闭（M2 SC 窄切片 Temporal Spine），票 #5 的时间侧
+（Episode、purge/embargo、污染标签）随 M2 关闭，语义侧仍未回答。
+
+下一项为 **#6 Study 合同与不可变评估器**（Merge-Plan-2 的 M3）。M3 除 Study/Verdict/
+Factor schema 与 SQLite hash-chain ledger 外，还须满足决定 0003 的快照渲染合同。
+M2 遗留的阻塞事项（Polymarket belief 序列、市场发现的历史覆盖、Brent 发布时点核实、
+adjusted 连续序列）记录在 `artifacts/manifests/sc_temporal_spine.json` 的
+`blockers` 字段，分属 M5 与 acquisition 流程，不在 M3 范围内。
