@@ -35,7 +35,7 @@ Research Service 只能由人类暂停或关闭。
 
 | 文件 | 角色 |
 |---|---|
-| `Merge-Plan-2.md` | **canonical**：目标、裁决、M0 至 M8 路线 |
+| `Merge-Plan-2.md` | **canonical**：目标、裁决、M0 至 M9 路线（M9 为 Research Atlas 可视化交付层，决定 0003） |
 | `CONTEXT.md` | 领域语言（权威） |
 | `docs/DECISION_MAP.md` | 决策票与当前前沿 |
 | `docs/ENGINEERING_PROMPT.md` | 建设期提示词模板（逐票替换 `<CURRENT_TICKET>`） |

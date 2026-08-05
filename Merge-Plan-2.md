@@ -308,7 +308,7 @@ src/arad/
 
 不在真实 profiling 前拆微服务、消息队列或多 Agent 基础设施。角色隔离优先由 capability 和数据视图实现，不由“多开几个模型”假装实现。
 
-## 10. 合并后的 M0–M8 实施路线
+## 10. 合并后的 M0–M9 实施路线
 
 ### M0 — 合并设计基线（当前阶段）
 
@@ -357,13 +357,17 @@ src/arad/
 **工作**：
 
 - ProposalSpec、Hypothesis Lock、Confirmatory Lock、Study、Evidence Verdict、Factor schemas；
+- schema 设计约束（决定 0003）：任意 Study 的账本事件与证据引用必须足以渲染为
+  自包含的判决时刻快照（供 M9 Research Atlas 只读投影使用）；
 - SQLite append-only/hash-chain ledger 与 durable queue 最小实现；
 - proposal/statistical 双分母；
 - 最小 evaluator：coverage、Episode、MDE、n_eff、cluster/HAC、影响点、placebo、成本占位和 artifact hashing；
 - provider 与 evaluator capability boundary；
 - 最小 Baseline Control：SC 自身收益/波动、Brent/USO、CLS 公开新闻强度。
 
-**出口**：一个合成 Study 可完整回放；故意泄漏、单位错误、结果依赖过滤和记录删除全部失败。
+**出口**：一个合成 Study 可完整回放，且可从账本机械地渲染为自包含快照
+（渲染器可以是最简单的 Markdown 导出，验证的是 schema 完整性而非界面）；
+故意泄漏、单位错误、结果依赖过滤和记录删除全部失败。
 
 ### M4 — 第一条端到端 tracer bullet
 
@@ -445,14 +449,43 @@ src/arad/
 
 **出口**：Production 的每个成员都有真正前向证据；退化、退役、替代和数据到期唤醒均可演练。
 
+### M9 — Research Atlas（可视化交付层，决定 0003）
+
+M6 之后可开始，与 M7/M8 并行推进（依赖 M3 定稿的账本 schema 与 M6 的运行状态机）。
+
+**产品形态**（三层，详见 `docs/decisions/0003-research-atlas.md`）：
+
+- 总览层：Service 状态、库存覆盖热力图（机制族 × 源 × 时域）、吞吐与 verdict 分布、
+  三源数据新鲜度；
+- 过程层：Study 时间线/DAG（verdict 着色）、假设族谱系（承继、重开、家族分母）、
+  Episode 展开收束；
+- 快照层：任一 Study 点开为判决时刻的自包含证据快照（锁定假设、功效预检、
+  Confirmatory 规格、五关逐项、正交性与腿分解、红队诊断、图表、verdict、
+  artifact 哈希、当时可见数据范围）。快照展示当时的结论，不用后见数据回填。
+
+**边界（不可妥协）**：只读投影，不构成第二事实源；forward 数据与标签不可见
+（仅显示预约状态）；一切数字来自评价机结构化输出，前端不重算统计量。
+
+**工作**：
+
+- `atlas/` 投影层：读 SQLite 账本与 parquet 证据的查询接口（复用 M3 的渲染合同）；
+- 轻量实现（票内定稿）：本地小型后端加静态前端，或按里程碑生成静态站点；
+  不引入重框架，遵守模块化单体约束；
+- 图表遵循评价机口径（衰减曲线、分位单调性、覆盖热力图），标注样本段与污染标签。
+
+**出口**：全部历史 Study 可在 Atlas 中打开且快照证据完整（拼不出完整快照即账本
+缺口，按 bug 处理并回补回归测试）；Atlas 对 forward 数据的不可见性有负向测试；
+一次完整战役可以只通过 Atlas 讲清楚"机器做了什么、为什么这样判决"。
+
 ## 11. 依赖关系
 
 ```text
 M0 → M1 → M2 → M3 → M4 → M5 → M6 → M7 → M8
              │           │     │
-             │           │     └─ M5 后可继续按需扩数据
+             │           │     ├─ M5 后可继续按需扩数据
+             │           │     └─ M9 Research Atlas（M6 后开始，与 M7/M8 并行）
              │           └─ 第一条真实 Study 早于全量 ETL
-             └─ schema 只在真实 PIT/target 事实后定稿
+             └─ schema 只在真实 PIT/target 事实后定稿（含 M9 的快照渲染合同）
 ```
 
 不允许跳过 M4 直接跑大规模自动战役。M1–M4 是第一个发布目标；此前不做 Web UI、分布式系统、多 Agent 基础设施或实盘执行。
