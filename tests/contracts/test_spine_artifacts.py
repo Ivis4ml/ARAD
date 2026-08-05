@@ -157,9 +157,18 @@ def test_control_sources_declare_availability_rules(spine):
         assert c["availability_rule"]
 
 
-def test_registry_slice_bans_outcome_derived_fields(spine):
+def test_registry_slice_bans_lookahead_and_unaudited_seed_fields(spine):
     reg = next(c for c in spine["control_contracts"] if c["source_id"] == "pm_cn_registry_v3")
-    assert {"usdc_win", "n_win", "resolved_at", "sigma", "orientation"} <= set(reg["banned_fields"])
+    assert {"usdc_win", "n_win", "resolved_at", "sigma", "orientation", "exploratory"} <= set(
+        reg["banned_fields"]
+    )
+
+
+def test_registry_contract_records_the_survivorship_caveat(spine):
+    """admit_ts 只点时化了准入时刻；成员资格仍是全窗口筛选，该缺陷必须写进合同。"""
+    reg = next(c for c in spine["control_contracts"] if c["source_id"] == "pm_cn_registry_v3")
+    assert "幸存者偏差" in reg["availability_rule"]
+    assert any("幸存者偏差" in b for b in spine["blockers"])
 
 
 # ---------------------------------------------------------------- 独立交叉核对

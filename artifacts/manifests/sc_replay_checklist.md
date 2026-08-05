@@ -2,7 +2,7 @@
 
 - 抽样种子：`20260805`（按样本段分层，结果可复现）
 - 样本量：30
-- spine 指纹：`9fc6ed7852e5ad8f08491aa8a1706557d67e3d7c94ce8d3ce6c3915610be7b71`
+- spine 指纹：`b50f9d29fc6c06cad31f47b28f7535fcb416d30c4ec5cbb9a83b173c43be8cff`
 
 核对方法：逐条确认每个 feature 的 `availability_time` 严格早于 `decision_time`，
 且 `decision_time` 严格早于 `label_start`。`lead_seconds` 为两者之差，必须为正。

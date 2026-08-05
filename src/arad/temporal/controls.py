@@ -8,10 +8,12 @@
 - 国际油价（Alpha-Data intl/brent_daily.csv）：只有日期与数值，没有发布时刻。
   发布时点未经来源方核实，因此 `value` 标为 provisional，采用保守规则
   "D 的收盘价在 D+1 06:00 Asia/Shanghai 可用"，消费需受审计 override。
-- Polymarket 市场登记表（冻结的 cn_registry_v3.parquet）：只用 admit_ts 与市场
-  元数据；`usdc_win`/`n_win`/`sigma`/`orientation`/`resolved_at`/`exploratory`
-  都由结果推导，一律 banned。tape 逐笔序列不在本票范围（需要 M5 的
-  venue/relay/negRisk 审计后才能物化）。
+- Polymarket 市场登记表（冻结的 cn_registry_v3.parquet）：前一代系统 Alpha-Data 的
+  产物（构造脚本 scripts/select_polymarket_markets.py），一行是一个 (市场, 品种) 对。
+  只用 admit_ts 与市场元数据；`usdc_win`/`n_win`（全窗口累计量，前视）、
+  `sigma`/`orientation`/`exploratory`（未审计的映射种子）与 `resolved_at`（M1 已禁用）
+  一律 banned，各自理由见 PM_BANNED_FIELDS。tape 逐笔序列不在本票范围
+  （需要 M5 的 venue/relay/negRisk 审计后才能物化）。
 """
 
 from __future__ import annotations
@@ -53,14 +55,22 @@ PM_ALLOWED_FIELDS = (
     "last_ts",
     "admit_ts",
 )
+# 禁用理由以来源构造脚本 Alpha-Data/scripts/select_polymarket_markets.py 为准。
+# 注意 usdc_win/n_win 的 win 指 window 而非 winning：它们是**全窗口**累计量，
+# 不含结算信息，但对窗口内任一决策时点都是前视。
+# sigma/orientation 来自事前注册的规则表（docs/mapping_taxonomy.md），
+# 不是由历史结果拟合；它们被门禁的理由是 Merge-Plan-2 §8.9 的映射种子条款。
 PM_BANNED_FIELDS = {
-    "usdc_win": "按结果侧统计的成交额，含结算信息",
-    "n_win": "按结果侧统计的笔数，含结算信息",
+    "usdc_win": "窗口内累计名义额（全窗口聚合），对窗口内任一决策时点均为前视",
+    "n_win": "窗口内累计成交笔数（全窗口聚合），对窗口内任一决策时点均为前视",
     "resolved_at": "结算时间，M1 合同已禁用",
-    "sigma": "方向标注由历史结果推导，属 outcome-exposed",
-    "orientation": "方向标注由历史结果推导，属 outcome-exposed",
-    "exploratory": "筛选标记由既往研究结果推导",
+    "sigma": "前一代系统事前注册的方向先验，属映射种子，未过 PIT/语义/provenance 审计",
+    "orientation": "sigma × 品种符号，同为未审计的映射种子",
+    "exploratory": "前一代系统规则表的探索性标记，属未审计的选样标注",
 }
+
+#: 登记表的成员资格筛选：窗口内累计名义额需达到该门槛（来源脚本默认值）。
+PM_ADMISSION_MIN_USDC = 100_000.0
 
 _CLS_DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 
@@ -248,9 +258,13 @@ def pm_registry_manifest(path: str) -> SourceManifest:
             publication_time="admit_ts（登记表判定该市场可用的时间）",
             availability_time="admit_ts",
             availability_rule=(
-                "市场只有在 admit_ts 之后才被视为已进入研究可见集合；"
-                "登记表由既往系统冻结产出，theme/product 映射只作机制种子，"
-                "必须在 Decision Map #5 重新通过语义与 provenance 审计"
+                "市场只有在 admit_ts 之后才被视为已进入研究可见集合。"
+                "admit_ts 是窗口内累计名义额首次达到 "
+                f"{PM_ADMISSION_MIN_USDC:.0f} 美元的链上时刻，构造上是点时化的；"
+                "但**成员资格本身是全窗口筛选**（要求全窗口累计额达到同一门槛），"
+                "在任一决策时点不可知，因此市场选择存在幸存者偏差，admit_ts 修不掉。"
+                "登记表由既往系统冻结产出，theme/product/sigma 映射只作机制种子，"
+                "必须在 Decision Map #5 重新通过 PIT、语义与 provenance 审计"
             ),
             timezone="UTC（epoch 秒）",
             unit_notes="admit_ts/first_ts/last_ts 为 epoch 秒；毫秒量级应触发单位断言失败",
@@ -285,7 +299,8 @@ def pm_registry_contract(path: str, *, product: str, rows: int, themes: dict[str
         banned_fields=sorted(m.banned_fields()),
         provisional_fields=sorted(m.provisional_fields()),
         notes=(
-            f"切片：product=={product}，{rows} 个市场，主题分布 {themes}。"
+            f"切片：product=={product}，{rows} 个 (市场, 品种) 对，主题分布 {themes}。"
+            "来源：Alpha-Data/scripts/select_polymarket_markets.py（v3 为加长窗口重跑版）。"
             "只登记市场元数据与 admit_ts；逐笔 belief 序列不在 M2 范围，"
             "需 M5 完成 venue/relay/negRisk 审计后才能物化。"
         ),

@@ -1,7 +1,7 @@
 {
   "spine_id": "sc-temporal-spine",
   "code_version": "0.1.0",
-  "generated_at": "2026-08-05T21:18:49.621972+00:00",
+  "generated_at": "2026-08-05T21:27:59.496184+00:00",
   "config_digest": "40e3b70830a020596f1e71989a877d1183ef950b30016f7664b8472066f917ae",
   "inputs": {
     "commodity_tick": {
@@ -178,7 +178,7 @@
     {
       "source_id": "pm_cn_registry_v3",
       "root_uri": "/Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket/features/cn_registry_v3.parquet",
-      "availability_rule": "市场只有在 admit_ts 之后才被视为已进入研究可见集合；登记表由既往系统冻结产出，theme/product 映射只作机制种子，必须在 Decision Map #5 重新通过语义与 provenance 审计",
+      "availability_rule": "市场只有在 admit_ts 之后才被视为已进入研究可见集合。admit_ts 是窗口内累计名义额首次达到 100000 美元的链上时刻，构造上是点时化的；但**成员资格本身是全窗口筛选**（要求全窗口累计额达到同一门槛），在任一决策时点不可知，因此市场选择存在幸存者偏差，admit_ts 修不掉。登记表由既往系统冻结产出，theme/product/sigma 映射只作机制种子，必须在 Decision Map #5 重新通过 PIT、语义与 provenance 审计",
       "timezone": "UTC（epoch 秒）",
       "banned_fields": [
         "exploratory",
@@ -190,7 +190,7 @@
       ],
       "provisional_fields": [],
       "audited_override_reason": "",
-      "notes": "切片：product==SC，370 个市场，主题分布 {'russia_ukraine': 53, 'mideast_conflict': 206, 'oil_price': 111}。只登记市场元数据与 admit_ts；逐笔 belief 序列不在 M2 范围，需 M5 完成 venue/relay/negRisk 审计后才能物化。"
+      "notes": "切片：product==SC，370 个 (市场, 品种) 对，主题分布 {'russia_ukraine': 53, 'mideast_conflict': 206, 'oil_price': 111}。来源：Alpha-Data/scripts/select_polymarket_markets.py（v3 为加长窗口重跑版）。只登记市场元数据与 admit_ts；逐笔 belief 序列不在 M2 范围，需 M5 完成 venue/relay/negRisk 审计后才能物化。"
     }
   ],
   "datasets": [
@@ -433,11 +433,12 @@
     "财联社可用时间 = 发布时刻 + 60 秒采集延迟（保守参数，记入 manifest）。"
   ],
   "blockers": [
-    "cn_registry_v3.parquet 的市场覆盖仅 2026-01-04 至 2026-07-13，整段落在 contaminated audit 区间；以该登记表为唯一市场来源的 Study（含 M4 tracer bullet 的 Polymarket 腿）只能得到 contaminated 结论。2022-2025 的市场发现需从 markets_clob.parquet 重建，属 M5 范围。",
+    "cn_registry_v3.parquet 的市场覆盖仅 2026-01-04 至 2026-07-13，整段落在 contaminated audit 区间；以该登记表为唯一市场来源的 Study（含 M4 tracer bullet 的 Polymarket 腿）只能得到 contaminated 结论。该起点是来源脚本 select_polymarket_markets.py 里写死的分析窗口，不是 Polymarket 数据的限制（daily_aligned 回溯至 2022-11-21）；窗口起点与 curve_daily.parquet 的 2026-01-05 一致，约束来自前一代系统期货侧的日频数据可得性，而 M2 已把 SC 期货补到 2022-11-01。2022-2025 的市场发现可从 daily_aligned 重建，属 M5 范围。",
+    "登记表的成员资格是全窗口筛选（要求窗口内累计名义额达到 10 万美元），在任一决策时点不可知，因此市场选择存在幸存者偏差；admit_ts 只把准入时刻点时化，修不掉选样偏差。M5 的市场发现必须给出点时化的成员资格规则。",
     "Polymarket 逐笔 belief 序列未物化：venue_class 与 is_relay 在 M1 manifest 中为 provisional，未完成 relay 剔除与 unknown venue 隔离前物化会重复计入名义额。属 M5 范围。",
     "brent_daily.csv 的来源方与发布时刻未核实，当前用保守规则替代；核实属 acquisition 流程，需人工授权。",
     "Alpha-Data curve_daily.parquet 仅覆盖 2026-01-05 至 2026-07-13，只能作该窗口的独立交叉核对，无法覆盖 discovery 与 historical validation 段的日频等价性检查。",
     "郑商所 Turnover 口径与日内倒退的全品种普查仍为 provisional（M1 遗留）；SC 属 INE，本票未触及该问题。"
   ],
-  "fingerprint": "9fc6ed7852e5ad8f08491aa8a1706557d67e3d7c94ce8d3ce6c3915610be7b71"
+  "fingerprint": "b50f9d29fc6c06cad31f47b28f7535fcb416d30c4ec5cbb9a83b173c43be8cff"
 }

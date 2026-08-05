@@ -72,7 +72,15 @@ BLOCKERS = [
     (
         "cn_registry_v3.parquet 的市场覆盖仅 2026-01-04 至 2026-07-13，整段落在 contaminated audit "
         "区间；以该登记表为唯一市场来源的 Study（含 M4 tracer bullet 的 Polymarket 腿）只能得到 "
-        "contaminated 结论。2022-2025 的市场发现需从 markets_clob.parquet 重建，属 M5 范围。"
+        "contaminated 结论。该起点是来源脚本 select_polymarket_markets.py 里写死的分析窗口，"
+        "不是 Polymarket 数据的限制（daily_aligned 回溯至 2022-11-21）；窗口起点与 "
+        "curve_daily.parquet 的 2026-01-05 一致，约束来自前一代系统期货侧的日频数据可得性，"
+        "而 M2 已把 SC 期货补到 2022-11-01。2022-2025 的市场发现可从 daily_aligned 重建，属 M5 范围。"
+    ),
+    (
+        "登记表的成员资格是全窗口筛选（要求窗口内累计名义额达到 10 万美元），"
+        "在任一决策时点不可知，因此市场选择存在幸存者偏差；admit_ts 只把准入时刻点时化，"
+        "修不掉选样偏差。M5 的市场发现必须给出点时化的成员资格规则。"
     ),
     (
         "Polymarket 逐笔 belief 序列未物化：venue_class 与 is_relay 在 M1 manifest 中为 provisional，"
