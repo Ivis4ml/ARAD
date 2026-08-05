@@ -1,0 +1,200 @@
+{
+  "source_id": "cls_telegraph",
+  "root_uri": "/Users/xinyu/Code/AR-Polymarket/Crawler/cls-data/data/output",
+  "scanner_version": "0.2.0",
+  "generated_at": "2026-08-05T19:24:33.729204+00:00",
+  "time_semantics": {
+    "event_time": "电报发布时刻（文件名日期 + Time）",
+    "publication_time": "等同 event_time（财联社滚动列表实时发布）",
+    "availability_time": "publication_time 加轮询延迟；历史回放取 publication_time 并加保守延迟参数",
+    "availability_rule": "feature availability_time = 文件名日期 + Time（Asia/Shanghai）+ 声明的采集延迟",
+    "timezone": "Asia/Shanghai",
+    "unit_notes": "Time 无日期成分，跨零点电报归属由文件名日期决定"
+  },
+  "fields": [
+    {
+      "name": "Index",
+      "dtype": "int64",
+      "semantic": "源内序号",
+      "unit": "",
+      "banned": false,
+      "banned_reason": "",
+      "provisional": false
+    },
+    {
+      "name": "Time",
+      "dtype": "str",
+      "semantic": "发布时刻（北京时间，日期在文件名）",
+      "unit": "HH:MM:SS",
+      "banned": false,
+      "banned_reason": "",
+      "provisional": false
+    },
+    {
+      "name": "Title",
+      "dtype": "str",
+      "semantic": "正文【】前缀的提取（约 21% 为空，非缺失）",
+      "unit": "",
+      "banned": false,
+      "banned_reason": "",
+      "provisional": false
+    },
+    {
+      "name": "Content",
+      "dtype": "str",
+      "semantic": "电报正文（中位约 155 字）",
+      "unit": "",
+      "banned": false,
+      "banned_reason": "",
+      "provisional": false
+    },
+    {
+      "name": "Labels",
+      "dtype": "str",
+      "semantic": "主题/板块标签（约 82.6% 覆盖）",
+      "unit": "",
+      "banned": false,
+      "banned_reason": "",
+      "provisional": false
+    },
+    {
+      "name": "Reads",
+      "dtype": "int64",
+      "semantic": "阅读数（抓取时刻快照）",
+      "unit": "",
+      "banned": true,
+      "banned_reason": "抓取时刻累计值，含事后信息（前视）；历史部分已饱和无截面信息",
+      "provisional": false
+    },
+    {
+      "name": "Comments",
+      "dtype": "int64",
+      "semantic": "评论数（抓取时刻快照）",
+      "unit": "",
+      "banned": true,
+      "banned_reason": "抓取时刻累计值，含事后信息（前视）",
+      "provisional": false
+    },
+    {
+      "name": "Shares",
+      "dtype": "int64",
+      "semantic": "分享数（抓取时刻快照）",
+      "unit": "",
+      "banned": true,
+      "banned_reason": "抓取时刻累计值，含事后信息（前视）",
+      "provisional": false
+    }
+  ],
+  "partitions": [
+    {
+      "key": "2020",
+      "path": "/Users/xinyu/Code/AR-Polymarket/Crawler/cls-data/data/output",
+      "files": 366,
+      "rows": 100927,
+      "bytes": null,
+      "start": "2020-01-01",
+      "end": "2020-12-31",
+      "notes": ""
+    },
+    {
+      "key": "2021",
+      "path": "/Users/xinyu/Code/AR-Polymarket/Crawler/cls-data/data/output",
+      "files": 365,
+      "rows": 108730,
+      "bytes": null,
+      "start": "2021-01-01",
+      "end": "2021-12-31",
+      "notes": ""
+    },
+    {
+      "key": "2022",
+      "path": "/Users/xinyu/Code/AR-Polymarket/Crawler/cls-data/data/output",
+      "files": 365,
+      "rows": 145022,
+      "bytes": null,
+      "start": "2022-01-01",
+      "end": "2022-12-31",
+      "notes": ""
+    },
+    {
+      "key": "2023",
+      "path": "/Users/xinyu/Code/AR-Polymarket/Crawler/cls-data/data/output",
+      "files": 365,
+      "rows": 140692,
+      "bytes": null,
+      "start": "2023-01-01",
+      "end": "2023-12-31",
+      "notes": ""
+    },
+    {
+      "key": "2024",
+      "path": "/Users/xinyu/Code/AR-Polymarket/Crawler/cls-data/data/output",
+      "files": 366,
+      "rows": 157268,
+      "bytes": null,
+      "start": "2024-01-01",
+      "end": "2024-12-31",
+      "notes": ""
+    },
+    {
+      "key": "2025",
+      "path": "/Users/xinyu/Code/AR-Polymarket/Crawler/cls-data/data/output",
+      "files": 365,
+      "rows": 158005,
+      "bytes": null,
+      "start": "2025-01-01",
+      "end": "2025-12-31",
+      "notes": ""
+    },
+    {
+      "key": "2026",
+      "path": "/Users/xinyu/Code/AR-Polymarket/Crawler/cls-data/data/output",
+      "files": 169,
+      "rows": 83576,
+      "bytes": null,
+      "start": "2026-01-01",
+      "end": "2026-06-18",
+      "notes": ""
+    }
+  ],
+  "findings": [
+    {
+      "severity": "info",
+      "code": "cls.content_sample",
+      "message": "内容抽样：Time 格式与 Content 非空检查",
+      "evidence": {
+        "sampled_files": 12,
+        "sampled_rows": 3787,
+        "bad_time_format": 0,
+        "empty_content": 0
+      }
+    },
+    {
+      "severity": "info",
+      "code": "cls.in_roll_universe",
+      "message": "覆盖率限定：历史回填只见 in_roll=1 的可见母体；相对实时快照并集的内容覆盖率经归日比对为 99% 至 100%（scripts/verify_cls_coverage.py），未进入滚动列表的条目两个来源都不可见",
+      "evidence": {}
+    },
+    {
+      "severity": "info",
+      "code": "cls.coverage_end",
+      "message": "数据止于最后覆盖日；此后缺口的回爬属于 acquisition 流程，需人类授权",
+      "evidence": {
+        "last_day": "2026-06-18"
+      }
+    }
+  ],
+  "facts": {
+    "files": 2361,
+    "rows": 894220,
+    "first_day": "2020-01-01",
+    "last_day": "2026-06-18",
+    "calendar_gaps": 0
+  },
+  "source_snapshot": {
+    "method": "content_sha256",
+    "digest": "2a2418f159858ec0eeb3d659fe0c5a51c2ad6c26d867e5f1037d76c59723857e",
+    "guarantee": "对全部 CSV 文件的原始字节按文件名序聚合 sha256（全文哈希）。可检测：任何内容修改（含等长替换）、文件增删。无已知盲区。"
+  },
+  "fingerprint": "75a41c172ef67a10d18db9aff686ea2a1595c2fa334e6d362851bcf660959ab7"
+}

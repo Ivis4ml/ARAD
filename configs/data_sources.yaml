@@ -1,0 +1,23 @@
+# 三个只读数据源的位置与扫描参数（M1）。
+# 来源仓库一律只读；数据更新属于 acquisition 流程，需人类单独授权。
+
+commodity_tick:
+  root: /Users/xinyu/Code/AR-Polymarket/chinese-commodity
+  # 三种归档形态：年目录月包、根目录月包、按日包目录
+  layouts:
+    - "2022/*.zip"
+    - "2023/*.zip"
+    - "2024/*.zip"
+    - "2025*.zip"
+    - "2026*.zip"
+    - "202607/*.zip"
+
+polymarket:
+  hf_daily_aligned: /Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket/daily_aligned
+  extension_tape: /Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket/features/extension_tape
+  seam_date: "2026-04-28"
+
+cls:
+  output_dir: /Users/xinyu/Code/AR-Polymarket/Crawler/cls-data/data/output
+  filename_pattern: "财联社电报*.csv"
+  content_sample_files: 12
