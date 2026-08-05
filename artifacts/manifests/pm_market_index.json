@@ -1,8 +1,8 @@
 {
   "spine_id": "pm-market-index",
-  "code_version": "census-0.2.0/index-pit-market-index-v1/src-3d79afd5c5df106a",
-  "generated_at": "2026-08-05T22:34:14.762585+00:00",
-  "config_digest": "ea9c612eaa486b1b4dce3eb1a0a35e5f553ec0f5c2979a9aaeb12353df2f4e6e",
+  "code_version": "census-0.3.0/index-pit-market-index-v1/src-4f0bb7f8efba2b39",
+  "generated_at": "2026-08-05T23:12:22.687068+00:00",
+  "config_digest": "c06ae35b1e4f31604b13eb769c6b55c13537f3c2051c51ad1c190ea21dd6e1d3",
   "inputs": {
     "polymarket_tape": {
       "fingerprint": "3d14332d44631c22eae943e84b4a1f9ee58a6017e7617fae91df7335f81a4dd2",
@@ -10,23 +10,18 @@
       "scanner_version": "0.2.0"
     },
     "polymarket_tape_partitions": {
-      "fingerprint": "48dead616401283aa2fb345ddb86cb6a0f9b62579d3df5bce0e4ff2bed3637f5",
-      "source_snapshot_digest": "parquet_footer_sha256_per_partition",
-      "scanner_version": "0.2.0"
+      "fingerprint": "87eefca5896a0dd2258e7c37b6377d8e99be223009d9689894ca9d1c569db01c",
+      "source_snapshot_digest": "file_sha256_per_partition",
+      "scanner_version": "0.3.0"
     },
     "asset_map": {
-      "fingerprint": "1cbde3309c7e9bffb249c846a2abdfe60086cc33b1ba344d477f3fc2156f6883",
-      "source_snapshot_digest": "parquet_footer_sha256",
-      "scanner_version": ""
-    },
-    "markets_clob": {
-      "fingerprint": "9574c9012b690d3d094fcf42dc942052133ffdd252077cfd592176ef18fd3fff",
-      "source_snapshot_digest": "parquet_footer_sha256",
+      "fingerprint": "a29ef467291781e930e07b62b327bc20eaca6b52e4a45195e3b7d9b1fcaed828",
+      "source_snapshot_digest": "file_sha256",
       "scanner_version": ""
     },
     "sc_target": {
-      "fingerprint": "fc1e06e0a93223225b945c16009f8b0097c0bef36fea4c24ee930ea9e10ec96e",
-      "source_snapshot_digest": "parquet_footer_sha256",
+      "fingerprint": "9e3e25ced187b0619e4f0ec9713ef1b8a2d7337e7e30ee110c268e4a6f5b6126",
+      "source_snapshot_digest": "file_sha256",
       "scanner_version": ""
     }
   },
@@ -44,7 +39,15 @@
   },
   "targets": [],
   "control_contracts": [],
-  "deprecated_sources": [],
+  "deprecated_sources": [
+    {
+      "source_id": "markets_clob",
+      "root_uri": "/Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket_chain/markets_clob.parquet",
+      "status": "deferred_not_consumed",
+      "reason": "markets_clob 的 end_date_iso / game_start_time / tags 等字段没有可证明的历史时点可见性，未经 PIT 审计；M2.5 的市场与资产身份完全来自 tape 的首笔公开成交，不消费本表",
+      "deferred_to": "Decision Map #12（Polymarket 市场语义映射）"
+    }
+  ],
   "datasets": [
     {
       "name": "asset_presence",
@@ -66,7 +69,7 @@
       "name": "market_day",
       "path": "data/pm_index/market_day",
       "rows": 2787765,
-      "fingerprint": "eb69993bcd60a658b27a7fefaa91fb14d6a30763cd2bfe4daa0b8bd9e5de0637",
+      "fingerprint": "cb48f9d0b6183441e9fb51c3c0d2a039a01c1997db6eff1e808fc6a28f780a27",
       "partitions": 1326,
       "note": "逐分区产物逻辑指纹的确定性合并（不是来源摘要）"
     },
@@ -162,10 +165,20 @@
     },
     {
       "severity": "info",
-      "code": "pm_census.determinism_verified",
-      "message": "从已物化产物重算逐分区指纹并与 sidecar 比对",
+      "code": "pm_census.artifact_integrity_verified",
+      "message": "已物化产物与同次生成的 sidecar 指纹一致（产物完整性，不构成独立重建确定性证明）",
       "evidence": {
         "partitions_checked": 1326,
+        "mismatched": [],
+        "mismatched_count": 0
+      }
+    },
+    {
+      "severity": "info",
+      "code": "pm_census.rebuild_determinism_sampled",
+      "message": "从来源独立重跑抽样分区，与已物化产物的逻辑指纹逐位比对",
+      "evidence": {
+        "partitions_rebuilt": 12,
         "mismatched": [],
         "mismatched_count": 0
       }
@@ -307,5 +320,5 @@
     "negRisk 成交在两段 tape 中都不存在（见 finding pm_census.neg_risk_absent_in_both_segments 的结构化证据）。按裁决 negRisk 回补与 2026-07-14 之后续爬不作为前置条件；只有普查证明缺口会阻断目标机制时，才单独申请 acquisition 授权。",
     "抽样重复腿检出率见 finding pm_census.duplicate_legs_provisional 的结构化证据。缺 tx_hash / log_index，无法区分中继腿与真实重复成交，因此名义额类指标一律 provisional，且成员资格不得由名义额单独决定。"
   ],
-  "fingerprint": "8f6bd45ffe33758937760eefb9c283bd29dc66ca964c97c77b9497533c975b94"
+  "fingerprint": "7e7a4a8497d06061600433c878123dab6e4607e0b59bca704d11201c75e9e729"
 }

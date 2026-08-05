@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import collections
+import glob
 import os
 from datetime import UTC, datetime, timedelta
 
@@ -17,13 +18,15 @@ import yaml
 
 from ..data_catalog.pm_census import (
     CENSUS_VERSION,
+    DIGEST_METHOD,
     audit_duplicate_legs,
     audit_missing_venue_columns,
     audit_neg_risk_coverage,
     build_census,
     discover_partitions,
-    partition_digest,
-    verify_census,
+    file_digest,
+    verify_artifact_integrity,
+    verify_rebuild_determinism,
 )
 from ..data_catalog.schema import QualityFinding, Severity, load_manifest
 from .episode import SampleSegment, classify_segment
@@ -77,37 +80,30 @@ BLOCKERS = [
 ]
 
 
-_CODE_FILES = (
-    "data_catalog/pm_census.py",
-    "temporal/pm_market_index.py",
-    "temporal/pm_pipeline.py",
-)
+_CODE_DIGEST_NOTE = "整包代码内容哈希：src/arad/**/*.py 加 pyproject.toml、uv.lock"
 
 
 def _code_digest() -> str:
-    """产生本流水线的代码内容哈希，取代手写版本号。"""
+    """整个包的代码内容哈希加依赖锁，取代手写版本号与手列文件清单。
+
+    手列依赖必然遗漏（manifest.py、timeguard.py、episode.py 都被本流水线间接依赖），
+    因此直接哈希 `src/arad/**/*.py` 与 pyproject.toml、uv.lock。
+    """
     import hashlib
 
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    pkg = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    repo = os.path.dirname(os.path.dirname(pkg))
+    paths = sorted(glob.glob(os.path.join(pkg, "**", "*.py"), recursive=True))
+    for extra in ("pyproject.toml", "uv.lock"):
+        candidate = os.path.join(repo, extra)
+        if os.path.exists(candidate):
+            paths.append(candidate)
     h = hashlib.sha256()
-    for rel in _CODE_FILES:
-        with open(os.path.join(base, rel), "rb") as f:
+    for path in paths:
+        h.update(os.path.relpath(path, repo).encode())
+        with open(path, "rb") as f:
             h.update(f.read())
     return h.hexdigest()[:16]
-
-
-def _file_digest(path: str) -> str:
-    if not os.path.exists(path):
-        return ""
-    if path.endswith(".parquet"):
-        return partition_digest(path)
-    import hashlib
-
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def _input_refs(cfg: dict, pm_manifest, summaries: list[dict]) -> dict[str, InputRef]:
@@ -122,19 +118,19 @@ def _input_refs(cfg: dict, pm_manifest, summaries: list[dict]) -> dict[str, Inpu
         ),
         "polymarket_tape_partitions": InputRef(
             fingerprint=combine_digests([s["source_digest"] for s in summaries]),
-            source_snapshot_digest="parquet_footer_sha256_per_partition",
+            source_snapshot_digest=f"{DIGEST_METHOD}_per_partition",
             scanner_version=CENSUS_VERSION,
         ),
     }
+    # 只登记**实际被消费**的输入。markets_clob 当前未被消费，登记它会造成
+    # 虚假的依赖关系；它以 deferred_sources 形式记录，留给 Decision Map #12。
     for name, path in (
         ("asset_map", cfg["audit"]["asset_map"]),
-        ("markets_clob", cfg["audit"].get("markets_clob", "")),
         ("sc_target", cfg["sc"]["target_parquet"]),
     ):
-        if path:
+        if path and os.path.exists(path):
             refs[name] = InputRef(
-                fingerprint=_file_digest(path),
-                source_snapshot_digest="parquet_footer_sha256" if path.endswith(".parquet") else "sha256",
+                fingerprint=file_digest(path), source_snapshot_digest=DIGEST_METHOD
             )
     return refs
 
@@ -348,14 +344,29 @@ def pm_index_build(
     pq.write_table(index.presence, os.path.join(out_dir, "market_presence.parquet"))
     pq.write_table(index.asset_presence, os.path.join(out_dir, "asset_presence.parquet"))
 
-    checked, bad = verify_census(out_dir)
+    checked, bad = verify_artifact_integrity(out_dir)
     findings.append(
         QualityFinding(
             severity=Severity.ERROR if bad else Severity.INFO,
-            code="pm_census.determinism_verified",
-            message="从已物化产物重算逐分区指纹并与 sidecar 比对",
+            code="pm_census.artifact_integrity_verified",
+            message=(
+                "已物化产物与同次生成的 sidecar 指纹一致（产物完整性，"
+                "不构成独立重建确定性证明）"
+            ),
             evidence={"partitions_checked": checked, "mismatched": bad[:10],
                       "mismatched_count": len(bad)},
+        )
+    )
+    r_checked, r_bad = verify_rebuild_determinism(
+        roots, out_dir, sample=int(cfg["audit"]["determinism_sample"])
+    )
+    findings.append(
+        QualityFinding(
+            severity=Severity.ERROR if r_bad else Severity.INFO,
+            code="pm_census.rebuild_determinism_sampled",
+            message="从来源独立重跑抽样分区，与已物化产物的逻辑指纹逐位比对",
+            evidence={"partitions_rebuilt": r_checked, "mismatched": r_bad[:10],
+                      "mismatched_count": len(r_bad)},
         )
     )
 
@@ -468,6 +479,19 @@ def pm_index_build(
             "trade_concentration": n_eff,
         },
         datasets=[DatasetRef(**d) for d in datasets],
+        deprecated_sources=[
+            {
+                "source_id": "markets_clob",
+                "root_uri": cfg["audit"].get("markets_clob", ""),
+                "status": "deferred_not_consumed",
+                "reason": (
+                    "markets_clob 的 end_date_iso / game_start_time / tags 等字段没有"
+                    "可证明的历史时点可见性，未经 PIT 审计；M2.5 的市场与资产身份完全"
+                    "来自 tape 的首笔公开成交，不消费本表"
+                ),
+                "deferred_to": "Decision Map #12（Polymarket 市场语义映射）",
+            }
+        ],
         findings=findings,
         assumptions=ASSUMPTIONS,
         blockers=BLOCKERS,

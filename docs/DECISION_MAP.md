@@ -146,17 +146,25 @@
 
 ## 当前前沿
 
-**当前唯一在办票：#12 Polymarket 市场语义映射。**
+**当前唯一在办票：M2.5（PIT Market Index），处于验收中，尚未关闭。**
+关闭后进入 **#12 Polymarket 市场语义映射**。
 
-已关闭：#3（M1）、#4（M2 SC 窄切片 Temporal Spine）、#5 的时间侧与市场身份侧
-（M2.5 PIT Market Index）。
+已关闭：#3（M1）、#4（M2 SC 窄切片 Temporal Spine）。#5 的时间侧随 M2 关闭；
+市场身份侧由 M2.5 交付，待验收。
+
+M2.5 验收轮次：第二轮评审提出 Standards 5 项、Spec 3 项，已全部修复
+（整文件内容哈希、整包代码哈希、产物完整性与独立重建确定性分开报告、
+asset_day 孤儿与缺失检查、周期心跳、市场级最大无成交间隔按 condition 序列计算、
+markets_clob 移出 inputs 改记 deferred、真正 n_eff 移交 #6）。
 
 M2.5 交付：855,614,453 笔的 label-blind 普查（1,208,594 个市场 / 2,126,849 个 asset，
 市场与资产两级点时化身份），成交按样本段分布 discovery 0.84% / historical validation
 11.29% / contaminated audit 87.87%（**样本段划分未修改，2026 仍是 contaminated audit**）；
 1,816 个 SC 决策 cutoff 上 7 日窗内有成交的市场数中位 601、最大 66,523、42 个为零。
 成交集中度的 Kish 等价数（市场维 113,631、日维 225.3）**不是**统计有效样本量，
-真正的 n_eff 需要双向 cluster、HAC 与 block bootstrap，属 #6 评价机范围。
+产物中以 `is_effective_sample_size: false` 显式标注，不得用于功效计算；
+真正的 n_eff 必须绑定 Feature、target、Episode 与相关结构（双向 cluster、HAC、
+block bootstrap），已按裁决移交 **#6 评价机**，工程票同步修订。
 
 尚未解决的阻塞事项记录在两份 manifest 的 `blockers` 字段：
 `sc_temporal_spine.json`（Brent 发布时点核实、adjusted 连续序列、curve 参照仅覆盖
@@ -164,4 +172,4 @@ M2.5 交付：855,614,453 笔的 label-blind 普查（1,208,594 个市场 / 2,12
 两段都不含 negRisk 成交、语义映射另立票）。M1 的 Polymarket 字段合同已改为由实测
 schema 生成，`ENGINEERING_PROMPT.md` 与 `Merge-Plan-2.md` §2.1 已完成对应的文档归一化。
 
-#12 关闭后进入 **#6 Study 合同与不可变评估器**（Merge-Plan-2 的 M3）。
+M2.5 关闭 → #12 语义映射 → **#6 Study 合同与不可变评估器**（Merge-Plan-2 的 M3）。

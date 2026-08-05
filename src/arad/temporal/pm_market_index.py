@@ -144,15 +144,22 @@ class PitMarketIndex:
         market_files = sorted(glob.glob(os.path.join(root, "market_day", "*.parquet")))
         if not market_files:
             raise FileNotFoundError(f"{root} 下没有普查产物；请先运行 pm-index build")
-        if expected_keys is not None:
-            found = {os.path.basename(p)[: -len(".parquet")] for p in market_files}
-            orphans = sorted(found - expected_keys)
-            if orphans:
-                raise OrphanCensusPartition(
-                    f"普查目录含 {len(orphans)} 个来源已消失的孤儿分区："
-                    f"{orphans[:5]}；索引拒绝加载，请重跑 build 以清理"
-                )
         asset_files = sorted(glob.glob(os.path.join(root, "asset_day", "*.parquet")))
+        if expected_keys is not None:
+            market_keys = {os.path.basename(p)[: -len(".parquet")] for p in market_files}
+            asset_keys = {os.path.basename(p)[: -len(".parquet")] for p in asset_files}
+            problems = {
+                "market_day_orphans": sorted(market_keys - expected_keys)[:5],
+                "asset_day_orphans": sorted(asset_keys - expected_keys)[:5],
+                "market_day_missing": sorted(expected_keys - market_keys)[:5],
+                "asset_day_missing": sorted(expected_keys - asset_keys)[:5],
+            }
+            if any(problems.values()):
+                raise OrphanCensusPartition(
+                    "普查产物与来源分区集合不一致，索引拒绝加载（请重跑 build）："
+                    f"{ {k: v for k, v in problems.items() if v} }"
+                )
+        
         market = pa.concat_tables([pq.read_table(p) for p in market_files])
         asset = (
             pa.concat_tables([pq.read_table(p) for p in asset_files]) if asset_files else None

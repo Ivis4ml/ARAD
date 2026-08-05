@@ -23,8 +23,11 @@ index:
 audit:
   sample_partitions: 24
   asset_map: /Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket_chain/asset_map.parquet
-  # 只作经 PIT 审计的原始元数据来源登记；语义映射另立票（Decision Map #12）
+  # markets_clob 在 M2.5 **不被消费**：字段的历史可得性未经证明，留给 Decision Map #12。
+  # 这里只记录路径，用于在 manifest 的 deferred_sources 中留痕，不进 inputs。
   markets_clob: /Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket_chain/markets_clob.parquet
+  # 从来源独立重跑并比对指纹的分区数
+  determinism_sample: 12
 
 inputs:
   polymarket_manifest: artifacts/manifests/polymarket_tape.json

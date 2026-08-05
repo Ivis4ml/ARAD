@@ -411,16 +411,35 @@ def test_index_refuses_to_load_orphan_partitions(tmp_path):
         PitMarketIndex.from_census_dir(out, expected_keys={s["key"] for s in summaries})
 
 
-def test_census_verify_detects_tampered_output(tmp_path):
-    from arad.data_catalog.pm_census import build_census, verify_census
+def test_artifact_integrity_check_detects_tampered_output(tmp_path):
+    from arad.data_catalog.pm_census import build_census, verify_artifact_integrity
 
     root, out = str(tmp_path / "hf"), str(tmp_path / "out")
     _tiny_tape(os.path.join(root, "2024-01-01.parquet"), [1_704_070_800])
     build_census({"hf": root}, out, workers=1)
-    checked, bad = verify_census(out)
+    checked, bad = verify_artifact_integrity(out)
     assert checked == 1 and bad == []
     os.remove(os.path.join(out, "market_day", "hf_2024-01-01.parquet"))
-    checked, bad = verify_census(out)
+    checked, bad = verify_artifact_integrity(out)
+    assert bad == ["hf_2024-01-01"]
+
+
+def test_rebuild_determinism_is_checked_against_the_source_not_the_sidecar(tmp_path):
+    """独立重建确定性：从来源重跑必须得到逐位相同的逻辑内容。"""
+    from arad.data_catalog.pm_census import build_census, verify_rebuild_determinism
+
+    root, out = str(tmp_path / "hf"), str(tmp_path / "out")
+    _tiny_tape(os.path.join(root, "2024-01-01.parquet"), [1_704_070_800, 1_704_070_860])
+    build_census({"hf": root}, out, workers=1)
+    checked, bad = verify_rebuild_determinism({"hf": root}, out, sample=4)
+    assert checked == 1 and bad == []
+    # 来源改变而未重建时，独立重跑必须报告不一致
+    _tiny_tape(
+        os.path.join(root, "2024-01-01.parquet"),
+        [1_704_070_800, 1_704_070_860],
+        prices=[0.5, 0.9],
+    )
+    checked, bad = verify_rebuild_determinism({"hf": root}, out, sample=4)
     assert bad == ["hf_2024-01-01"]
 
 
@@ -489,3 +508,96 @@ def test_price_changes_are_computed_per_asset_not_per_market(tmp_path):
     assert market_tbl.column("price_changes").to_pylist() == [0]
     assert market_tbl.column("assets").to_pylist() == [2]
     assert market_tbl.column("active_seconds").to_pylist() == [6]
+
+
+# ---------------------------------------------------------------- 强内容身份
+
+
+def test_digest_detects_content_change_when_footer_is_identical(tmp_path):
+    """关闭统计量、无压缩、字节数相同的两个不同内容分区必须得到不同摘要。
+
+    这正是页脚摘要检不出的情形：没有统计量就没有 min/max，行组布局也一样，
+    页脚字节可以完全相同，缓存会被错误复用。
+    """
+    import pyarrow.parquet as pq
+
+    from arad.data_catalog.pm_census import file_digest
+
+    def write(path, values):
+        pq.write_table(
+            pa.table({"v": pa.array(values, pa.int64())}),
+            path,
+            compression="none",
+            write_statistics=False,
+        )
+
+    a = str(tmp_path / "a.parquet")
+    b = str(tmp_path / "b.parquet")
+    write(a, [1, 2, 3, 4])
+    write(b, [5, 6, 7, 8])
+    assert os.path.getsize(a) == os.path.getsize(b)
+    assert file_digest(a) != file_digest(b)
+
+
+def test_digest_is_stable_for_identical_content(tmp_path):
+    import pyarrow.parquet as pq
+
+    from arad.data_catalog.pm_census import file_digest
+
+    a, b = str(tmp_path / "a.parquet"), str(tmp_path / "b.parquet")
+    for path in (a, b):
+        pq.write_table(pa.table({"v": pa.array([1, 2, 3], pa.int64())}), path)
+    assert file_digest(a) == file_digest(b)
+
+
+# ---------------------------------------------------------------- 市场级间隔
+
+
+def test_market_max_gap_uses_the_condition_series_not_the_per_asset_maximum(tmp_path):
+    """YES/NO 每秒交替成交时，市场每秒都有成交，最大间隔是 1 秒而不是 2 秒。"""
+    import pyarrow.parquet as pq
+
+    from arad.data_catalog.pm_census import census_partition
+
+    path = str(tmp_path / "2024-01-01.parquet")
+    n = 6
+    pq.write_table(
+        pa.table(
+            {
+                "condition_id": pa.array(["0xc"] * n, pa.string()),
+                "asset_id": pa.array(["yes", "no"] * (n // 2), pa.string()),
+                "outcome_seq": pa.array([0, 1] * (n // 2), pa.int64()),
+                "block_timestamp": pa.array(
+                    [1_704_070_800 + i for i in range(n)], pa.int64()
+                ),
+                "price": pa.array([0.7, 0.3] * (n // 2), pa.float64()),
+                "usdc_amount": pa.array([1.0] * n, pa.float64()),
+                "neg_risk": pa.array([False] * n, pa.bool_()),
+            }
+        ),
+        path,
+    )
+    asset_tbl, market_tbl = census_partition(path, "2024-01-01")
+    assert sorted(asset_tbl.column("max_gap_seconds").to_pylist()) == [2, 2]
+    assert market_tbl.column("max_gap_seconds").to_pylist() == [1]
+
+
+# ---------------------------------------------------------------- 代码指纹
+
+
+def test_code_digest_covers_the_whole_package_not_a_hand_listed_subset():
+    from arad.temporal.pm_pipeline import _CODE_DIGEST_NOTE, _code_digest
+
+    assert len(_code_digest()) == 16
+    assert "src/arad" in _CODE_DIGEST_NOTE
+
+
+def test_index_rejects_missing_asset_day_partitions(tmp_path):
+    from arad.data_catalog.pm_census import build_census
+
+    root, out = str(tmp_path / "hf"), str(tmp_path / "out")
+    _tiny_tape(os.path.join(root, "2024-01-01.parquet"), [1_704_070_800])
+    summaries, _ = build_census({"hf": root}, out, workers=1)
+    os.remove(os.path.join(out, "asset_day", "hf_2024-01-01.parquet"))
+    with pytest.raises(OrphanCensusPartition):
+        PitMarketIndex.from_census_dir(out, expected_keys={s["key"] for s in summaries})

@@ -7,8 +7,9 @@
 互补的 outcome token，价格序列不同，混在一起会制造伪跳变。市场级的活跃秒数按
 condition 去重统计，避免两个 token 同秒成交被重复计数。
 
-内容身份取 parquet FileMetaData 的**页脚字节**：行数与文件大小相同的等长内容改写
-也会改变列块偏移与统计量，因此能被检出（行数/字节数级的摘要不能）。
+内容身份取**整文件 sha256**。页脚摘要曾被用作内容身份，但关闭统计量、无压缩且
+字节数相同的两个不同内容分区会得到相同页脚，缓存会被错误复用；两段 tape 合计
+16.6 GB，实测 sha256 约 2.1 GB/s，全量哈希的代价可以接受。
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ import glob
 import hashlib
 import json
 import os
-import struct
+import threading
 import time
 from concurrent.futures import ProcessPoolExecutor
 
@@ -28,7 +29,10 @@ import pyarrow.parquet as pq
 from .schema import QualityFinding, Severity
 from .timeguard import require_epoch_seconds
 
-CENSUS_VERSION = "0.2.0"
+CENSUS_VERSION = "0.3.0"
+
+#: 心跳写入周期（秒）。按时间而非完成个数，使单分区卡死也能被观测到。
+HEARTBEAT_SECONDS = 5.0
 
 #: 普查允许读取的列。任何结果字段都不在此列。
 CENSUS_COLUMNS = (
@@ -99,25 +103,26 @@ def require_label_blind(columns) -> list[str]:
     return list(columns)
 
 
-def partition_digest(path: str) -> str:
-    """分区的内容身份：parquet 页脚（FileMetaData）字节的 sha256 加文件大小。
+DIGEST_METHOD = "file_sha256"
 
-    页脚含每个列块的偏移、压缩大小与统计量，因此等长内容改写也会改变它。
-    仅按行数与字节数构造的摘要做不到这一点，会错误复用缓存。
+
+def file_digest(path: str) -> str:
+    """整文件 sha256 加字节数。这是内容身份，不是元数据摘要。
+
+    只哈希 parquet 页脚不足以构成内容身份：关闭统计量、无压缩且长度相同的两个
+    不同内容分区会得到相同页脚，缓存与派生产物都会被错误复用。
     """
     size = os.path.getsize(path)
-    with open(path, "rb") as f:
-        f.seek(size - 8)
-        tail = f.read(8)
-        if tail[4:] != b"PAR1":
-            raise ValueError(f"{path} 不是 parquet 文件（尾部魔数不匹配）")
-        footer_len = struct.unpack("<I", tail[:4])[0]
-        f.seek(size - 8 - footer_len)
-        footer = f.read(footer_len)
     h = hashlib.sha256()
-    h.update(footer)
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 22), b""):
+            h.update(chunk)
     h.update(str(size).encode())
     return h.hexdigest()
+
+
+#: 兼容旧调用名。
+partition_digest = file_digest
 
 
 def _bool_array(column) -> pa.Array:
@@ -204,12 +209,12 @@ def _asset_level(work: pa.Table, date_key: str, cid_values, asset_values) -> pa.
 def _market_level(work: pa.Table, date_key: str, cid_values, asset_tbl: pa.Table) -> pa.Table:
     s = work.sort_by([("cid", "ascending"), ("ts", "ascending")])
     gap, _changed, new_second = _series_metrics(s, ["cid"])
-    s = s.append_column("gap", gap)
     s = s.append_column("new_second", new_second)
+    s = s.append_column("gap_market", gap)
     g = pa.TableGroupBy(s, ["cid"], use_threads=False).aggregate(
         [
             ("ts", "count"), ("ts", "min"), ("ts", "max"), ("usdc", "sum"),
-            ("new_second", "sum"), ("neg", "max"),
+            ("new_second", "sum"), ("neg", "max"), ("gap_market", "max"),
         ]
     )
     market = pa.table(
@@ -221,6 +226,9 @@ def _market_level(work: pa.Table, date_key: str, cid_values, asset_tbl: pa.Table
             "first_ts": pc.cast(g.column("ts_min"), pa.int64()),
             "last_ts": pc.cast(g.column("ts_max"), pa.int64()),
             "active_seconds": pc.cast(g.column("new_second_sum"), pa.int64()),
+            # 市场级最大无成交间隔按 condition 序列计算：两个 outcome token 交替
+            # 成交时，市场每秒都有成交，取各 asset gap 的最大值会高估
+            "max_gap_seconds": pc.cast(pc.fill_null(g.column("gap_market_max"), 0), pa.int64()),
             "neg_risk": pc.greater(g.column("neg_max"), 0),
         }
     )
@@ -228,7 +236,7 @@ def _market_level(work: pa.Table, date_key: str, cid_values, asset_tbl: pa.Table
     # 两张表的 condition_id 集合相同（每个市场至少一个 asset），按键排序后逐列对齐，
     # 不用 join：join 在千万行级分区上会走 acero 并占用额外内存。
     per_market = pa.TableGroupBy(asset_tbl, ["condition_id"], use_threads=False).aggregate(
-        [("price_changes", "sum"), ("asset_id", "count"), ("max_gap_seconds", "max")]
+        [("price_changes", "sum"), ("asset_id", "count")]
     ).sort_by([("condition_id", "ascending")])
     market = market.sort_by([("condition_id", "ascending")])
     if market.num_rows != per_market.num_rows:
@@ -245,7 +253,7 @@ def _market_level(work: pa.Table, date_key: str, cid_values, asset_tbl: pa.Table
             "last_ts": market.column("last_ts"),
             "active_seconds": market.column("active_seconds"),
             "price_changes": pc.cast(per_market.column("price_changes_sum"), pa.int64()),
-            "max_gap_seconds": pc.cast(per_market.column("max_gap_seconds_max"), pa.int64()),
+            "max_gap_seconds": market.column("max_gap_seconds"),
             "assets": pc.cast(per_market.column("asset_id_count"), pa.int64()),
             "neg_risk": market.column("neg_risk"),
         },
@@ -317,6 +325,18 @@ def discover_partitions(roots: dict[str, str]) -> list[tuple[str, str, str]]:
     return sorted(out)
 
 
+def census_keys(out_dir: str) -> dict[str, set[str]]:
+    """各产物目录里实际存在的分区键，用于孤儿与缺失检查。"""
+    out: dict[str, set[str]] = {}
+    for sub in ("_partitions", "asset_day", "market_day"):
+        base = os.path.join(out_dir, sub)
+        out[sub] = {
+            os.path.basename(p).rsplit(".", 1)[0]
+            for p in glob.glob(os.path.join(base, "*"))
+        } if os.path.isdir(base) else set()
+    return out
+
+
 def prune_orphans(out_dir: str, valid_keys: set[str]) -> list[str]:
     """删除来源分区已消失的产物。否则索引会继续加载孤儿数据。"""
     removed = []
@@ -381,31 +401,60 @@ def build_census(
         )
 
     if tasks:
-        state = {"finished": 0, "started": time.monotonic()}
+        state = {
+            "finished": 0,
+            "started": time.monotonic(),
+            "last_progress": time.monotonic(),
+            "last_key": None,
+        }
+        stop = threading.Event()
+
+        def write_beat() -> None:
+            now = time.monotonic()
+            with open(heartbeat_path, "w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "stage": "census",
+                        "done": state["finished"],
+                        "total": len(tasks),
+                        "elapsed_seconds": round(now - state["started"], 1),
+                        "seconds_since_last_completion": round(now - state["last_progress"], 1),
+                        "last_key": state["last_key"],
+                    },
+                    f,
+                )
+
+        def ticker() -> None:
+            # 按时间周期写心跳，而不是按完成个数：单分区卡死时心跳仍在跳，
+            # seconds_since_last_completion 会持续增长，卡死可被外部观测到
+            while not stop.wait(HEARTBEAT_SECONDS):
+                write_beat()
+
+        thread = None
+        if heartbeat_path:
+            write_beat()
+            thread = threading.Thread(target=ticker, daemon=True)
+            thread.start()
 
         def beat(summary: dict) -> None:
             state["finished"] += 1
+            state["last_progress"] = time.monotonic()
+            state["last_key"] = summary["key"]
             done[summary["key"]] = summary
-            if heartbeat_path and (state["finished"] % 25 == 0 or state["finished"] == len(tasks)):
-                with open(heartbeat_path, "w", encoding="utf-8") as f:
-                    json.dump(
-                        {
-                            "stage": "census",
-                            "done": state["finished"],
-                            "total": len(tasks),
-                            "elapsed_seconds": round(time.monotonic() - state["started"], 1),
-                            "last_key": summary["key"],
-                        },
-                        f,
-                    )
 
-        if workers > 1:
-            with ProcessPoolExecutor(max_workers=workers) as pool:
-                for summary in pool.map(_census_task, tasks, chunksize=1):
-                    beat(summary)
-        else:
-            for task in tasks:
-                beat(_census_task(task))
+        try:
+            if workers > 1:
+                with ProcessPoolExecutor(max_workers=workers) as pool:
+                    for summary in pool.map(_census_task, tasks, chunksize=1):
+                        beat(summary)
+            else:
+                for task in tasks:
+                    beat(_census_task(task))
+        finally:
+            stop.set()
+            if thread is not None:
+                thread.join(timeout=1)
+                write_beat()
 
     summaries = [done[k] for k in sorted(done)]
     findings = [
@@ -429,8 +478,12 @@ def build_census(
     return summaries, findings
 
 
-def verify_census(out_dir: str) -> tuple[int, list[str]]:
-    """从已物化产物重算指纹并与 sidecar 比对。返回 (核对数, 不一致的键)。"""
+def verify_artifact_integrity(out_dir: str) -> tuple[int, list[str]]:
+    """把已物化产物与同次生成的 sidecar 比对。
+
+    这证明的是**产物完整性**（写盘后未被改动或丢失），不是独立重建确定性；
+    后者由 `verify_rebuild_determinism` 从来源重跑若干分区来证明。
+    """
     from ..temporal.manifest import fingerprint_table
 
     checked, bad = 0, []
@@ -446,6 +499,38 @@ def verify_census(out_dir: str) -> tuple[int, list[str]]:
                 ok = False
         checked += 1
         if not ok:
+            bad.append(key)
+    return checked, bad
+
+
+def verify_rebuild_determinism(
+    roots: dict[str, str], out_dir: str, sample: int = 12
+) -> tuple[int, list[str]]:
+    """从**来源**独立重跑若干分区，与已物化产物的指纹比对。
+
+    这才是确定性证明：同一来源重新计算必须得到逐位相同的逻辑内容。
+    """
+    from ..temporal.manifest import fingerprint_table
+
+    partitions = discover_partitions(roots)
+    if not partitions:
+        return 0, []
+    step = max(1, len(partitions) // sample)
+    picked = partitions[::step][:sample]
+    checked, bad = 0, []
+    for date_key, segment, path in picked:
+        key = f"{segment}_{date_key}"
+        sidecar = os.path.join(out_dir, "_partitions", f"{key}.json")
+        if not os.path.exists(sidecar):
+            continue
+        with open(sidecar, encoding="utf-8") as f:
+            rec = json.load(f)
+        asset_tbl, market_tbl = census_partition(path, date_key)
+        checked += 1
+        if (
+            fingerprint_table(asset_tbl) != rec.get("fingerprint_asset_day")
+            or fingerprint_table(market_tbl) != rec.get("fingerprint_market_day")
+        ):
             bad.append(key)
     return checked, bad
 
