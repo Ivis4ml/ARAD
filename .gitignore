@@ -8,3 +8,4 @@ artifacts/*
 !artifacts/manifests/
 run.log
 *.egg-info/
+.DS_Store
