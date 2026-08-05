@@ -213,3 +213,21 @@ def test_materialized_calendar_covers_the_full_manifest_range():
     assert min(days) == int(commodity["facts"]["first_day"])
     assert max(days) == int(commodity["facts"]["last_day"])
     assert len(days) == commodity["facts"]["trading_days"]
+
+
+def test_manifest_segment_breakdown_sums_to_the_reported_row_count(spine):
+    for target in spine["targets"]:
+        assert sum(target["sample_segments"].values()) == target["rows"], target["name"]
+        assert (
+            sum(target["sample_segments_valued"].values())
+            == target["rows"] - sum(target["no_trade_reasons"].values())
+        ), target["name"]
+
+
+def test_verify_covers_every_materialised_dataset(spine):
+    """指纹链必须覆盖分区数据集，否则 verify 的 MATCH 是以偏概全。"""
+    names = {d["name"] for d in spine["datasets"]}
+    assert {"bars_1min", "bars_daily"} <= names
+    for d in spine["datasets"]:
+        assert d["fingerprint"]
+        assert d["rows"] > 0

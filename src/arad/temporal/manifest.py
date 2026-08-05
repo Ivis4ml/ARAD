@@ -100,6 +100,7 @@ class TargetRecord(BaseModel):
     rows: int = 0
     fingerprint: str = ""
     sample_segments: dict[str, int] = Field(default_factory=dict)
+    sample_segments_valued: dict[str, int] = Field(default_factory=dict)
     no_trade_reasons: dict[str, int] = Field(default_factory=dict)
 
 

@@ -278,3 +278,16 @@ def test_session_windows_are_derived_from_the_trading_day_not_from_the_data():
     day = pick(sessions_from(points), "day")
     assert day.window.open == datetime(2026, 7, 30, 9, 0, tzinfo=SHANGHAI)
     assert day.window.close == datetime(2026, 7, 30, 15, 0, tzinfo=SHANGHAI)
+
+
+def test_segment_counts_cover_every_row_including_no_trade():
+    """按样本段的计数必须等于总行数：用可空的 value 列计数会漏掉 no-trade 行。"""
+    from arad.temporal.targets import build_target_table, no_trade_counts, segment_counts
+
+    points = [(sod(9, 30), 500.0, 10), (sod(9, 31), 500.1, 10), (sod(9, 32), 500.2, 10)]
+    table = build_target_table(sessions_from(points), RV_NEXT_SESSION, product=SC)
+    counts = segment_counts(table)
+    assert sum(counts.values()) == table.num_rows
+    valued = segment_counts(table, valued_only=True)
+    assert sum(valued.values()) == table.num_rows - sum(no_trade_counts(table).values())
+    assert sum(valued.values()) < sum(counts.values())  # 该样例含一行 no-trade 夜盘

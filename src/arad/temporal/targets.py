@@ -178,11 +178,17 @@ class SessionBars:
             vol += self.auction.get("volume") or 0
         return int(vol)
 
-    def returns(self) -> list[float]:
-        """同一 segment 内相邻 bar 的对数收益。跨 segment 不产生收益。"""
+    def returns(self, *, until: datetime | None = None) -> list[float]:
+        """同一 segment 内相邻 bar 的对数收益。跨 segment 不产生收益。
+
+        until 给出时只保留右端点不晚于该时刻的收益，用于窗口短于整个 session
+        的目标（例如开盘后 K 分钟）。
+        """
         out: list[float] = []
         for seg in self.segments:
             for a, b in pairwise(seg):
+                if until is not None and b["bar_end"] > until:
+                    continue
                 if a["close"] and b["close"] and a["close"] > 0 and b["close"] > 0:
                     out.append(math.log(b["close"] / a["close"]))
         return out
@@ -342,7 +348,7 @@ def build_target_table(
                     k_minutes=int(spec.params["k_minutes"]),
                     min_abs_gap=float(spec.params["min_abs_gap"]),
                 )
-                n_returns = len(sb.returns())
+                n_returns = len(sb.returns(until=label_end))
                 gap, move_k = extra["gap"], extra["move_k"]
                 open_price, prev_close = extra["open_price"], extra["prev_close"]
             else:
@@ -385,12 +391,20 @@ def build_target_table(
     return table.sort_by([("contract", "ascending"), ("label_start", "ascending")])
 
 
-def segment_counts(targets: pa.Table) -> dict[str, int]:
-    if targets.num_rows == 0:
+def segment_counts(targets: pa.Table, *, valued_only: bool = False) -> dict[str, int]:
+    """按样本段计数。缺省数**行**（含 no-trade 行）；valued_only 只数有取值的行。
+
+    计数列取 target_name（恒非空）：用可空的 value 列计数会把 no-trade 行漏掉，
+    使各段之和小于总行数。
+    """
+    table = targets
+    if valued_only:
+        table = table.filter(pc.equal(table.column("no_trade"), False))
+    if table.num_rows == 0:
         return {}
-    grouped = pa.TableGroupBy(targets, ["sample_segment"]).aggregate([("value", "count")])
+    grouped = pa.TableGroupBy(table, ["sample_segment"]).aggregate([("target_name", "count")])
     return {
-        r["sample_segment"]: int(r["value_count"]) for r in grouped.to_pylist()
+        r["sample_segment"]: int(r["target_name_count"]) for r in grouped.to_pylist()
     }
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import collections
+import glob
 import json
 import os
 from datetime import date
@@ -40,6 +41,7 @@ from .manifest import (
     InputRef,
     SpineManifest,
     TargetRecord,
+    combine_digests,
     digest_json,
     fingerprint_table,
     write_spine_manifest,
@@ -279,6 +281,7 @@ def spine_build(config_path: str, *, force: bool = False, workers: int | None = 
             record.rows = table.num_rows
             record.fingerprint = fingerprint_table(table)
             record.sample_segments = segment_counts(table)
+            record.sample_segments_valued = segment_counts(table, valued_only=True)
             record.no_trade_reasons = no_trade_counts(table)
         target_records.append(record)
 
@@ -338,7 +341,7 @@ def spine_build(config_path: str, *, force: bool = False, workers: int | None = 
             path=os.path.join(data_dir, "bars_1min"),
             rows=sum(s["n_bars_1min"] for s in summaries),
             partitions=len(summaries),
-            fingerprint=_combine([s["fingerprint_1min"] for s in summaries]),
+            fingerprint=combine_digests([s["fingerprint_1min"] for s in summaries]),
             note="按交易日分区；指纹为逐日逻辑内容指纹的确定性合并",
         ),
         DatasetRef(
@@ -346,7 +349,7 @@ def spine_build(config_path: str, *, force: bool = False, workers: int | None = 
             path=os.path.join(data_dir, "bars_daily"),
             rows=sum(s["n_bars_daily"] for s in summaries),
             partitions=len(summaries),
-            fingerprint=_combine([s["fingerprint_daily"] for s in summaries]),
+            fingerprint=combine_digests([s["fingerprint_daily"] for s in summaries]),
         ),
         DatasetRef(
             name="dominant",
@@ -448,12 +451,6 @@ def spine_build(config_path: str, *, force: bool = False, workers: int | None = 
         print(f"QUALITY GATE FAILED: {[f.code for f in failed]}")
         return 2
     return 0
-
-
-def _combine(digests: list[str]) -> str:
-    from .manifest import combine_digests
-
-    return combine_digests(digests)
 
 
 def spine_replay(
@@ -646,13 +643,21 @@ def spine_verify(config_path: str) -> int:
             print(f"  expected {record['fingerprint']}\n  got      {got}")
 
     for ref in manifest["datasets"]:
-        if not ref["path"].endswith(".parquet"):
-            continue
-        table = pq.read_table(ref["path"])
-        if ref["name"] == "controls_cls":
-            table = table.select(["natural_date"])
-        got = fingerprint_table(table)
+        if os.path.isdir(ref["path"]):
+            # 按交易日分区的数据集：逐日重算逻辑指纹后按 manifest 的方式确定性合并
+            digests = [
+                fingerprint_table(pq.read_table(p))
+                for p in sorted(glob.glob(os.path.join(ref["path"], "*.parquet")))
+            ]
+            got = combine_digests(digests)
+            detail = f" ({len(digests)} 个分区)"
+        else:
+            table = pq.read_table(ref["path"])
+            if ref["name"] == "controls_cls":
+                table = table.select(["natural_date"])
+            got = fingerprint_table(table)
+            detail = ""
         same = got == ref["fingerprint"]
         ok = ok and same
-        print(f"{ref['name']}: {'MATCH' if same else 'MISMATCH'}")
+        print(f"{ref['name']}{detail}: {'MATCH' if same else 'MISMATCH'}")
     return 0 if ok else 1

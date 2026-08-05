@@ -1,7 +1,7 @@
 {
   "spine_id": "sc-temporal-spine",
   "code_version": "0.1.0",
-  "generated_at": "2026-08-05T21:11:02.685952+00:00",
+  "generated_at": "2026-08-05T21:18:49.621972+00:00",
   "config_digest": "40e3b70830a020596f1e71989a877d1183ef950b30016f7664b8472066f917ae",
   "inputs": {
     "commodity_tick": {
@@ -104,6 +104,11 @@
       "rows": 1816,
       "fingerprint": "9da4f5dba9aa20481ac9b9613abc93766a765d96a7c2e9369dee9062e558fb44",
       "sample_segments": {
+        "discovery": 1054,
+        "historical_validation": 486,
+        "contaminated_audit": 276
+      },
+      "sample_segments_valued": {
         "discovery": 1040,
         "historical_validation": 479,
         "contaminated_audit": 270
@@ -125,8 +130,13 @@
       },
       "label_rule": "first_k_minutes",
       "rows": 1816,
-      "fingerprint": "f9fc2837ba89c6bb17051913cf3a1e8f7e7e084a724253eb8405f8f816796148",
+      "fingerprint": "a1ef99e5ef2a0e71d14ea8acfa850eda216c56a99404525c63546ab66a01cc43",
       "sample_segments": {
+        "discovery": 1055,
+        "historical_validation": 486,
+        "contaminated_audit": 275
+      },
+      "sample_segments_valued": {
         "discovery": 919,
         "historical_validation": 426,
         "contaminated_audit": 254
@@ -429,5 +439,5 @@
     "Alpha-Data curve_daily.parquet 仅覆盖 2026-01-05 至 2026-07-13，只能作该窗口的独立交叉核对，无法覆盖 discovery 与 historical validation 段的日频等价性检查。",
     "郑商所 Turnover 口径与日内倒退的全品种普查仍为 provisional（M1 遗留）；SC 属 INE，本票未触及该问题。"
   ],
-  "fingerprint": "73123ffa82e6624bf813d77423cf5c21ac9bdcdb6448ecd779b919402947f64d"
+  "fingerprint": "9fc6ed7852e5ad8f08491aa8a1706557d67e3d7c94ce8d3ce6c3915610be7b71"
 }

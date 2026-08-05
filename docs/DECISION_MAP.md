@@ -51,8 +51,13 @@
   `Alpha-Data/data/intl/curve_daily.parquet` 在 2,500 个可比 (日, 合约) 上
   仅 1 处成交量差 1 手、1 处持仓差 15 手（2026-03-03 sc2604）。
   **目标**：primary `sc_rv_next_session` 与 diagnostic-only `sc_open_gap_absorption`
-  各 1,816 行（discovery 1,040 / historical validation 479 / contaminated audit 270），
-  `arad spine verify` 从已物化 bar 重建后指纹逐项 MATCH。
+  各 1,816 行；按样本段为 discovery 1,054 / historical validation 486 /
+  contaminated audit 276（`sc_rv_next_session`；`sc_open_gap_absorption` 为
+  1,055 / 486 / 275）。其中有取值的行 1,789 与 1,599，其余是 NULL 加原因的
+  no-trade 行（RV：no_ticks 24、limit_locked 3；跳空吸收：gap_below_threshold 169、
+  no_ticks 24、no_prev_close 24）。`arad spine verify` 从已物化 bar 重建目标后
+  指纹 MATCH，8 个数据集（含 909 分区的 1min 与日频 bar）指纹全部 MATCH；
+  另从 zip 重建 6 个代表性交易日，逐日 bar 指纹与已物化产物一致。
   **仍未定稿**：经 roll 调整的连续价格序列。Merge-Plan-2 §8.8 要求收益/PnL、carry、
   价格水平分别声明 roll 与 adjustment view；本票只产出换月标记与主力视图，
   adjusted 连续序列留待 M5。
