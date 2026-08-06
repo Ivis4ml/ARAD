@@ -20,13 +20,18 @@ const STAGE_LABEL: Record<string, string> = {
  */
 export function Replay({ p }: { p: Projection }) {
   const [metric, setMetric] = useState('abs_t')
-  const [chainId, setChainId] = useState(p.lineage[0]?.chain_id ?? '')
+  // 默认选最长的那条链：一条只有一版的链讲不出任何过程
+  const [chainId, setChainId] = useState(
+    [...p.lineage].sort((a, b) => b.study_ids.length - a.study_ids.length)[0]?.chain_id ?? '',
+  )
   const [selected, setSelected] = useState<string | null>(null)
 
   const chain: Chain | null =
     p.lineage.find((c) => c.chain_id === chainId) ?? p.lineage[0] ?? null
   const beats = p.replay
-  const r = useReplay(beats)
+  // 起始点停在「第一次读 outcome」：前面十几拍是组装与冻结，看不出这个页面要讲的事
+  const start = p.key_moments.find((m) => m.label.includes('读 outcome'))?.beat ?? 0
+  const r = useReplay(beats, start)
   const byId = useMemo(
     () => Object.fromEntries(p.studies.map((s) => [s.study_id, s])) as Record<string, Study>,
     [p.studies],
@@ -53,6 +58,18 @@ export function Replay({ p }: { p: Projection }) {
       list.scrollHeight - list.clientHeight,
     ))
   }, [r.cursor])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
+      if (e.code === 'Space') { e.preventDefault(); r.toggle() }
+      if (e.code === 'ArrowLeft') { e.preventDefault(); r.step(-1) }
+      if (e.code === 'ArrowRight') { e.preventDefault(); r.step(1) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [r])
 
   if (!chain || !beats.length) return <p className="muted">账本里还没有可回放的内容。</p>
 
@@ -117,16 +134,27 @@ export function Replay({ p }: { p: Projection }) {
             </span>
           </div>
 
+          <div className="moments">
+            <span className="muted small">跳到：</span>
+            {p.key_moments.map((m) => (
+              <button key={m.beat} title={m.why}
+                      className={r.cursor === m.beat ? 'moment on' : 'moment'}
+                      onClick={() => r.step(m.beat - r.cursor)}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+
           <input className="scrub" type="range" min={0} max={beats.length - 1}
                  value={r.cursor} aria-label="回放进度"
                  onChange={(e) => { r.seek(Number(e.target.value)) }} />
 
           <div className="counters">
             <Counter k="提案分母" v={r.beat.proposals_so_far}
-                     hint="全部提案，含被预检挡下的" />
+                     hint="按内容去重的提案数，含被预检挡下的；参数扫描的多个变体共用一个提案身份" />
             <Counter k="统计分母" v={r.beat.tests_so_far} accent
                      hint="真正读过 outcome 的检验次数；零假设带随它抬高" />
-            <Counter k="已落点" v={revealed} hint="出了评价结果的版本" />
+            <Counter k="已落点" v={revealed} hint="出了评价结果的版本（每个版本是一个特征）" />
             <Counter k="待定" v={pendingId ? 1 : 0} hint="已冻结但还没有取值" />
           </div>
 
@@ -147,8 +175,27 @@ export function Replay({ p }: { p: Projection }) {
         </div>
       </section>
 
+      {p.service_notes.length > 0 && (
+        <section>
+          <div className="section-head"><span className="idx">02</span><h2>这一轮搜索的结论</h2></div>
+          {p.service_notes.map((n) => (
+            <div key={n.event_type}
+                 className={n.event_type === 'human_review_required' ? 'notice strong' : 'notice'}>
+              <strong>
+                {n.event_type === 'human_review_required' ? '请求人工复核' : '服务停止'}
+              </strong>
+              <Value node={n.payload} />
+            </div>
+          ))}
+          <p className="muted small" style={{ maxWidth: '76ch' }}>
+            服务不会自己判定「这里没戏」——「该不该继续找」是人的判断。它只负责如实报告
+            自己已经问不出新东西，并把整条链摆在零假设带旁边让人看。
+          </p>
+        </section>
+      )}
+
       <section>
-        <div className="section-head"><span className="idx">02</span><h2>事件流</h2></div>
+        <div className="section-head"><span className="idx">03</span><h2>事件流</h2></div>
         <p className="muted small">点任意一拍可以跳过去。这就是账本本身，没有别的来源。</p>
         <ol className="beats" ref={listRef}>
           {beats.map((b, i) => (

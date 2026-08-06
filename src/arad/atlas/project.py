@@ -56,6 +56,7 @@ TIMELINE_LABELS = {
     "provider_error": "provider 调用故障",
     "invalid_proposal": "提案缺必填字段",
     "context_blocked": "上下文组装泄漏效果字段，调用被拒绝",
+    "semantic_audit": "语义审计：在读任何 outcome 之前检查规格与目标是否说的是一回事",
     "provider_repair": "模型首次输出不合规，已按修复提示重试",
 }
 
@@ -73,6 +74,8 @@ class AtlasProjection:
     aborted_rounds: list[dict] = field(default_factory=list)
     lineage: list[dict] = field(default_factory=list)
     replay: list[dict] = field(default_factory=list)
+    key_moments: list[dict] = field(default_factory=list)
+    service_notes: list[dict] = field(default_factory=list)
     service: dict | None = None
     atlas_version: str = ATLAS_VERSION
 
@@ -89,6 +92,8 @@ class AtlasProjection:
             "aborted_rounds": self.aborted_rounds,
             "lineage": self.lineage,
             "replay": self.replay,
+            "key_moments": self.key_moments,
+            "service_notes": self.service_notes,
             "curve_metrics": list(CURVE_METRICS),
         }
 
@@ -224,6 +229,7 @@ BEAT_STAGES: dict[str, tuple[str, str]] = {
     "study_created": ("study", "Study 建立"),
     "feature_spec_locked": ("spec", "特征规格冻结"),
     "visible_data_range": ("data", "记录判决当时可见的数据范围"),
+    "semantic_audit": ("audit", "语义审计：读 outcome 之前先看规格与目标是否说的是一回事"),
     "outcome_read": ("look", "读取 outcome —— 统计分母加一，零假设带随之抬高"),
     "evaluation_result": ("evaluate", "评价机出具结构化结果"),
     "verdict_recorded": ("verdict", "判决入账"),
@@ -338,6 +344,8 @@ def _beat_detail(event_type: str, payload: dict) -> dict:
         return {"rows_submitted": coverage.get("rows_submitted"),
                 "episodes": coverage.get("episodes"),
                 "blocked_reasons": payload.get("blocked_reasons")}
+    if event_type == "semantic_audit":
+        return {"mismatches": [m.get("code") for m in payload.get("mismatches", [])] or "无错配"}
     if event_type == "verdict_recorded":
         return {k: payload.get(k) for k in ("verdict", "next_action", "rationale")}
     if event_type == "visible_data_range":
@@ -357,13 +365,16 @@ def _replay(events: list[dict]) -> list[dict]:
     以及哪些轮次根本没有落点。
     """
     beats: list[dict] = []
-    proposals = tests = 0
+    # 提案分母是**内容去重**后的计数（record_proposal 用 INSERT OR IGNORE）。
+    # 数事件次数会和账本对不上：参数扫描的多个变体共用一个 ProposalSpec 内容身份。
+    seen_proposals: set[str] = set()
+    tests = 0
     for event in events:
         stage, headline = BEAT_STAGES.get(
             event["event_type"], ("other", event["event_type"])
         )
         if event["event_type"] == "proposal_recorded":
-            proposals += 1
+            seen_proposals.add(str(event["payload"].get("proposal_id")))
         if event["event_type"] == "outcome_read":
             tests += 1
         beats.append(
@@ -378,11 +389,64 @@ def _replay(events: list[dict]) -> list[dict]:
                 # 落点分两步：提案时先出一个待定点，评价出结果时它才有取值与颜色
                 "pending_point": event["event_type"] == "proposal_locked",
                 "reveal_point": event["event_type"] == "evaluation_result",
-                "proposals_so_far": proposals,
+                "proposals_so_far": len(seen_proposals),
                 "tests_so_far": tests,
             }
         )
     return beats
+
+
+def _key_moments(beats: list[dict], chains: list[dict], metric: str = "abs_t") -> list[dict]:
+    """回放的入口点。**全部由 Python 算好**，前端只负责跳转，不实现任何统计量。
+
+    最要紧的一个是「零假设带首次超过 running best」：在那一拍之后，这条链最好的一次
+    已经不比同样次数的搜索在纯噪声上的期望更好。它是这张图真正的结论所在，
+    而不是曲线的最高点。
+    """
+    eval_beat: dict[str, int] = {}
+    audit_beat: dict[str, int] = {}
+    for i, b in enumerate(beats):
+        if b["event_type"] == "evaluation_result" and b["study_id"]:
+            eval_beat.setdefault(b["study_id"], i)
+        if b["event_type"] == "semantic_audit" and b["detail"].get("mismatches") != "无错配":
+            audit_beat.setdefault(b["study_id"] or "", i)
+
+    out: list[dict] = []
+    first_look = next((i for i, b in enumerate(beats) if b["event_type"] == "outcome_read"), None)
+    if first_look is not None:
+        out.append({"label": "第一次读 outcome", "beat": first_look,
+                    "why": "统计分母从这里开始计数，零假设带也从这里开始抬高"})
+    if audit_beat:
+        first_audit = min(audit_beat.values())
+        out.append({"label": "语义审计拦下一版", "beat": first_audit,
+                    "why": "问错了的问题不消耗多重检验预算：这一版判 blocked 且不读 outcome"})
+
+    for chain in chains:
+        points = chain["curves"].get(metric) or []
+        for pt in points:
+            best, band = pt.get("running_best"), pt.get("null_threshold")
+            if best is None or band is None or band <= best:
+                continue
+            beat = eval_beat.get(pt["study_id"])
+            if beat is not None:
+                out.append({
+                    "label": "零假设带追上 running best",
+                    "beat": beat,
+                    "why": "此后这条链最好的一次，已不比同样次数的搜索在纯噪声上的期望更好",
+                })
+            break
+    if beats:
+        out.append({"label": "最后一拍", "beat": len(beats) - 1, "why": "全过程结束时的状态"})
+    return sorted({m["beat"]: m for m in out}.values(), key=lambda m: m["beat"])
+
+
+def _service_notes(events: list[dict]) -> list[dict]:
+    """服务级事件：为什么停、是否请求人工复核。"""
+    return [
+        {"event_type": e["event_type"], "at": e["created_at"], "payload": e["payload"]}
+        for e in events
+        if e["event_type"] in ("service_stopped", "human_review_required")
+    ]
 
 
 def _project_aborted(study_id: str, events: list[dict]) -> dict:
@@ -487,15 +551,20 @@ def project(
             "curves": {m: _curve(members, m) for m in CURVE_METRICS},
         })
 
+    replay = _replay(events)
     return AtlasProjection(
         chain=chain,
         lineage=lineage,
-        replay=_replay(events),
+        replay=replay,
+        key_moments=_key_moments(replay, lineage),
+        service_notes=_service_notes(events),
         denominators=denominators,
         verdicts=verdicts,
         coverage=_coverage(studies),
         episodes=episodes,
-        studies=sorted(studies, key=lambda s: s["study_id"]),
+        # 按建立时间排。字典序会把 auto-study-10 排在 auto-study-2 前面，
+        # 而这个页面讲的就是先后顺序
+        studies=sorted(studies, key=lambda s: (s["created_at"] or "", s["study_id"])),
         aborted_rounds=sorted(aborted, key=lambda s: s["study_id"]),
         service=service,
     )

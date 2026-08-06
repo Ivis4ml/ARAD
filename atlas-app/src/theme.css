@@ -174,3 +174,11 @@ ol.beats .stage { font-family: var(--mono); font-size: 10.5px; color: var(--teal
 ol.beats li.stage-look .stage { color: var(--accent); font-weight: 700; }
 ol.beats .who { color: var(--muted); font-size: 11px; }
 ol.beats .what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.moments { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 12px; }
+.moments button.moment { appearance: none; font: inherit; font-size: 12px; padding: 4px 10px;
+  border: 1px dashed var(--line); border-radius: 999px; background: var(--panel);
+  color: var(--muted); cursor: pointer; }
+.moments button.moment:hover { border-color: var(--teal); color: var(--teal); }
+.moments button.moment.on { border-style: solid; border-color: var(--accent);
+  color: var(--accent); font-weight: 650; }

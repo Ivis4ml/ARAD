@@ -13,8 +13,8 @@ export const SPEEDS = [
   { label: '4×', ms: 275 },
 ]
 
-export function useReplay(beats: Beat[]) {
-  const [cursor, setCursor] = useState(0)
+export function useReplay(beats: Beat[], start = 0) {
+  const [cursor, setCursor] = useState(start)
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState(1)
   const timer = useRef<number | null>(null)
@@ -55,9 +55,9 @@ export function useReplay(beats: Beat[]) {
     seek,
     step: (d: number) => { setPlaying(false); seek(cursor + d) },
     toggle: () => {
-      if (cursor >= beats.length - 1) setCursor(0)
+      if (cursor >= beats.length - 1) setCursor(start)
       setPlaying((p) => !p)
     },
-    restart: () => { setCursor(0); setPlaying(true) },
+    restart: () => { setCursor(start); setPlaying(true) },
   }
 }

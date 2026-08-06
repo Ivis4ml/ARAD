@@ -136,6 +136,8 @@ export type Projection = {
   aborted_rounds: AbortedRound[]
   lineage: Chain[]
   replay: Beat[]
+  key_moments: Array<{ label: string; beat: number; why: string }>
+  service_notes: Array<{ event_type: string; at: string; payload: Record<string, unknown> }>
   curve_metrics: string[]
   data_freshness: Freshness[]
 }

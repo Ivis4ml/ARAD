@@ -125,6 +125,14 @@ def main(argv: list[str] | None = None) -> int:
                          "claude 真实调用 `claude -p`（花钱）")
     ed.add_argument("--model", default="claude-opus-5")
 
+    svc = ep_sub.add_parser("service", help="连续研究：一轮接一轮直到边界或停滞（M6）")
+    svc.add_argument("--ledger", default="data/ledger/service.db")
+    svc.add_argument("--queue", default="data/ledger/service_queue.db")
+    svc.add_argument("--target", default="data/spine/sc/target_sc_rv_next_session.parquet")
+    svc.add_argument("--atlas", default="artifacts/atlas_service")
+    svc.add_argument("--manifests", default="artifacts/manifests")
+    svc.add_argument("--max-rounds", type=int, default=24)
+
     atlas = sub.add_parser("atlas", help="Research Atlas 只读投影（M9）")
     atlas_sub = atlas.add_subparsers(dest="atlas_cmd", required=True)
     ar = atlas_sub.add_parser("render", help="从账本渲染静态站点")
@@ -189,6 +197,16 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     if args.cmd == "episode":
+        if args.episode_cmd == "service":
+            from .harness.demo import run_service_demo
+
+            result = run_service_demo(
+                ledger_path=args.ledger, queue_path=args.queue, target_path=args.target,
+                atlas_dir=args.atlas, manifest_dir=args.manifests,
+                max_rounds=args.max_rounds,
+            )
+            print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+            return 0
         from .harness.demo import run_episode_demo
 
         result = run_episode_demo(

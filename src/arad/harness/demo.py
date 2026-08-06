@@ -39,6 +39,7 @@ from ..atlas.sources import data_freshness
 from ..evaluation.kernel import EvaluationRequest, EvaluationRow
 from ..features.interpreter import INTERPRETER_VERSION, BarSeries, evaluate_series
 from ..features.spec import FeatureSpec, Source
+from ..harness.audit import AuditInput
 from ..harness.context import DeclaredBias, assemble_proposer_context
 from ..harness.episode import run_episode
 from ..memory.ledger import EvidenceLedger
@@ -46,6 +47,13 @@ from ..orchestrator.queue import DurableQueue
 from ..providers.base import EpisodeBudget, Provider
 from ..providers.claude_cli import ClaudeCliProvider
 from ..providers.mock import MockProvider
+
+
+def _label_target_record() -> dict:
+    from ..temporal.targets import TARGET_SPECS
+
+    return next(t.record() for t in TARGET_SPECS if t.name == LABEL_TARGET)
+
 
 FAMILY = "demo_sc_price_volume"
 SEGMENT = "discovery"
@@ -251,12 +259,21 @@ def _load_sc(target_path: str) -> tuple[list[dict], dict, dict]:
     label_by_key = {_key(r): r for r in _read_target(label_path)}
 
     rows = [r for r in feature_rows if _key(r) in label_by_key]
+    return_rows = sorted(label_by_key.values(), key=lambda r: r["label_end"])
     series = {
         (Source.COMMODITY_BAR, "realised_volatility"): BarSeries(
             field="realised_volatility",
             times=[r["label_end"] for r in feature_rows],
             values=[math.log(r["value"]) for r in feature_rows],
-        )
+        ),
+        # 收益型 target 的取值本身就是逐 session 的对数收益，且只有在 label_end
+        # 之后才可知。语义审计诊断出「幅度对方向」之后，变异器要换成带符号特征，
+        # 那条路径需要这条序列才走得通。
+        (Source.COMMODITY_BAR, "log_return"): BarSeries(
+            field="log_return",
+            times=[r["label_end"] for r in return_rows],
+            values=[r["value"] for r in return_rows],
+        ),
     }
     labels = {_key(r): label_by_key[_key(r)]["value"] for r in rows}
     spans = [r["decision_time"] for r in rows]
@@ -346,7 +363,7 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict):
                 "sources": data_freshness(manifest_dir),
                 "visible": visible,
                 "available_series": {
-                    "commodity_bar": ["realised_volatility"],
+                    "commodity_bar": ["realised_volatility", "log_return"],
                     "note": "解释器当前只提供这些序列；引用其他 field 会判 blocked",
                 },
             },
@@ -421,6 +438,70 @@ def _lineage_scheduler(limit: int = len(LINEAGE_VARIANTS)):
     return schedule
 
 
+def _audit_input(sc: dict, visible: dict, target_record: dict):
+    """构造语义审计员的输入。**逐字段从类型化对象取，不是过滤某个 payload。**"""
+    wired = frozenset({Source.COMMODITY_BAR.value})
+    span = None
+    if visible.get("from") and visible.get("to"):
+        span = int(
+            (datetime.fromisoformat(visible["to"]) - datetime.fromisoformat(visible["from"]))
+            .total_seconds()
+        )
+
+    def build(feature, proposal):
+        return AuditInput(
+            feature=feature,
+            target_record=target_record,
+            proposal_direction=proposal.direction,
+            falsifiable_condition=proposal.falsifiable_condition,
+            wired_sources=wired,
+            visible_span_seconds=span,
+        )
+
+    return build
+
+
+def run_service_demo(
+    *,
+    ledger_path: str,
+    queue_path: str,
+    target_path: str,
+    atlas_dir: str,
+    manifest_dir: str = "artifacts/manifests",
+    max_rounds: int = 24,
+) -> dict:
+    """连续研究：一轮接一轮，直到到达外部边界或停滞。不靠任何写死的变体表。"""
+    from ..harness.service import AutoProposer, run_service
+    from ..temporal.targets import TARGET_SPECS
+
+    if not os.path.exists(target_path):
+        raise FileNotFoundError(f"缺少 SC 目标表 {target_path}；请先运行 spine build")
+    for path in (ledger_path, queue_path):
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+
+    rows, sc, visible = _load_sc(target_path)
+    record = next(t.record() for t in TARGET_SPECS if t.name == LABEL_TARGET)
+    now = datetime.now(UTC)
+    with EvidenceLedger(ledger_path) as ledger, DurableQueue(queue_path) as queue:
+        result = run_service(
+            ledger=ledger, queue=queue,
+            provider=AutoProposer(target_name=LABEL_TARGET),
+            family=FAMILY, owner="auto-worker",
+            assemble=_assembler(ledger, manifest_dir, visible),
+            build_evaluation=_build_evaluation(sc, rows, visible),
+            audit_input=_audit_input(sc, visible, record),
+            seed_task={}, max_rounds=max_rounds, now=now,
+        )
+        projection = project(ledger, family=FAMILY, service=queue.service_state())
+        paths = render_app(projection, atlas_dir, freshness=data_freshness(manifest_dir))
+        return {
+            "service": result.summary(),
+            "denominators": ledger.denominators(FAMILY),
+            "ledger_events": ledger.require_intact(),
+            "atlas": paths,
+        }
+
+
 def run_episode_demo(
     *,
     ledger_path: str,
@@ -454,6 +535,7 @@ def run_episode_demo(
             owner="demo-worker",
             assemble=_assembler(ledger, manifest_dir, visible),
             build_evaluation=_build_evaluation(sc, rows, visible),
+            audit_input=_audit_input(sc, visible, _label_target_record()),
             now=now,
         )
         projection = project(ledger, family=FAMILY, service=queue.service_state())

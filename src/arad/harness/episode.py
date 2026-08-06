@@ -50,6 +50,7 @@ from ..registry.specs import (
     StudyVerdict,
     Verdict,
 )
+from .audit import AUDIT_VERSION, audit, render_for_proposer
 from .context import ContextBundle, record_context
 from .feedback import Feedback, format_feedback
 
@@ -95,6 +96,10 @@ class RoundOutcome:
     task_id: str
     outcome: str
     proposal_id: str | None = None
+    #: 特征规格的内容身份。**新颖性要按它算而不是按 proposal_id** ——
+    #: ProposalSpec 不含 feature_spec，参数扫描的多个变体共用同一个 proposal_id，
+    #: 用后者做停滞判据会把「一直在出新特征」误判成「问不出新东西」。
+    feature_id: str | None = None
     study_id: str | None = None
     verdict: str | None = None
     feedback: Feedback | None = None
@@ -153,6 +158,7 @@ def run_round(
     owner: str,
     assemble: Any,
     build_evaluation: Any,
+    audit_input: Any = None,
     now: datetime | None = None,
 ) -> RoundOutcome | None:
     """跑一轮。没有可运行任务时返回 None（不是"完成"）。"""
@@ -240,6 +246,34 @@ def run_round(
     ledger.append("study_created", study.payload(), study_id=study_id)
     ledger.append("feature_spec_locked", parsed.feature_spec.describe(), study_id=study_id)
 
+    # 语义审计：在 study_created 之后、读任何 outcome 之前，**无条件**进行。
+    # 无条件是关键 —— 调用本身不携带任何结果信息，盲化由哈希链的 seq 顺序证明，
+    # 而不是靠事后检查提示词。发现错配就判 blocked 且根本不读 outcome：
+    # 一个问错了的问题不该消耗多重检验预算。
+    mismatches = []
+    if audit_input is not None:
+        mismatches = audit(audit_input(parsed.feature_spec, proposal))
+        ledger.append("semantic_audit", {
+            "audit_version": AUDIT_VERSION,
+            "mismatches": render_for_proposer(mismatches),
+        }, study_id=study_id)
+    if mismatches:
+        verdict = StudyVerdict(
+            study_id=study_id, verdict=Verdict.BLOCKED,
+            next_action=NextAction.CREATE_NEW_VERSION,
+            rationale="；".join(m.render() for m in mismatches),
+        )
+        ledger.append("visible_data_range", {"note": "语义审计未通过，未取数"},
+                      study_id=study_id)
+        ledger.append("verdict_recorded", verdict.payload(), study_id=study_id)
+        queue.complete(task_id, owner, {"verdict": verdict.verdict.value},
+                       idempotency_key=f"{task_id}:verdict", now=current)
+        return RoundOutcome(task_id=task_id, outcome="semantic_mismatch",
+                            proposal_id=proposal.content_id,
+                            feature_id=parsed.feature_spec.content_id, study_id=study_id,
+                            verdict=verdict.verdict.value,
+                            detail={"codes": [m.code for m in mismatches]})
+
     try:
         request_obj, labels, visible = build_evaluation(parsed.feature_spec, study_id)
     except NotInterpretable as exc:
@@ -255,7 +289,8 @@ def run_round(
         queue.complete(task_id, owner, {"verdict": verdict.verdict.value},
                        idempotency_key=f"{task_id}:verdict", now=current)
         return RoundOutcome(task_id=task_id, outcome="interpretation_gap",
-                            proposal_id=proposal.content_id, study_id=study_id,
+                            proposal_id=proposal.content_id,
+                            feature_id=parsed.feature_spec.content_id, study_id=study_id,
                             verdict=verdict.verdict.value)
 
     ledger.append("visible_data_range", visible, study_id=study_id)
@@ -269,7 +304,8 @@ def run_round(
         queue.complete(task_id, owner, {"verdict": verdict.verdict.value},
                        idempotency_key=f"{task_id}:verdict", now=current)
         return RoundOutcome(task_id=task_id, outcome="underpowered",
-                            proposal_id=proposal.content_id, study_id=study_id,
+                            proposal_id=proposal.content_id,
+                            feature_id=parsed.feature_spec.content_id, study_id=study_id,
                             verdict=verdict.verdict.value)
 
     for test_id in [f"{study_id}:main"]:
@@ -292,7 +328,7 @@ def run_round(
                    idempotency_key=f"{task_id}:verdict", now=current)
     return RoundOutcome(
         task_id=task_id, outcome="evaluated", proposal_id=proposal.content_id,
-        study_id=study_id, verdict=suggested,
+        feature_id=parsed.feature_spec.content_id, study_id=study_id, verdict=suggested,
         feedback=format_feedback(result, suggested),
     )
 
@@ -308,6 +344,7 @@ def run_episode(
     owner: str,
     assemble: Any,
     build_evaluation: Any,
+    audit_input: Any = None,
     schedule_next: Any = None,
     max_rounds: int = 50,
     now: datetime | None = None,
@@ -327,7 +364,7 @@ def run_episode(
             outcome = run_round(
                 queue=queue, ledger=ledger, provider=provider, budget=budget,
                 family=family, owner=owner, assemble=assemble,
-                build_evaluation=build_evaluation, now=now,
+                build_evaluation=build_evaluation, audit_input=audit_input, now=now,
             )
         except EpisodeBudgetExhausted:
             result.ended_because = "budget_exhausted"

@@ -363,3 +363,67 @@ def test_a_missing_shell_fails_loudly_instead_of_rendering_a_page_without_the_cu
     with pytest.raises(AppShellMissing, match="npm run build"):
         render_app(project(ledger, family=FAMILY), tmp_path / "app",
                    shell_path=tmp_path / "nope.html")
+
+
+# ------------------------------------------------------- 回放与连续服务（M9.2 / M6）
+
+
+def test_the_replay_is_the_ledger_in_seq_order(ledger):
+    an_episode(ledger)
+    a_chain(ledger, ["s0", "s1"], t_stats=[3.0, 4.0])
+    beats = project(ledger, family=FAMILY).replay
+    assert [b["seq"] for b in beats] == sorted(b["seq"] for b in beats)
+    assert len(beats) == ledger.verify_chain()[0]
+
+
+def test_the_proposal_counter_matches_the_ledger_denominator(ledger):
+    """按内容去重，不是数事件次数：参数扫描的多个变体共用一个提案身份。"""
+    a_chain(ledger, ["s0", "s1", "s2"], t_stats=[1.0, 2.0, 3.0])
+    p = project(ledger, family=FAMILY)
+    assert p.replay[-1]["proposals_so_far"] == p.denominators["proposal_denominator"]
+    assert p.replay[-1]["tests_so_far"] == p.denominators["statistical_denominator"]
+
+
+def test_the_point_only_lands_after_the_evaluation_not_at_proposal_time(ledger):
+    a_chain(ledger, ["s0"], t_stats=[3.0])
+    beats = project(ledger, family=FAMILY).replay
+    pending = next(b for b in beats if b["pending_point"])
+    landed = next(b for b in beats if b["reveal_point"])
+    assert pending["event_type"] == "proposal_locked"
+    assert landed["event_type"] == "evaluation_result"
+    assert pending["seq"] < landed["seq"]
+    # 中间必须隔着「读 outcome」那一拍：带正是在那里抬高
+    look = next(b for b in beats if b["event_type"] == "outcome_read")
+    assert pending["seq"] < look["seq"] < landed["seq"]
+
+
+def test_key_moments_point_at_the_beat_where_the_band_overtakes_the_best(ledger):
+    """这张图真正的结论不在曲线最高点，而在带追上 running best 的那一拍。"""
+    a_chain(ledger, ["s0", "s1", "s2"], t_stats=[0.4, 0.5, 0.45])
+    p = project(ledger, family=FAMILY)
+    labels = [m["label"] for m in p.key_moments]
+    assert "第一次读 outcome" in labels
+    assert "零假设带追上 running best" in labels
+    overtake = next(m for m in p.key_moments if m["label"].startswith("零假设带"))
+    assert p.replay[overtake["beat"]]["event_type"] == "evaluation_result"
+
+
+def test_a_chain_that_never_falls_behind_has_no_overtake_moment(ledger):
+    a_chain(ledger, ["s0", "s1"], t_stats=[9.0, 9.5])
+    labels = [m["label"] for m in project(ledger, family=FAMILY).key_moments]
+    assert "零假设带追上 running best" not in labels
+
+
+def test_studies_are_ordered_by_creation_not_lexicographically(ledger):
+    """auto-study-10 的字典序在 auto-study-2 之前，而这个页面讲的就是先后。"""
+    a_chain(ledger, ["s2", "s10"], t_stats=[1.0, 2.0])
+    ids = [s["study_id"] for s in project(ledger, family=FAMILY).studies]
+    assert ids == ["s2", "s10"]
+
+
+def test_service_notes_surface_the_stop_reason(ledger):
+    a_chain(ledger, ["s0"], t_stats=[1.0])
+    ledger.append("service_stopped", {"stopped_because": "stalled", "rounds": 16})
+    ledger.append("human_review_required", {"reason": "问不出新东西"})
+    kinds = [n["event_type"] for n in project(ledger, family=FAMILY).service_notes]
+    assert kinds == ["service_stopped", "human_review_required"]
