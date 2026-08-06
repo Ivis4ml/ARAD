@@ -303,21 +303,33 @@ def pm_families(config_path: str, ledger_path: str, out_path: str) -> int:
         min_cooccurrence=int(families_cfg["min_cooccurrence"]),
         min_pmi=float(families_cfg["min_pmi"]),
         mutual_knn=int(families_cfg["mutual_knn"]),
+        clustering=families_cfg["clustering"],
+        resolution=float(families_cfg["resolution"]),
     )
+    from ..data_catalog.pm_pipeline_variants import register_variants
+
     os.makedirs(os.path.dirname(ledger_path) or ".", exist_ok=True)
     with EvidenceLedger(ledger_path) as ledger:
+        # 先记管线变体：被弃变体与最终族属于同一批探索，必须一起进分母
+        report_variants = register_variants(ledger)
         report = register_families(
             ledger, text, presence, totals, spec,
             min_markets=int(families_cfg["min_markets"]),
         )
+        report["pipeline_variants"] = report_variants
         report["ledger_events"] = ledger.require_intact()
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2, default=str)
         f.write("\n")
     print(json.dumps(
-        {k: report[k] for k in
-         ("families_registered", "families_screened_out", "denominators", "ledger_events")},
+        {"families_registered": report["families_registered"],
+         "families_screened_out": report["families_screened_out"],
+         "family_denominators": report["denominators"],
+         "variants_recorded": report_variants["variants_recorded"],
+         "variants_abandoned": report_variants["variants_abandoned"],
+         "variant_denominators": report_variants["denominators"],
+         "ledger_events": report["ledger_events"]},
         ensure_ascii=False, indent=2))
     return 0
 

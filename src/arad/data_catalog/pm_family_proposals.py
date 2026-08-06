@@ -14,9 +14,76 @@ import pyarrow as pa
 from ..memory.ledger import EvidenceLedger
 from ..registry.specs import ProposalSpec
 from .pm_entity_clusters import ClusterSpec, induce_families
-from .pm_text_corpus import size_entity_proposal
+from .pm_text_corpus import _cutoff_epoch, slug_tokens
 
 FAMILY_NAMESPACE = "pm_candidate_family"
+
+
+def _size_all_families(
+    market_text: pa.Table,
+    presence: pa.Table,
+    market_totals: pa.Table,
+    families: list[dict],
+    cutoff: str,
+) -> dict[str, dict]:
+    """一遍扫过全部市场，同时给所有族算规模。
+
+    逐族各扫一遍全库是 O(族数 × 市场数)：2,108 个族对 120 万市场就是 25 亿次操作。
+    这里反过来，按市场查它命中哪些族，复杂度降到 O(市场数 × 每市场 token 数)。
+    """
+    token_to_families: dict[str, list[str]] = {}
+    for family in families:
+        for token in family["tokens"]:
+            token_to_families.setdefault(token, []).append(family["family_id"])
+    first = dict(
+        zip(
+            presence.column("condition_id").to_pylist(),
+            presence.column("first_trade_ts").to_pylist(),
+        )
+    )
+    totals = {
+        c: (t, n)
+        for c, t, n in zip(
+            market_totals.column("condition_id").to_pylist(),
+            market_totals.column("trades").to_pylist(),
+            market_totals.column("notional").to_pylist(),
+        )
+    }
+    limit = _cutoff_epoch(cutoff)
+    acc: dict[str, dict] = {
+        f["family_id"]: {"markets": 0, "trades": 0, "notional": 0.0} for f in families
+    }
+    all_markets = all_trades = 0
+    for cid, base in zip(
+        market_text.column("condition_id").to_pylist(),
+        market_text.column("slug_base").to_pylist(),
+    ):
+        ts = first.get(cid)
+        if ts is None or ts >= limit:
+            continue
+        trades, notional = totals.get(cid, (0, 0.0))
+        all_markets += 1
+        all_trades += trades
+        hits = {
+            fid for token in slug_tokens(base) for fid in token_to_families.get(token, ())
+        }
+        for fid in hits:
+            bucket = acc[fid]
+            bucket["markets"] += 1
+            bucket["trades"] += trades
+            bucket["notional"] += notional
+    return {
+        fid: {
+            "cutoff": cutoff,
+            "markets": v["markets"],
+            "markets_share": v["markets"] / all_markets if all_markets else 0.0,
+            "trades": v["trades"],
+            "trades_share": v["trades"] / all_trades if all_trades else 0.0,
+            "notional_provisional": v["notional"],
+            "universe": {"markets": all_markets, "trades": all_trades},
+        }
+        for fid, v in acc.items()
+    }
 
 
 def register_families(
@@ -31,11 +98,10 @@ def register_families(
     """归纳候选族并逐个登记为提案。规模不足的照样登记，只是标为被挡下。"""
     families, stats = induce_families(market_text, presence, spec)
     cutoff = spec.induction.induction_cutoff
+    sizes = _size_all_families(market_text, presence, market_totals, families, cutoff)
     registered = []
     for family in families:
-        sizing = size_entity_proposal(
-            market_text, presence, market_totals, family["tokens"], cutoff=cutoff
-        )
+        sizing = sizes[family["family_id"]]
         proposal = ProposalSpec(
             mechanism=f"候选机制族 {family['family_id']}：{' '.join(family['head_tokens'])}",
             source="polymarket",

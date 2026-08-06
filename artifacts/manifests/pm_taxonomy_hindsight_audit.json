@@ -1,4 +1,20 @@
 {
+  "spec": {
+    "version": "0.1.0",
+    "induction": {
+      "version": "0.1.0",
+      "induction_cutoff": "2026-08-01",
+      "min_markets_per_template": 3,
+      "rule": "只用首笔公开成交早于 induction_cutoff 的市场归纳模板；该切点之后的市场只用于测量覆盖率，不参与归纳"
+    },
+    "max_tokens": 8000,
+    "min_cooccurrence": 5,
+    "min_pmi": 3.0,
+    "mutual_knn": 3,
+    "clustering": "modularity",
+    "resolution": 1.0,
+    "rule": "只统计归纳期内、按市场数排前 max_tokens 的 token 的两两共现；PMI 不低于 min_pmi、共现不低于 min_cooccurrence，且两个 token 互为对方的前 mutual_knn 强邻居时才建边；再按 clustering 划分社区（缺省带权模块度；connected_components 在近似树上会并成巨型分量，已作为被弃变体记入分母）。候选族无名字、无语义判断"
+  },
   "emergence": {
     "final_cutoff": "2026-08-01",
     "probe_cutoffs": [

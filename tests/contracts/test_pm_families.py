@@ -209,3 +209,76 @@ def test_artifact_records_families_without_naming_them():
     for family in report["families"]:
         assert family["family_id"].startswith("cand:")
         assert "name" not in family and "product" not in family
+
+
+# ---------------------------------------------------------------- 管线变体
+
+
+def test_every_explored_pipeline_variant_enters_the_proposal_denominator(tmp_path):
+    """超参数是在观察『商品族是否浮现』时调出的，被弃变体必须各计一条提案。"""
+    from arad.data_catalog.pm_pipeline_variants import (
+        EXPLORED_VARIANTS,
+        VARIANT_NAMESPACE,
+        register_variants,
+    )
+    from arad.memory.ledger import EvidenceLedger
+
+    with EvidenceLedger(str(tmp_path / "l.db")) as ledger:
+        report = register_variants(ledger)
+        d = ledger.denominators(VARIANT_NAMESPACE)
+    assert report["variants_recorded"] == len(EXPLORED_VARIANTS) == d["proposal_denominator"]
+    assert report["variants_abandoned"] == d["proposals_screened_out"]
+    assert report["variants_abandoned"] == len(EXPLORED_VARIANTS) - 1  # 只有一个被采纳
+
+
+def test_every_abandoned_variant_states_why():
+    from arad.data_catalog.pm_pipeline_variants import EXPLORED_VARIANTS
+
+    for variant in EXPLORED_VARIANTS:
+        assert variant.outcome, variant.variant_id
+        if not variant.adopted:
+            assert variant.abandoned_reason, variant.variant_id
+
+
+def test_exactly_one_variant_is_adopted_and_matches_the_shipped_config():
+    """记录的采纳变体必须与实际跑的配置一致，否则审计记录是假的。"""
+    import yaml
+
+    from arad.data_catalog.pm_pipeline_variants import EXPLORED_VARIANTS
+
+    adopted = [v for v in EXPLORED_VARIANTS if v.adopted]
+    assert len(adopted) == 1
+    params = adopted[0].params
+    with open(os.path.join(REPO, "configs", "pm_index.yaml"), encoding="utf-8") as f:
+        cfg = yaml.safe_load(f)["families"]
+    assert cfg["induction_cutoff"] == params["induction_cutoff"]
+    assert cfg["max_tokens"] == params["max_tokens"]
+    assert cfg["min_pmi"] == params["min_pmi"]
+    assert cfg["mutual_knn"] == params["mutual_knn"]
+    assert cfg["clustering"] == params["clustering"]
+    assert cfg["resolution"] == params["resolution"]
+
+
+def test_connected_components_variant_is_recorded_as_abandoned():
+    """连通分量在近似树上会并成巨型分量，已被弃；记录必须留着。"""
+    from arad.data_catalog.pm_pipeline_variants import EXPLORED_VARIANTS
+
+    cc = [v for v in EXPLORED_VARIANTS if v.params.get("clustering") == "connected_components"]
+    assert cc
+    assert all(not v.adopted for v in cc)
+    assert any("巨型分量" in v.abandoned_reason or "近似树" in v.abandoned_reason for v in cc)
+
+
+def test_unknown_clustering_algorithm_is_rejected():
+    import pyarrow as _pa
+
+    from arad.data_catalog.pm_entity_clusters import induce_families
+
+    text = _pa.table(
+        {"condition_id": _pa.array(["a"]), "slug_base": _pa.array(["oil-opec"])}
+    )
+    pres = _pa.table(
+        {"condition_id": _pa.array(["a"]), "first_trade_ts": _pa.array([EARLY], _pa.int64())}
+    )
+    with pytest.raises(ValueError, match="未知的聚类算法"):
+        induce_families(text, pres, spec(clustering="whatever", mutual_knn=0))

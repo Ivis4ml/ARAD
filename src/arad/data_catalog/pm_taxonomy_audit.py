@@ -16,20 +16,13 @@ from collections import defaultdict
 
 import pyarrow as pa
 
-from .pm_entity_clusters import (
-    ClusterSpec,
-    cooccurrence,
-    market_token_sets,
-    modularity_communities,
-    pmi_edges,
-)
+from .pm_entity_clusters import ClusterSpec, induce_families
 from .pm_text_corpus import InductionSpec
 
 
 def _families_at(market_text, presence, spec: ClusterSpec) -> list[dict]:
-    sets, counts = market_token_sets(market_text, presence, spec)
-    edges = pmi_edges(cooccurrence(sets), counts, max(1, len(sets)), spec)
-    return modularity_communities(edges, counts)
+    families, _ = induce_families(market_text, presence, spec)
+    return families
 
 
 def jaccard(a: set[str], b: set[str]) -> float:
@@ -57,6 +50,8 @@ def emergence_curve(
             min_cooccurrence=base_spec.min_cooccurrence,
             min_pmi=base_spec.min_pmi,
             mutual_knn=base_spec.mutual_knn,
+            clustering=base_spec.clustering,
+            resolution=base_spec.resolution,
         )
         earlier[cutoff] = [set(f["tokens"]) for f in _families_at(market_text, presence, spec)]
 

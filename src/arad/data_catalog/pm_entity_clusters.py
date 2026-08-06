@@ -41,6 +41,8 @@ class ClusterSpec:
     min_cooccurrence: int = 5
     min_pmi: float = 2.0
     mutual_knn: int = 5
+    clustering: str = "modularity"
+    resolution: float = 1.0
     version: str = CLUSTER_VERSION
 
     def describe(self) -> dict:
@@ -51,11 +53,14 @@ class ClusterSpec:
             "min_cooccurrence": self.min_cooccurrence,
             "min_pmi": self.min_pmi,
             "mutual_knn": self.mutual_knn,
+            "clustering": self.clustering,
+            "resolution": self.resolution,
             "rule": (
                 "只统计归纳期内、按市场数排前 max_tokens 的 token 的两两共现；"
                 "PMI 不低于 min_pmi、共现不低于 min_cooccurrence，且两个 token 互为"
-                "对方的前 mutual_knn 强邻居时才建边；连通分量即候选机制族，"
-                "无名字、无语义判断"
+                "对方的前 mutual_knn 强邻居时才建边；再按 clustering 划分社区"
+                "（缺省带权模块度；connected_components 在近似树上会并成巨型分量，"
+                "已作为被弃变体记入分母）。候选族无名字、无语义判断"
             ),
         }
 
@@ -245,7 +250,12 @@ def induce_families(
     sets, counts = market_token_sets(market_text, presence, spec)
     pairs = cooccurrence(sets)
     edges = pmi_edges(pairs, counts, max(1, len(sets)), spec)
-    families = connected_components(edges, counts)
+    if spec.clustering == "modularity":
+        families = modularity_communities(edges, counts, resolution=spec.resolution)
+    elif spec.clustering == "connected_components":
+        families = connected_components(edges, counts)
+    else:
+        raise ValueError(f"未知的聚类算法 {spec.clustering!r}")
     stats = {
         "spec": spec.describe(),
         "markets_in_induction_period": len(sets),
