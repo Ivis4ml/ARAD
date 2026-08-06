@@ -33,6 +33,8 @@ from ..registry.specs import Verdict
 ATLAS_VERSION = "0.1.0"
 
 #: 不属于任何 Study、但必须出现在 Episode 层的事件。
+#: `proposal_recorded` 刻意不在其中：它是分母的记账副本，总览层的两本分母已经完整
+#: 呈现同一信息，逐条列出只会淹没真正需要人看的缺口声明与故障。
 EPISODE_SCOPED_EVENTS = ("primitive_gap_declared", "provider_error", "invalid_proposal")
 
 #: 事件类型到时间线标签的映射。渲染层不认识事件类型，只认识标签。
@@ -53,7 +55,7 @@ TIMELINE_LABELS = {
     "provider_error": "provider 调用故障",
     "invalid_proposal": "提案缺必填字段",
     "context_blocked": "上下文组装泄漏效果字段，调用被拒绝",
-    "provider_repair": "模型首次输出不合规，按修复提示重试后通过",
+    "provider_repair": "模型首次输出不合规，已按修复提示重试",
 }
 
 

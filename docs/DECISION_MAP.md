@@ -254,7 +254,7 @@
 把它算进去等于虚构一个从未被提出的假设。
 
 **实跑结果（`arad episode demo`，真实 SC discovery 段 1,040 个决策点）**：
-四轮四种结局，evaluated / primitive_gap / source_gap / parse_failure 各一。
+四轮四种结局，evaluated / primitive_gap / interpretation_gap / parse_failure 各一。
 唯一走完评价的是量价对照集（Baseline Control，**不计入 Alternative Factor Inventory**），
 斜率 0.4116、t 5.64（**序列未按 roll 切分**，演示用，不作为实证结论），仍判 **blocked**，
 因为未声明成本模型且单品种样本使双向 cluster 退化。另类数据侧的提案判 blocked：解释器尚未接入 `pm_market`。这与 M4 票的预期一致
