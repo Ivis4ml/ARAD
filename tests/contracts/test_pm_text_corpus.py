@@ -158,3 +158,134 @@ def test_low_coverage_is_reported_as_a_finding(corpus):
     codes = {f["code"] for f in corpus["findings"]}
     assert "pm_text.template_induction" in codes
     assert "pm_text.low_out_of_period_coverage" in codes
+
+
+# ---------------------------------------------------------------- 词表与规模
+
+
+def test_slug_tokens_drops_only_numbers_years_and_months():
+    from arad.data_catalog.pm_text_corpus import slug_tokens
+
+    assert slug_tokens("will-crude-oil-hit-47-by-june-2026") == [
+        "will", "crude", "oil", "hit", "by",
+    ]
+    assert slug_tokens(None) == []
+    assert slug_tokens("") == []
+
+
+def test_slug_tokens_has_no_builtin_stopword_list():
+    """停用词是人写的先验。把它写进代码等于把『什么算实体』固化成真值。"""
+    from arad.data_catalog.pm_text_corpus import slug_tokens
+
+    # 功能词必须原样保留，由调用方以提案形式决定是否排除
+    assert "will" in slug_tokens("will-trump-say-hello")
+    assert "the" in slug_tokens("the-fed-cuts")
+
+
+def test_entity_vocabulary_comes_from_document_frequency_not_a_curated_list():
+    from arad.data_catalog.pm_text_corpus import entity_vocabulary
+
+    text = pa.table(
+        {
+            "condition_id": pa.array(["a", "b", "c", "d"], pa.string()),
+            "slug_base": pa.array(
+                ["oil-up", "oil-down", "oil-flat", "gold-up"], pa.string()
+            ),
+            "template": pa.array(["oil-up", "oil-down", "oil-flat", "gold-up"], pa.string()),
+        }
+    )
+    presence = _presence([("a", EARLY), ("b", EARLY), ("c", EARLY), ("d", EARLY)])
+    vocab = entity_vocabulary(
+        text, presence, InductionSpec("2024-01-01", min_markets_per_template=2)
+    )
+    rows = {r["token"]: r for r in vocab.to_pylist()}
+    assert rows["oil"]["markets"] == 3
+    assert rows["oil"]["templates"] == 3
+    assert rows["oil"]["share_of_markets"] == pytest.approx(0.75)
+    assert "gold" not in rows  # 只出现在 1 个市场，被 min_markets 过滤
+    # 按市场数降序，词表顺序是确定的
+    assert vocab.column("token").to_pylist() == sorted(
+        rows, key=lambda t: (-rows[t]["markets"], t)
+    )
+
+
+def test_entity_vocabulary_only_uses_markets_inside_the_induction_period():
+    from arad.data_catalog.pm_text_corpus import entity_vocabulary
+
+    text = pa.table(
+        {
+            "condition_id": pa.array(["a", "b", "c"], pa.string()),
+            "slug_base": pa.array(["oil-up", "oil-down", "gold-up"], pa.string()),
+            "template": pa.array(["oil-up", "oil-down", "gold-up"], pa.string()),
+        }
+    )
+    presence = _presence([("a", EARLY), ("b", EARLY), ("c", LATE)])
+    vocab = entity_vocabulary(
+        text, presence, InductionSpec("2024-01-01", min_markets_per_template=1)
+    )
+    assert "gold" not in vocab.column("token").to_pylist()
+
+
+def _totals(rows):
+    return pa.table(
+        {
+            "condition_id": pa.array([r[0] for r in rows], pa.string()),
+            "trades": pa.array([r[1] for r in rows], pa.int64()),
+            "notional": pa.array([r[2] for r in rows], pa.float64()),
+        }
+    )
+
+
+def test_size_entity_proposal_takes_the_token_set_as_input_not_as_truth():
+    """实体集合是提案：函数不内置任何清单，换一个提案就得到另一组规模。"""
+    from arad.data_catalog.pm_text_corpus import size_entity_proposal
+
+    text = pa.table(
+        {
+            "condition_id": pa.array(["a", "b", "c"], pa.string()),
+            "slug_base": pa.array(["oil-up", "gold-up", "nba-game"], pa.string()),
+        }
+    )
+    presence = _presence([("a", EARLY), ("b", EARLY), ("c", EARLY)])
+    totals = _totals([("a", 100, 1000.0), ("b", 10, 100.0), ("c", 1000, 10000.0)])
+
+    oil = size_entity_proposal(text, presence, totals, ["oil"])
+    assert oil["markets"] == 1 and oil["trades"] == 100
+    assert oil["markets_share"] == pytest.approx(1 / 3)
+    assert oil["trades_share"] == pytest.approx(100 / 1110)
+
+    both = size_entity_proposal(text, presence, totals, ["OIL", "gold"])
+    assert both["markets"] == 2  # 大小写无关
+    assert both["proposal_tokens"] == ["gold", "oil"]
+
+
+def test_size_entity_proposal_respects_the_cutoff():
+    from arad.data_catalog.pm_text_corpus import size_entity_proposal
+
+    text = pa.table(
+        {
+            "condition_id": pa.array(["a", "b"], pa.string()),
+            "slug_base": pa.array(["oil-up", "oil-down"], pa.string()),
+        }
+    )
+    presence = _presence([("a", EARLY), ("b", LATE)])
+    totals = _totals([("a", 5, 50.0), ("b", 500, 5000.0)])
+    early = size_entity_proposal(text, presence, totals, ["oil"], cutoff="2024-01-01")
+    assert early["markets"] == 1 and early["trades"] == 5
+    assert early["universe"]["markets"] == 1
+
+
+def test_size_entity_proposal_marks_notional_provisional():
+    """relay 去重不可执行，名义额必须在字段名上就标明 provisional。"""
+    from arad.data_catalog.pm_text_corpus import size_entity_proposal
+
+    text = pa.table(
+        {"condition_id": pa.array(["a"], pa.string()),
+         "slug_base": pa.array(["oil-up"], pa.string())}
+    )
+    result = size_entity_proposal(
+        text, _presence([("a", EARLY)]), _totals([("a", 1, 1.0)]), ["oil"]
+    )
+    assert "notional_provisional" in result
+    assert "notional_share_provisional" in result
+    assert "notional" not in result

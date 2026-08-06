@@ -221,6 +221,144 @@ def coverage_curve(
     return out
 
 
+ENTITY_VOCAB_SCHEMA = pa.schema(
+    [
+        ("token", pa.string()),
+        ("markets", pa.int64()),
+        ("templates", pa.int64()),
+        ("first_market_ts", pa.int64()),
+        ("share_of_markets", pa.float64()),
+    ]
+)
+
+
+def slug_tokens(slug_base: str | None) -> list[str]:
+    """基名切词并丢掉数字、年份、月份占位量。不做任何停用词裁剪。
+
+    停用词表是人写的先验。把它写进代码等于把"什么算实体"固化成真值，
+    正是 cn_registry_v3 的错误形态。因此本函数只做机械切词，
+    排除项由调用方以**提案**形式传入并记入分母。
+    """
+    if not slug_base:
+        return []
+    out = []
+    for token in slug_base.split("-"):
+        low = token.lower()
+        if not low or _YEAR.match(low) or _NUMBER.match(low) or low in _MONTHS:
+            continue
+        out.append(low)
+    return out
+
+
+def entity_vocabulary(
+    market_text: pa.Table, presence: pa.Table, spec: InductionSpec
+) -> pa.Table:
+    """归纳期内的词表：每个 token 出现在多少市场、多少模板里。
+
+    这是自下而上的候选实体来源 —— 由数据的文档频率决定，不由人先验决定。
+    """
+    cutoff = _cutoff_epoch(spec.induction_cutoff)
+    first = dict(
+        zip(
+            presence.column("condition_id").to_pylist(),
+            presence.column("first_trade_ts").to_pylist(),
+        )
+    )
+    markets: dict[str, int] = {}
+    templates: dict[str, set] = {}
+    earliest: dict[str, int] = {}
+    total = 0
+    for cid, base, template in zip(
+        market_text.column("condition_id").to_pylist(),
+        market_text.column("slug_base").to_pylist(),
+        market_text.column("template").to_pylist(),
+    ):
+        ts = first.get(cid)
+        if ts is None or ts >= cutoff:
+            continue
+        total += 1
+        for token in set(slug_tokens(base)):
+            markets[token] = markets.get(token, 0) + 1
+            templates.setdefault(token, set()).add(template)
+            earliest[token] = min(earliest.get(token, ts), ts)
+    kept = [t for t, n in markets.items() if n >= spec.min_markets_per_template]
+    kept.sort(key=lambda t: (-markets[t], t))
+    return pa.table(
+        {
+            "token": pa.array(kept, pa.string()),
+            "markets": pa.array([markets[t] for t in kept], pa.int64()),
+            "templates": pa.array([len(templates[t]) for t in kept], pa.int64()),
+            "first_market_ts": pa.array([earliest[t] for t in kept], pa.int64()),
+            "share_of_markets": pa.array(
+                [markets[t] / total if total else 0.0 for t in kept], pa.float64()
+            ),
+        },
+        schema=ENTITY_VOCAB_SCHEMA,
+    )
+
+
+def size_entity_proposal(
+    market_text: pa.Table,
+    presence: pa.Table,
+    market_totals: pa.Table,
+    tokens: list[str],
+    *,
+    cutoff: str | None = None,
+) -> dict:
+    """给定一个**实体提案**，确定性地统计它覆盖多大表面积。
+
+    tokens 是提案，不是真值：任何具体集合都必须以内容寻址的提案记入 proposal
+    denominator。本函数只回答规模问题（市场数、成交笔数、名义额），
+    不读取任何结果字段，也不做任何机制判断。
+    """
+    wanted = {t.lower() for t in tokens}
+    first = dict(
+        zip(
+            presence.column("condition_id").to_pylist(),
+            presence.column("first_trade_ts").to_pylist(),
+        )
+    )
+    totals = {
+        c: (t, n)
+        for c, t, n in zip(
+            market_totals.column("condition_id").to_pylist(),
+            market_totals.column("trades").to_pylist(),
+            market_totals.column("notional").to_pylist(),
+        )
+    }
+    limit = _cutoff_epoch(cutoff) if cutoff else None
+    hit_markets = hit_trades = 0
+    hit_notional = 0.0
+    all_markets = all_trades = 0
+    all_notional = 0.0
+    for cid, base in zip(
+        market_text.column("condition_id").to_pylist(),
+        market_text.column("slug_base").to_pylist(),
+    ):
+        ts = first.get(cid)
+        if ts is None or (limit is not None and ts >= limit):
+            continue
+        trades, notional = totals.get(cid, (0, 0.0))
+        all_markets += 1
+        all_trades += trades
+        all_notional += notional
+        if wanted & set(slug_tokens(base)):
+            hit_markets += 1
+            hit_trades += trades
+            hit_notional += notional
+    return {
+        "proposal_tokens": sorted(wanted),
+        "cutoff": cutoff,
+        "markets": hit_markets,
+        "markets_share": hit_markets / all_markets if all_markets else 0.0,
+        "trades": hit_trades,
+        "trades_share": hit_trades / all_trades if all_trades else 0.0,
+        "notional_provisional": hit_notional,
+        "notional_share_provisional": hit_notional / all_notional if all_notional else 0.0,
+        "universe": {"markets": all_markets, "trades": all_trades},
+    }
+
+
 def corpus_findings(market_text: pa.Table, curve: list[dict]) -> list[QualityFinding]:
     findings = [
         QualityFinding(
