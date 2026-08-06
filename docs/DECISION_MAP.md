@@ -97,7 +97,21 @@
 - **Blocked by**: #3, #5
 - **Type**: Prototype
 - **Question**: Hypothesis Lock、功效预检、运行、诊断、Verdict 和 artifact 的最小机器合同是什么？
-- **Answer**: 未回答。以旧 ADAR v3 的 StudySpec 为输入，但需补齐 Feature Object、数据哈希、Experiment Family、holdout 权限、成本和正交性接口。
+- **Answer**: 部分回答（2026-08-05，M3 第一块）。**不可变规格与 Evidence Ledger 已交付**，
+  工程票 `docs/tickets/M3-research-kernel.md`。
+  规格：`ProposalSpec` / `HypothesisLock` / `ConfirmatoryLock` / `StudySpec` /
+  `StudyVerdict`，全部内容寻址（改内容即新 id，原地改冻结规格在数据结构层不可能）；
+  `Verdict` 只有五个值，调度动作以 `NextAction` 另存，`SHIP/KILL` 不在词表内；
+  Confirmatory Lock 强制要求预注册对抗诊断，事后补检验无法通过构造。
+  账本：SQLite WAL 追加式哈希链。**三条边界由数据库或查询层强制**：events 表的
+  UPDATE/DELETE 触发器直接 ABORT；每个事件链接前一事件哈希，篡改可定位到具体 seq；
+  proposer 角色读不到 β/t/p/IC/Sharpe（含嵌套结构），且不能全量拉取账本。
+  两本分母：proposal denominator 计入被预检挡下的提案（且必须给理由），
+  statistical denominator 只增不减（DELETE 与 UPDATE 均被触发器拒绝）。
+  快照渲染合同（决定 0003）：一个合成 Study 可从账本回放为自包含快照；
+  缺任一必需段落即报 `SnapshotIncomplete`，按账本缺口处理。26 项合同测试。
+  **仍未交付**：最小 evaluator（coverage、Episode、MDE、n_eff、cluster/HAC、影响点、
+  placebo、成本占位、artifact hashing）、durable queue 与租约、最小 Baseline Control。
 
 ## #7 — 统计准入与经济边界
 
@@ -155,7 +169,11 @@
 
 ## 当前前沿
 
-**当前唯一在办票：#12 Polymarket 市场语义映射（取证阶段已完成，待人类裁决机制族口径）。**
+**当前唯一在办票：#6 Study 合同与不可变评估器（M3），第一块已交付，评价机待建。**
+
+#12 的取证与自下而上归纳已完成并阻塞在账本上：机制族命名需要把整批实体提案
+计入 proposal denominator，而记账能力刚由 M3 第一块提供。#12 的剩余部分
+（机制族命名、金标、跨模型一致性）在 M3 的 evaluator 与 queue 建成后恢复。
 
 已关闭：#3（M1）、#4（M2 SC 窄切片 Temporal Spine）、**M2.5（PIT Market Index，
 2026-08-05 三轮评审后关闭）**。#5 的时间侧随 M2 关闭，市场身份侧随 M2.5 关闭。
