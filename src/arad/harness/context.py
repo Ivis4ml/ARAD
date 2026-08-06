@@ -182,7 +182,11 @@ def assemble_proposer_context(
                 "mechanism", "source", "target", "horizon", "universe",
                 "direction", "falsifiable_condition", "feature_spec",
             ],
-            "note": "只输出 JSON。特征必须用上面列出的原语表达",
+            "optional": ["rationale", "change_summary"],
+            "note": (
+                "只输出 JSON。特征必须用上面列出的原语表达。"
+                "若本轮是在某一版基础上迭代，用 change_summary 一句话说明改了什么"
+            ),
         },
     }
     prompt = render_proposer_prompt(facts, menu_biases)

@@ -359,3 +359,43 @@ def test_controls_are_declared_as_integrity_checked_only():
     d = evaluate(a_request(rows), labels, role="evaluator")["diagnostics"]
     assert d["controls_are_integrity_checked_only"] is True
     assert "不进入回归" in d["controls_note"]
+
+
+# ---------------------------------------------------------------- IC 与 Sharpe
+
+
+def test_ic_is_reported_and_labelled_as_time_series():
+    """截面 IC 需要同一时点多个标的；本样本没有那个维度，叫它 IC 而不注明是误导。"""
+    rows, labels = make_rows()
+    result = evaluate(a_request(rows), labels, role="evaluator")
+    ic = result["effects"]["ic"]
+    assert ic["kind"] == "time_series"
+    assert -1.0 <= ic["ic_spearman"] <= 1.0
+    assert "截面 IC" in ic["note"]
+
+
+def test_sharpe_is_undefined_when_the_label_is_not_a_return():
+    """已实现波动不是收益。给一个能被误读的数字，不如给一个明确的未定义与理由。"""
+    rows, labels = make_rows()
+    result = evaluate(a_request(rows), labels, role="evaluator")
+    perf = result["effects"]["performance"]
+    assert perf["sharpe"] is None
+    assert "不是有符号收益" in perf["sharpe_undefined_reason"]
+
+
+def test_sharpe_is_computed_once_the_caller_declares_a_return_label():
+    rows, labels = make_rows()
+    request = a_request(rows, label_is_return=True, periods_per_year=252.0)
+    perf = evaluate(request, labels, role="evaluator")["effects"]["performance"]
+    assert perf["sharpe"] is not None
+    assert perf["position_rule"] == "sign_unit"
+    assert "pre-cost" in perf["note"]
+    assert math.isfinite(perf["skew"])
+
+
+def test_declaring_a_return_label_changes_the_request_identity():
+    """同一批预测、两种 label 语义，不能共用一个 request 摘要。"""
+    rows, _ = make_rows()
+    a = a_request(rows)
+    b = a_request(rows, label_is_return=True)
+    assert a.digest() != b.digest()

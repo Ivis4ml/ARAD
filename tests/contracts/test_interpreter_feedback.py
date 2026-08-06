@@ -288,13 +288,15 @@ def test_describe_is_lossless_so_the_spec_can_be_rebuilt_from_the_ledger():
         ],
     )
     described = spec.describe()
-    rebuilt = FeatureSpec(
-        feature_id=described["feature_id"], mechanism=described["mechanism"],
-        steps=[Step(**s) for s in described["steps"]],
-        output_step=described["output_step"],
-        failure_condition=described["failure_condition"], authored_by="t",
-    )
+    # 结构性断言：模型的每个字段都必须出现在摘要里。写死字段名的重建是循环论证 ——
+    # 上一版就因为重建时手填 authored_by="t"，而摘要里根本没有这个字段，
+    # 测试对遗漏完全无感。
+    assert set(FeatureSpec.model_fields) <= set(described)
+    usable = {k: v for k, v in described.items() if k in FeatureSpec.model_fields}
+    usable["steps"] = [Step(**step) for step in described["steps"]]
+    rebuilt = FeatureSpec(**usable)
     assert rebuilt.content_id == spec.content_id
+    assert rebuilt.model_dump() == spec.model_dump()
 
 
 # ---------------------------------------------------------------- zscore（M4.1）

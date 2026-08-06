@@ -26,6 +26,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from ..evaluation.selection import selection_band
 from ..memory.ledger import EvidenceLedger, Role
 from ..memory.snapshot import collect_snapshot, require_complete
 from ..registry.specs import Verdict
@@ -70,6 +71,7 @@ class AtlasProjection:
     episodes: list[dict] = field(default_factory=list)
     studies: list[dict] = field(default_factory=list)
     aborted_rounds: list[dict] = field(default_factory=list)
+    lineage: list[dict] = field(default_factory=list)
     service: dict | None = None
     atlas_version: str = ATLAS_VERSION
 
@@ -84,6 +86,8 @@ class AtlasProjection:
             "episodes": self.episodes,
             "studies": self.studies,
             "aborted_rounds": self.aborted_rounds,
+            "lineage": self.lineage,
+            "curve_metrics": list(CURVE_METRICS),
         }
 
     @property
@@ -175,8 +179,13 @@ def _project_study(
     verdict = snapshot.get("verdict") or {}
     proposal = snapshot.get("proposal") or {}
     hypothesis = snapshot.get("hypothesis_lock") or {}
+    study = snapshot.get("study") or {}
     return {
         "study_id": study_id,
+        "parent_study_id": study.get("parent_study_id"),
+        "change_summary": study.get("change_summary", ""),
+        "created_at": study.get("created_at", ""),
+        "metrics": _metrics(snapshot),
         "verdict": verdict.get("verdict", ""),
         "next_action": verdict.get("next_action", ""),
         "rationale": verdict.get("rationale", ""),
@@ -193,6 +202,78 @@ def _project_study(
 
 #: 只组装了上下文就结束的轮次：它的产出不属于任何 Study，记在 Episode 层。
 _CONTEXT_ONLY = {"context_assembled"}
+
+
+#: 曲线上可选的纵轴。全部来自评价机存下的 payload，Atlas 不重算。
+CURVE_METRICS = ("abs_t", "ic_spearman", "sharpe")
+
+
+def _metrics(snapshot: dict) -> dict:
+    """从判决快照里取出曲线要用的量。取不到就是 None，不补默认值。"""
+    evaluation = snapshot.get("evaluation") or {}
+    effects = evaluation.get("effects") or {}
+    ic = effects.get("ic") or {}
+    performance = effects.get("performance") or {}
+    coverage = evaluation.get("coverage") or {}
+    diagnostics = evaluation.get("diagnostics") or {}
+    t_stat = effects.get("t_stat")
+    return {
+        "abs_t": abs(t_stat) if isinstance(t_stat, (int, float)) else None,
+        "t_stat": t_stat,
+        "slope": effects.get("slope"),
+        "mde_at_2p8_se": effects.get("mde_at_2p8_se"),
+        "ic_spearman": ic.get("ic_spearman"),
+        "ic_kind": ic.get("kind"),
+        "sharpe": performance.get("sharpe"),
+        "sharpe_undefined_reason": performance.get("sharpe_undefined_reason"),
+        "rows_submitted": coverage.get("rows_submitted"),
+        "episodes": coverage.get("episodes"),
+        "placebo_exceed_rate": (diagnostics.get("placebo") or {}).get("placebo_exceed_rate"),
+        "outcome_reads": len(snapshot.get("outcome_reads") or []),
+    }
+
+
+def _lineage(studies: list[dict]) -> list[dict]:
+    """按 parent_study_id 把 Study 串成演化链。
+
+    没有父子关系时每个 Study 自成一条长度为 1 的链 —— 那是如实的："它们之间
+    没有继承关系"。把它们按时间连成一条线会让读图的人以为看到了演化。
+    """
+    by_id = {s["study_id"]: s for s in studies}
+    children: dict[str | None, list[str]] = {}
+    for study in studies:
+        parent = study["parent_study_id"] if study["parent_study_id"] in by_id else None
+        children.setdefault(parent, []).append(study["study_id"])
+
+    chains: list[dict] = []
+
+    def walk(node: str, path: list[str]) -> None:
+        path = [*path, node]
+        kids = sorted(children.get(node, []))
+        if not kids:
+            chains.append({"chain_id": path[0], "study_ids": path})
+            return
+        for kid in kids:
+            walk(kid, path)
+
+    for root in sorted(children.get(None, [])):
+        walk(root, [])
+    return chains
+
+
+def _curve(chain: list[dict], metric: str) -> list[dict]:
+    """一条链的曲线数据：每点的值、running best、零假设带。"""
+    points = [
+        {
+            "study_id": s["study_id"],
+            "verdict": s["verdict"],
+            "change_summary": s["change_summary"],
+            "value": s["metrics"].get(metric),
+            "counts_toward_denominator": bool(s["metrics"].get("outcome_reads")),
+        }
+        for s in chain
+    ]
+    return selection_band(points, metric=metric)
 
 
 def _project_aborted(study_id: str, events: list[dict]) -> dict:
@@ -286,8 +367,20 @@ def project(
             }
         )
 
+    ordered = sorted(studies, key=lambda s: (s["created_at"] or "", s["study_id"]))
+    by_id = {s["study_id"]: s for s in ordered}
+    lineage = []
+    for entry in _lineage(ordered):
+        members = [by_id[i] for i in entry["study_ids"]]
+        lineage.append({
+            **entry,
+            "family": members[0]["family"],
+            "curves": {m: _curve(members, m) for m in CURVE_METRICS},
+        })
+
     return AtlasProjection(
         chain=chain,
+        lineage=lineage,
         denominators=denominators,
         verdicts=verdicts,
         coverage=_coverage(studies),

@@ -9,3 +9,5 @@ artifacts/*
 run.log
 *.egg-info/
 .DS_Store
+atlas-app/node_modules/
+atlas-app/dist/

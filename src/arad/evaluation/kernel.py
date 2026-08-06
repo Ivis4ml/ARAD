@@ -81,6 +81,15 @@ class EvaluationRequest:
     #: 算出这些 prediction 的解释器版本。由调用方填入（kernel 不依赖 features 层）。
     #: 进 digest：同一规格换一个解释器版本可能算出另一个数，证据必须能区分。
     interpreter_version: str = ""
+    #: label 是否是一条**有符号的收益**。Sharpe 只有在这一项为真时才有定义 ——
+    #: 已实现波动与吸收比例都不是收益，对它们算 Sharpe 会得到一个数，但那个数
+    #: 不是 Sharpe。默认为假：要声明它，就要为它负责。
+    label_is_return: bool = False
+    #: 年化用的每年期数。SC 一天两个 session，但年化只是显示口径，不改变判决。
+    periods_per_year: float = 252.0
+    #: 仓位规则。sign_unit：按 prediction 的符号取单位多空。规则必须显式记录，
+    #: 否则"这条收益序列是怎么来的"不可回放。
+    position_rule: str = "sign_unit"
     preregistered_exclusions: dict[str, str] = field(default_factory=dict)
     cost_model_declared: bool = False
     placebo_draws: int = 200
@@ -113,6 +122,9 @@ class EvaluationRequest:
                     for r in sorted(self.rows, key=lambda r: r.row_key)
                 ],
                 "interpreter_version": self.interpreter_version,
+                "label_is_return": self.label_is_return,
+                "position_rule": self.position_rule,
+                "periods_per_year": self.periods_per_year,
                 "authoritative_keys": sorted(self.authoritative_keys),
                 "preregistered_exclusions": dict(sorted(self.preregistered_exclusions.items())),
                 "params": {
@@ -260,6 +272,10 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
         "se_two_way_cluster": se,
         "se_newey_west": hac["se"],
         "mde_at_2p8_se": mde,
+        # 嵌套而不是摊平：IC 与 Sharpe 各自都有 n 与 note，摊平会互相覆盖，
+        # 而被覆盖掉的恰恰是说明这个数是什么的那一句
+        "ic": stats.information_coefficient(x, y),
+        "performance": _performance(request, x, y),
     }
     independence = {
         "nominal_n": len(rows),
@@ -287,6 +303,32 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
         "cost_note": "成本占位：真实成本与容量模型属 M5，未声明时不得取 candidate",
     }
     return _result(request, coverage, effects, blocked, {**independence, **diagnostics})
+
+
+def _performance(request: EvaluationRequest, x: list[float], y: list[float]) -> dict:
+    """pre-cost Sharpe。**只有 label 是收益时才有定义。**
+
+    已实现波动是正的量级，吸收比例是无量纲比值：对它们做 sign(prediction) * label
+    会得到一个数，而那个数不是任何策略的收益。与其给一个能被误读的数字，
+    不如给一个明确的"未定义"与理由 —— 这与解释器拒绝伪造 zscore 是同一条原则。
+    """
+    if not request.label_is_return:
+        return {
+            "sharpe": None,
+            "sharpe_undefined_reason": (
+                "label 不是有符号收益（label_is_return 未声明）。"
+                "对非收益 label 计算 Sharpe 会产生一个可被误读的数字"
+            ),
+        }
+    if request.position_rule != "sign_unit":
+        return {"sharpe": None,
+                "sharpe_undefined_reason": f"未实现的仓位规则 {request.position_rule!r}"}
+    returns = [(1.0 if p > 0 else -1.0 if p < 0 else 0.0) * label
+               for p, label in zip(x, y, strict=True)]
+    out = stats.sharpe(returns, periods_per_year=request.periods_per_year)
+    out.update(stats.moments(returns))
+    out["position_rule"] = request.position_rule
+    return out
 
 
 def _result(

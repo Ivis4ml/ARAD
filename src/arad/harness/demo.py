@@ -33,8 +33,8 @@ from pathlib import Path
 
 import pyarrow.parquet as pq
 
+from ..atlas.app import render_app
 from ..atlas.project import project
-from ..atlas.render import render_site
 from ..atlas.sources import data_freshness
 from ..evaluation.kernel import EvaluationRequest, EvaluationRow
 from ..features.interpreter import INTERPRETER_VERSION, BarSeries, evaluate_series
@@ -98,6 +98,65 @@ def _proposal_json() -> str:
             "direction": 1,
             "falsifiable_condition": "斜率不显著异于零，或置换检验不能把实际值与置换分布区分开",
             "rationale": "量价对照集：解释器当前只接入 commodity_bar，先用它检验环路本身",
+            "feature_spec": spec,
+        },
+        ensure_ascii=False,
+    )
+
+
+#: 一条演化链：同一机制的连续变体。每一版只改一处，且把改了什么写进 change_summary ——
+#: 「策略在演化」要能被查证，靠的是父子关系与这句话，不是时间上的先后。
+LINEAGE_VARIANTS = [
+    {"window": 259200, "baseline": 1728000, "z_window": 7776000, "z_step": 86400,
+     "min_samples": 30, "change": ""},
+    {"window": 432000, "baseline": 1728000, "z_window": 7776000, "z_step": 86400,
+     "min_samples": 30, "change": "观测窗口 3 日→5 日：3 日窗在长假后常整段落空"},
+    {"window": 432000, "baseline": 2592000, "z_window": 7776000, "z_step": 86400,
+     "min_samples": 30, "change": "基线窗口 20 日→30 日：让创新量的参照更稳"},
+    {"window": 432000, "baseline": 2592000, "z_window": 15552000, "z_step": 86400,
+     "min_samples": 45, "change": "标准化窗口 90 日→180 日，最小互异样本 30→45"},
+    {"window": 432000, "baseline": 2592000, "z_window": 15552000, "z_step": 172800,
+     "min_samples": 30, "change": "采样步长 1 日→2 日：相邻日的 5 日均值高度重叠"},
+]
+
+
+def _variant_json(v: dict) -> str:
+    """把一个变体渲染成提案。同一机制，只改参数。"""
+    spec = {
+        "feature_id": (
+            f"sc_rv_innovation_z_w{v['window']}_b{v['baseline']}"
+            f"_z{v['z_window']}_s{v['z_step']}"
+        ),
+        "mechanism": "SC 自身已实现波动的短期创新，相对其自身过去分布标准化",
+        "steps": [
+            {"name": "rv_recent", "kind": "window", "source": "commodity_bar",
+             "field": "realised_volatility", "op": "mean", "window_seconds": v["window"]},
+            {"name": "rv_baseline", "kind": "window", "source": "commodity_bar",
+             "field": "realised_volatility", "op": "mean", "window_seconds": v["baseline"]},
+            {"name": "rv_innovation", "kind": "difference",
+             "inputs": ["rv_recent", "rv_baseline"]},
+            {"name": "rv_innovation_z", "kind": "zscore", "inputs": ["rv_innovation"],
+             "window_seconds": v["z_window"], "sample_every_seconds": v["z_step"],
+             "min_samples": v["min_samples"]},
+        ],
+        "output_step": "rv_innovation_z",
+        "failure_condition": (
+            "若标准化后的创新量与下一 session 已实现波动无关，则本特征被证伪；"
+            "参考分布被长假截断到少于声明的互异取值数时该点无定义"
+        ),
+        "authored_by": "llm_proposer",
+    }
+    return json.dumps(
+        {
+            "mechanism": "波动聚集：短期已实现波动相对自身分布异常抬升时，下一 session 波动偏高",
+            "source": "commodity_bar",
+            "target": "sc_rv_next_session",
+            "horizon": "next_session",
+            "universe": "sc_dominant_t1",
+            "direction": 1,
+            "falsifiable_condition": "斜率不显著异于零，或置换检验不能把实际值与置换分布区分开",
+            "rationale": "量价对照集：解释器当前只接入 commodity_bar",
+            "change_summary": v["change"],
             "feature_spec": spec,
         },
         ensure_ascii=False,
@@ -293,9 +352,36 @@ def make_provider(kind: str, model: str = "claude-opus-5") -> tuple[Provider, in
             _proposal_json(), _gap_json(), _pm_proposal_json(),
             "这不是 JSON", "还是不是 JSON", "仍然不是 JSON",
         ]}), 4
+    if kind == "lineage":
+        # 一条演化链：五个变体依次提出，每一版由上一版的判决触发
+        return MockProvider(scripts={
+            "proposer": [_variant_json(v) for v in LINEAGE_VARIANTS]
+        }), 1
     if kind == "claude":
         return ClaudeCliProvider(model_id=model), 1
     raise ValueError(f"未知的 provider {kind!r}")
+
+
+def _lineage_scheduler(limit: int = len(LINEAGE_VARIANTS)):
+    """判决之后的调度：还有变体没试就排下一版，并记下它的父版。
+
+    这是环真正闭上的那一段。`next_action` 写进账本却没有东西执行它的时候，
+    每个 Study 都是孤立的一次性尝试。
+    """
+    state = {"n": 1}
+
+    def schedule(outcome, queue, now):
+        if outcome.study_id is None or state["n"] >= limit:
+            return
+        child = f"demo-study-{state['n']}"
+        queue.enqueue(
+            f"demo-task-{state['n']}", "study",
+            {"study_id": child, "parent_study_id": outcome.study_id},
+            now=now,
+        )
+        state["n"] += 1
+
+    return schedule
 
 
 def run_episode_demo(
@@ -322,6 +408,7 @@ def run_episode_demo(
                           {"study_id": f"demo-study-{i}"}, now=now)
         result = run_episode(
             episode_id="demo-episode-1",
+            schedule_next=_lineage_scheduler() if provider_kind == "lineage" else None,
             queue=queue,
             ledger=ledger,
             provider=provider,
@@ -333,7 +420,7 @@ def run_episode_demo(
             now=now,
         )
         projection = project(ledger, family=FAMILY, service=queue.service_state())
-        paths = render_site(
+        paths = render_app(
             projection, atlas_dir, freshness=data_freshness(manifest_dir)
         )
         return {

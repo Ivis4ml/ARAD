@@ -30,7 +30,7 @@ class SnapshotIncomplete(RuntimeError):
 
 #: 快照的可选切片。缺失不算账本缺口 —— blocked 的 Study 本来就没有评价结果 ——
 #: 但只要有就必须呈现：决定 0003 快照层要求五关逐项结果、腿分解、红队诊断与工件哈希。
-OPTIONAL_SECTIONS = ("evaluation", "feature_spec")
+OPTIONAL_SECTIONS = ("evaluation", "feature_spec", "study")
 
 
 def collect_snapshot(events: list[dict], denominators: dict) -> dict:
@@ -43,6 +43,8 @@ def collect_snapshot(events: list[dict], denominators: dict) -> dict:
         kind, payload = event["event_type"], event["payload"]
         if kind == "evaluation_result":
             snap["evaluation"] = payload
+        elif kind == "study_created":
+            snap["study"] = payload
         elif kind == "feature_spec_locked":
             snap["feature_spec"] = payload
         elif kind == "proposal_locked":

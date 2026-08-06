@@ -251,3 +251,115 @@ def test_events_are_read_with_the_human_role(ledger):
     payloads = [e["payload"] for e in blinded if e["event_type"] == "evaluation_result"]
     assert payloads and "slope" not in json.dumps(payloads[0])
     assert "slope" in json.dumps(project(ledger, family=FAMILY).to_dict(), default=str)
+
+
+# ------------------------------------------------------- 谱系与演化曲线（M9.1）
+
+
+def a_chain(led: EvidenceLedger, ids: list[str], *, t_stats: list[float]) -> None:
+    """一条父子相连的演化链，每一版带一个 t 值。"""
+    parent: str | None = None
+    for study_id, t in zip(ids, t_stats, strict=True):
+        proposal = ProposalSpec(
+            mechanism="波动聚集", source="commodity_bar", target="sc_rv_next_session",
+            horizon="next_session", universe="sc_dominant", direction=1,
+            falsifiable_condition="无关则证伪", proposed_by="llm_proposer",
+        )
+        hypothesis = HypothesisLock(proposal_id=proposal.content_id, experiment_family=FAMILY)
+        confirmatory = ConfirmatoryLock(hypothesis_id=hypothesis.content_id, formula="y ~ x",
+                                        preregistered_diagnostics=["placebo"])
+        study = StudySpec(study_id=study_id, proposal_id=proposal.content_id,
+                          hypothesis_id=hypothesis.content_id,
+                          confirmatory_id=confirmatory.content_id,
+                          parent_study_id=parent,
+                          change_summary="" if parent is None else f"改到 {study_id}")
+        led.record_proposal(proposal.content_id, FAMILY)
+        led.append("proposal_locked", proposal.payload(), study_id=study_id)
+        led.append("hypothesis_locked", hypothesis.payload(), study_id=study_id)
+        led.append("confirmatory_locked", confirmatory.payload(), study_id=study_id)
+        led.append("study_created", study.payload(), study_id=study_id)
+        led.append("visible_data_range", {"segment": "discovery"}, study_id=study_id)
+        led.record_outcome_read(f"{study_id}:main", FAMILY, study_id)
+        led.append("evaluation_result", {
+            "coverage": {"rows_submitted": 900},
+            "effects": {"t_stat": t, "slope": 0.03,
+                        "ic": {"ic_spearman": t / 40, "kind": "time_series"},
+                        "performance": {"sharpe": None,
+                                        "sharpe_undefined_reason": "label 不是有符号收益"}},
+            "diagnostics": {"placebo": {"placebo_exceed_rate": 0.2}},
+            "blocked_reasons": ["未声明成本模型：不得取 candidate"],
+            "suggested_verdict": "blocked",
+        }, study_id=study_id)
+        led.append("verdict_recorded", StudyVerdict(
+            study_id=study_id, verdict=Verdict.BLOCKED,
+            next_action=NextAction.CREATE_NEW_VERSION, rationale="未声明成本模型",
+        ).payload(), study_id=study_id)
+        parent = study_id
+
+
+def test_parent_links_become_one_chain_not_five_isolated_studies(ledger):
+    a_chain(ledger, ["s0", "s1", "s2"], t_stats=[3.0, 3.4, 4.6])
+    p = project(ledger, family=FAMILY)
+    assert len(p.lineage) == 1
+    assert p.lineage[0]["study_ids"] == ["s0", "s1", "s2"]
+
+
+def test_studies_without_parents_stay_separate_chains(ledger):
+    """没有父子关系就是没有。把它们按时间连成一条线会让人以为看到了演化。"""
+    a_study(ledger, "s0")
+    a_study(ledger, "s1", mechanism="另一个机制")
+    p = project(ledger, family=FAMILY)
+    assert len(p.lineage) == 2
+    assert all(len(c["study_ids"]) == 1 for c in p.lineage)
+
+
+def test_the_curve_carries_the_null_band_and_it_rises_with_the_tests(ledger):
+    a_chain(ledger, ["s0", "s1", "s2"], t_stats=[3.0, 3.4, 4.6])
+    curve = project(ledger, family=FAMILY).lineage[0]["curves"]["abs_t"]
+    assert [round(p["value"], 1) for p in curve] == [3.0, 3.4, 4.6]
+    assert [p["running_best"] for p in curve] == [3.0, 3.4, 4.6]
+    thresholds = [p["null_threshold"] for p in curve]
+    assert thresholds[0] < thresholds[1] < thresholds[2]
+    assert [p["tests_so_far"] for p in curve] == [1, 2, 3]
+
+
+def test_the_curve_reports_ic_and_an_undefined_sharpe_rather_than_a_number(ledger):
+    a_chain(ledger, ["s0"], t_stats=[4.0])
+    metrics = project(ledger, family=FAMILY).studies[0]["metrics"]
+    assert metrics["ic_spearman"] == pytest.approx(0.1)
+    assert metrics["sharpe"] is None
+    assert "不是有符号收益" in metrics["sharpe_undefined_reason"]
+
+
+def test_the_react_shell_receives_the_projection(ledger, tmp_path):
+    from arad.atlas.app import DATA_ELEMENT_ID, render_app
+
+    a_chain(ledger, ["s0", "s1"], t_stats=[3.0, 4.0])
+    paths = render_app(project(ledger, family=FAMILY), tmp_path / "app",
+                       freshness=[{"source_id": "commodity_tick", "status": "已扫描"}])
+    html = Path(paths["index"]).read_text(encoding="utf-8")
+    assert paths["renderer"] == "react"
+    assert f'id="{DATA_ELEMENT_ID}"' in html
+    assert html.index(DATA_ELEMENT_ID) < html.index("</head>")
+
+
+def test_injected_data_cannot_close_the_script_tag(ledger, tmp_path):
+    """payload 里出现 </script> 会提前结束脚本块，把其余数据当成 HTML 解析。"""
+    from arad.atlas.app import render_app
+
+    a_study(ledger, "s0", mechanism="</script><img onerror=alert(1)>")
+    paths = render_app(project(ledger, family=FAMILY), tmp_path / "app")
+    html = Path(paths["index"]).read_text(encoding="utf-8")
+    assert "</script><img" not in html
+    assert "\\u003c/script" in html
+
+
+def test_a_missing_shell_fails_loudly_instead_of_rendering_a_page_without_the_curve(
+    ledger, tmp_path
+):
+    from arad.atlas.app import AppShellMissing, render_app
+
+    a_study(ledger, "s0")
+    with pytest.raises(AppShellMissing, match="npm run build"):
+        render_app(project(ledger, family=FAMILY), tmp_path / "app",
+                   shell_path=tmp_path / "nope.html")

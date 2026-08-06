@@ -328,6 +328,34 @@ content id 换一个数）、从 `output_step` 不可达的步骤一律拒绝（
 **标准化之后置换检验不再通过**（36.5% 的置换斜率不小于实际值）—— 原先的强度有一部分
 来自水平与趋势结构。两者都是 Baseline Control，不计入 Alternative Factor Inventory。
 
+## M9.1 演化视图（React 应用，已交付）
+
+人类要求把 Atlas 做成 React 应用，主视图是关键指标在迭代中的走势曲线。
+**这个需求自带一个会骗人的形状**：旧系统 `ADAR/artifacts/hillclimb` 的实测里，
+81 次爬山选出的最好 Sharpe 是 2.40，而同一套搜索在零假设下的期望是 2.63（该文件
+自己记录的 `sr_null_ann`）—— 曲线在涨，实际比噪声还差。因此本票的核心是**第三条线**：
+同样次数的搜索在纯噪声上能达到的水平（`evaluation/selection.py`）。实现以旧系统
+独立算出的 `sr_null = 0.16595662` 做跨实现核对，误差 1e-4 以内；单侧用于 Sharpe，
+双侧用于 |t|，用错一侧会把零假设抬高约 10%。带随**已读 outcome 的次数**上升，
+被挡下的轮次留在图上但不抬高它。
+
+指标口径：新增 IC（Spearman/Pearson），**明确标注为时序 IC 而非截面 IC** ——
+本样本单品种，`product_clusters` 为 1，叫它 IC 而不注明会被按截面 IC 的直觉误读。
+Sharpe 的机制照实现（含偏度、峰度、`deflated_sharpe`），但**当前两个 target 的 label
+都不是收益**（已实现波动、吸收比例），因此 `label_is_return` 默认为假，Sharpe 返回
+未定义加理由。真 Sharpe 需要一个收益型 target，另立一票。
+
+谱系：`StudySpec` 新增 `parent_study_id` 与 `change_summary`，`run_episode` 新增
+`schedule_next` 回调 —— 此前 `NextAction.CREATE_NEW_VERSION` 写进账本却没有任何东西
+会执行它。默认按谱系展开，可切时间轴；时间轴下不画零假设带并说明原因。
+
+技术：Vite + React + TS 构建成单文件 HTML 随包分发，Python 注入投影 JSON。
+渲染不需要 node，页面零网络请求。详见 `docs/tickets/M9.1-evolution-app.md`。
+
+**实测**：`--provider lineage` 一条五版链，|t| 3.06 → 5.03，IC 0.059 → 0.161，
+零假设带 0.80 → 1.58。曲线始终在带之上，但这是 Baseline Control 且判决全为 blocked，
+不构成任何可交易主张。
+
 ## 当前前沿
 
 **#6（M3）、M4、M9 已交付。下一步是 M5：成本与容量模型 + 多元回归。**

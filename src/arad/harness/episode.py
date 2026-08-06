@@ -67,6 +67,7 @@ class ProposalOutput(BaseModel):
     direction: int | None = None
     falsifiable_condition: str | None = None
     rationale: str = ""
+    change_summary: str = ""
     feature_spec: FeatureSpec | None = None
     unsupported_mechanism: UnsupportedMechanism | None = None
 
@@ -231,7 +232,9 @@ def run_round(
     )
     study = StudySpec(study_id=study_id, proposal_id=proposal.content_id,
                       hypothesis_id=hypothesis.content_id,
-                      confirmatory_id=confirmatory.content_id)
+                      confirmatory_id=confirmatory.content_id,
+                      parent_study_id=task["payload"].get("parent_study_id"),
+                      change_summary=parsed.change_summary)
     ledger.append("hypothesis_locked", hypothesis.payload(), study_id=study_id)
     ledger.append("confirmatory_locked", confirmatory.payload(), study_id=study_id)
     ledger.append("study_created", study.payload(), study_id=study_id)
@@ -305,10 +308,17 @@ def run_episode(
     owner: str,
     assemble: Any,
     build_evaluation: Any,
+    schedule_next: Any = None,
     max_rounds: int = 50,
     now: datetime | None = None,
 ) -> EpisodeResult:
-    """跑一次 Episode。预算耗尽或无可运行任务即结束 —— Service 不停。"""
+    """跑一次 Episode。预算耗尽或无可运行任务即结束 —— Service 不停。
+
+    `schedule_next(outcome, queue, now)` 是判决之后的调度回调：它读 `next_action`
+    决定要不要排下一版。这是环真正闭上的那一段 —— 没有它，每个 Study 都是孤立的
+    一次性尝试，`NextAction.CREATE_NEW_VERSION` 写进账本却没有任何东西会去执行它，
+    而"策略在迭代"这句话就没有事实支撑。
+    """
     result = EpisodeResult(episode_id=episode_id)
     ledger.append("episode_started", {"episode_id": episode_id, "family": family,
                                       "budget": budget.describe()})
@@ -326,6 +336,8 @@ def run_episode(
             result.ended_because = "no_runnable_work"
             break
         result.rounds.append(outcome)
+        if schedule_next is not None:
+            schedule_next(outcome, queue, now or datetime.now(UTC))
     else:
         result.ended_because = "max_rounds"
     result.budget = budget.describe()

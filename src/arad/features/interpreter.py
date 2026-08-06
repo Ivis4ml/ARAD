@@ -65,6 +65,11 @@ class BarSeries:
     values: list[float]
     #: 该序列的覆盖起点。默认取第一个观测时刻；数据实际开始得更早但本对象只装了
     #: 一段时，应显式声明，否则准入检查会把可用的决策点误判为无定义。
+    #:
+    #: **这是调用方的断言，解释器无法验证它。**声明得比实际数据早，准入就会放行一些
+    #: 参考分布被截断的点，而完整序列与截断副本会在同一决策时点给出不同的数。
+    #: 因此声明本身进证据（见 `evaluate_series` 的 `series_coverage`），
+    #: 使"声明的覆盖宽于实际持有的数据"在快照上看得见，而不是只能靠信任。
     coverage_start: datetime | None = None
 
     def begins_at(self) -> datetime | None:
@@ -295,6 +300,20 @@ def evaluate_series(
         "constant": bool(defined) and max(defined) == min(defined),
         "required_lookback_seconds": spec.required_lookback_seconds,
         "interpreter_version": INTERPRETER_VERSION,
+    }
+    coverage["series_coverage"] = {
+        f"{source.value}:{field_name}": {
+            "declared_coverage_start": (
+                bs.coverage_start.isoformat() if bs.coverage_start else None
+            ),
+            "first_observation": bs.times[0].isoformat() if bs.times else None,
+            "observations": len(bs.times),
+            "declared_wider_than_data": bool(
+                bs.coverage_start is not None and bs.times
+                and bs.coverage_start < bs.times[0]
+            ),
+        }
+        for (source, field_name), bs in series.items()
     }
     if ctx.zscore_coverage:
         coverage["zscore_reference_samples"] = _summarise_zscore(ctx.zscore_coverage)

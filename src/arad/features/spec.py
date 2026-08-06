@@ -340,6 +340,7 @@ class FeatureSpec(BaseModel):
             # 快照里的 ratio 步骤看不出它引用了哪两步。
             "steps": [s.model_dump(mode="json") for s in self.steps],
             "output_step": self.output_step,
+            "authored_by": self.authored_by,
             "required_lookback_seconds": self.required_lookback_seconds,
             "failure_condition": self.failure_condition,
             "code_artifact_id": self.code_artifact_id,

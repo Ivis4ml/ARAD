@@ -120,8 +120,9 @@ def main(argv: list[str] | None = None) -> int:
     ed.add_argument("--target", default="data/spine/sc/target_sc_rv_next_session.parquet")
     ed.add_argument("--atlas", default="artifacts/atlas")
     ed.add_argument("--manifests", default="artifacts/manifests")
-    ed.add_argument("--provider", default="mock", choices=("mock", "claude"),
-                    help="mock 走脚本；claude 真实调用 `claude -p`（花钱）")
+    ed.add_argument("--provider", default="mock", choices=("mock", "lineage", "claude"),
+                    help="mock 走四种结局脚本；lineage 走一条五版演化链；"
+                         "claude 真实调用 `claude -p`（花钱）")
     ed.add_argument("--model", default="claude-opus-5")
 
     atlas = sub.add_parser("atlas", help="Research Atlas 只读投影（M9）")
@@ -132,6 +133,8 @@ def main(argv: list[str] | None = None) -> int:
     ar.add_argument("--family", default=None, help="只统计某个 experiment family 的分母")
     ar.add_argument("--out", default="artifacts/atlas")
     ar.add_argument("--manifests", default="artifacts/manifests")
+    ar.add_argument("--renderer", default="react", choices=("react", "static"),
+                    help="react：单页应用（含演化曲线）；static：服务端渲染的静态页")
 
     args = parser.parse_args(argv)
     if args.cmd == "data-audit":
@@ -196,6 +199,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
         return 0
     if args.cmd == "atlas":
+        from .atlas.app import render_app
         from .atlas.project import project
         from .atlas.render import render_site
         from .atlas.sources import data_freshness
@@ -209,8 +213,12 @@ def main(argv: list[str] | None = None) -> int:
                 service = {**q.service_state(), "tasks": q.stats()}
         with EvidenceLedger(args.ledger) as ledger:
             projection = project(ledger, family=args.family, service=service)
-            paths = render_site(
-                projection, args.out, freshness=data_freshness(args.manifests)
+            fresh = data_freshness(args.manifests)
+            paths = (
+                render_app(projection, args.out, freshness=fresh)
+                if args.renderer == "react"
+                else {**render_site(projection, args.out, freshness=fresh),
+                      "renderer": "static"}
             )
         print(json.dumps({**paths, **projection.totals, "chain": projection.chain},
                          ensure_ascii=False, indent=2, default=str))

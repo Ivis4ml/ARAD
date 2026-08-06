@@ -200,12 +200,22 @@ class ConfirmatoryLock(FrozenSpec):
 
 
 class StudySpec(FrozenSpec):
-    """把两次冻结绑成一个可审计的研究单元。"""
+    """把两次冻结绑成一个可审计的研究单元。
+
+    `parent_study_id` 使"迭代"成为账本里的事实而不是时间上的巧合：没有它，
+    按判决时间排出来的一条线只是先后顺序，相邻两点之间没有继承关系，
+    而"策略在演化"这句话就无从查证。
+    """
 
     study_id: str
     proposal_id: str
     hypothesis_id: str
     confirmatory_id: str | None = None
+    #: 本 Study 由哪一个 Study 迭代而来。根节点为 None。
+    parent_study_id: str | None = None
+    #: 相对父版改了什么。空字符串表示未声明 —— 它会在 Atlas 上如实显示为未声明，
+    #: 而不是被补一句听起来合理的话。
+    change_summary: str = ""
     created_at: str = Field(default_factory=utc_now)
 
 

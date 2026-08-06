@@ -228,3 +228,91 @@ def placebo_slope_distribution(
             else 0.0
         ),
     }
+
+
+def _ranks(values: list[float]) -> list[float]:
+    """平均秩。并列取平均，否则并列会给相关系数带来虚假的确定性。"""
+    order = sorted(range(len(values)), key=lambda i: values[i])
+    ranks = [0.0] * len(values)
+    i = 0
+    while i < len(order):
+        j = i
+        while j + 1 < len(order) and values[order[j + 1]] == values[order[i]]:
+            j += 1
+        shared = (i + j) / 2 + 1
+        for k in range(i, j + 1):
+            ranks[order[k]] = shared
+        i = j + 1
+    return ranks
+
+
+def pearson(x: list[float], y: list[float]) -> float:
+    if len(x) < 2:
+        return float("nan")
+    mx, my = mean(x), mean(y)
+    num = math.fsum((a - mx) * (b - my) for a, b in zip(x, y, strict=True))
+    dx = math.sqrt(math.fsum((a - mx) ** 2 for a in x))
+    dy = math.sqrt(math.fsum((b - my) ** 2 for b in y))
+    return num / (dx * dy) if dx > 0 and dy > 0 else float("nan")
+
+
+def spearman(x: list[float], y: list[float]) -> float:
+    return pearson(_ranks(x), _ranks(y))
+
+
+def information_coefficient(prediction: list[float], label: list[float]) -> dict:
+    """IC。**这是时序 IC，不是截面 IC。**
+
+    截面 IC 要求同一时点上有多个标的可排序；本样本单品种单 session，
+    横截面维度不存在（评价机的 product_clusters 会显示为 1）。把时序 IC 叫作 IC
+    而不注明，读的人会按截面 IC 的直觉理解它的量级与显著性，那是误导。
+    """
+    n = len(prediction)
+    return {
+        "ic_spearman": spearman(prediction, label) if n >= 2 else float("nan"),
+        "ic_pearson": pearson(prediction, label) if n >= 2 else float("nan"),
+        "n": n,
+        "kind": "time_series",
+        "note": (
+            "时序 IC：同一标的在时间上的秩相关。截面 IC 需要同一时点多个标的，"
+            "本样本不具备该维度"
+        ),
+    }
+
+
+def moments(values: list[float]) -> dict:
+    """样本偏度与超额峰度。DSR 需要它们；正态假设在收益上通常不成立。"""
+    n = len(values)
+    if n < 4:
+        return {"skew": float("nan"), "excess_kurtosis": float("nan"), "n": n}
+    m = mean(values)
+    var = math.fsum((v - m) ** 2 for v in values) / n
+    if var <= 0:
+        return {"skew": float("nan"), "excess_kurtosis": float("nan"), "n": n}
+    sd = math.sqrt(var)
+    skew = math.fsum(((v - m) / sd) ** 3 for v in values) / n
+    kurt = math.fsum(((v - m) / sd) ** 4 for v in values) / n - 3.0
+    return {"skew": skew, "excess_kurtosis": kurt, "n": n}
+
+
+def sharpe(returns: list[float], *, periods_per_year: float) -> dict:
+    """逐期 Sharpe 与年化。**输入必须是收益，不是任何别的量。**
+
+    调用方要为"这确实是一条收益序列"负责：把已实现波动或吸收比例喂进来会得到一个
+    数，但那个数不是 Sharpe。评价机因此把它挡在 `label_is_return` 声明之后。
+    """
+    n = len(returns)
+    if n < 2:
+        return {"sharpe": float("nan"), "sharpe_annualised": float("nan"), "n": n}
+    m = mean(returns)
+    sd = math.sqrt(math.fsum((r - m) ** 2 for r in returns) / (n - 1))
+    if sd <= 0:
+        return {"sharpe": float("nan"), "sharpe_annualised": float("nan"), "n": n}
+    per_period = m / sd
+    return {
+        "sharpe": per_period,
+        "sharpe_annualised": per_period * math.sqrt(periods_per_year),
+        "periods_per_year": periods_per_year,
+        "n": n,
+        "note": "pre-cost：未扣交易成本与容量约束，不得据此声明可交易性",
+    }
