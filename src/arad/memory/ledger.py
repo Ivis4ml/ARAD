@@ -119,6 +119,44 @@ def event_hash(prev_hash: str, seq: int, study_id: str | None, event_type: str,
     )
 
 
+#: 盲化角色**能看到**的字段，按事件类型逐项列出。没列的一律丢弃，不是遮蔽。
+#:
+#: **黑名单在这里是错的形状，这已经被证伪两次。**第一次是 `EFFECT_FIELDS` 漏了
+#: 评价机实际输出的 `slope` 与 `intercept`；补上名字、前缀与 `effects` 容器之后，
+#: 第二次从 `diagnostics` 漏出来 —— `placebo.actual_slope` 除以
+#: `two_way_cluster.se` 就是带符号的 t 值，实测与评价机的 `t_stat` 逐位相同。
+#: 只要评价机新增一个统计量，黑名单就又开一个口子。白名单反过来：
+#: 没被显式允许的东西不可能出现在盲化视图里，新增统计量默认不可见。
+#:
+#: `evaluation_result` **整条不在名单里**：提案器不该看到评价结果的任何部分。
+PROPOSER_VISIBLE_FIELDS: dict[str, tuple[str, ...]] = {
+    "verdict_recorded": ("study_id", "verdict"),
+    "proposal_recorded": ("family", "screened_out", "reason"),
+    "outcome_read": ("family",),
+    "parse_failure": ("role", "schema_name", "attempts"),
+    "provider_repair": ("attempts", "model_id"),
+    "primitive_gap_declared": (
+        "mechanism", "missing_primitive", "why_existing_primitives_insufficient",
+    ),
+    "study_created": ("study_id", "parent_study_id", "change_summary"),
+    "episode_started": ("episode_id", "family"),
+    "episode_ended": ("episode_id", "rounds", "ended_because"),
+}
+
+WITHHELD = "<withheld:not-on-blinded-allowlist>"
+
+
+def _project_for_role(event_type: str, payload: dict) -> dict:
+    """按事件类型取白名单字段。整条不在名单里的事件只留一个标记。"""
+    allowed = PROPOSER_VISIBLE_FIELDS.get(event_type)
+    if allowed is None:
+        return {"withheld": WITHHELD}
+    kept = {k: v for k, v in payload.items() if k in allowed}
+    if len(kept) != len(payload):
+        kept["withheld"] = WITHHELD
+    return kept
+
+
 def _redact(payload: dict) -> dict:
     """去掉效果字段。递归处理嵌套结构，避免把 β 藏在子字典里绕过边界。
 
@@ -214,7 +252,9 @@ class EvidenceLedger:
 
             payload = _json.loads(row["payload"])
             if role is Role.PROPOSER:
-                payload = _redact(payload)
+                # 先按白名单裁剪，再让黑名单兜一道底：白名单字段本应安全，
+                # 但两道比一道好，且第二道的失败已经有实测记录
+                payload = _redact(_project_for_role(row["event_type"], payload))
             out.append(
                 {
                     "seq": row["seq"],

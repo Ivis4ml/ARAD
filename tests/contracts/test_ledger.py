@@ -6,12 +6,16 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
 from arad.memory.ledger import (
+    PROPOSER_VISIBLE_FIELDS,
+    WITHHELD,
     CapabilityDenied,
     EvidenceLedger,
     LedgerIntegrityError,
@@ -200,25 +204,88 @@ def test_proposal_denominator_cannot_shrink(ledger):
 # ---------------------------------------------------------------- 能力边界
 
 
-def test_proposer_cannot_read_effect_fields(ledger):
-    ledger.append("result", {"beta": 0.42, "t_stat": 3.1, "coverage": 0.9}, study_id="s1")
+def test_the_blinded_view_is_an_allowlist_not_a_denylist(ledger):
+    """没被显式允许的事件类型，提案器一个字段都拿不到。
+
+    黑名单在这里是错的形状，已经被证伪两次：先是漏了 `slope`/`intercept`，
+    补上名字与前缀之后又从 `diagnostics` 漏出来。白名单反过来 ——
+    评价机新增统计量默认不可见。
+    """
+    ledger.append("result", {"beta": 0.42, "coverage": 0.9}, study_id="s1")
     evaluator = ledger.read_events(role=Role.EVALUATOR, study_id="s1")[0]["payload"]
     assert evaluator["beta"] == 0.42
     proposer = ledger.read_events(role=Role.PROPOSER, study_id="s1")[0]["payload"]
-    assert proposer["beta"] == "<redacted:effect-field>"
-    assert proposer["t_stat"] == "<redacted:effect-field>"
-    assert proposer["coverage"] == 0.9  # 功效与覆盖信息允许可见
+    assert proposer == {"withheld": WITHHELD}
 
 
-def test_effect_fields_cannot_hide_in_nested_structures(ledger):
-    ledger.append(
-        "result",
-        {"diagnostics": {"placebo": {"p_value": 0.01}}, "legs": [{"sharpe": 1.2}]},
-        study_id="s1",
-    )
+def test_the_proposer_sees_no_part_of_an_evaluation_result(ledger):
+    ledger.append("evaluation_result", {
+        "coverage": {"rows_submitted": 900},
+        "effects": {"slope": 0.03, "t_stat": 3.1},
+        "diagnostics": {"placebo": {"actual_slope": 0.0031, "placebo_exceed_rate": 0.2},
+                        "two_way_cluster": {"se": 0.00095}},
+        "blocked_reasons": ["未声明成本模型：不得取 candidate"],
+    }, study_id="s1")
     payload = ledger.read_events(role=Role.PROPOSER, study_id="s1")[0]["payload"]
-    assert payload["diagnostics"]["placebo"]["p_value"] == "<redacted:effect-field>"
-    assert payload["legs"][0]["sharpe"] == "<redacted:effect-field>"
+    assert payload == {"withheld": WITHHELD}
+
+
+def test_the_signed_t_stat_cannot_be_reconstructed_from_the_blinded_view(ledger):
+    """实测过的真实泄漏：actual_slope 除以 two_way_cluster.se 就是带符号的 t 值。
+
+    `actual_slope` 不匹配 `slope_` 前缀，裸 `se` 不匹配 `se_` 前缀，`diagnostics`
+    当时也不在容器名单里，于是三道黑名单规则全部放行，实测重建出 -1.412522，
+    与评价机的 t_stat 逐位相同。
+    """
+    ledger.append("evaluation_result", {
+        "diagnostics": {"placebo": {"actual_slope": -0.0003663680954239667},
+                        "two_way_cluster": {"se": 0.00025937152361093103}},
+    }, study_id="s1")
+    dumped = json.dumps(
+        ledger.read_events(role=Role.PROPOSER, study_id="s1")[0]["payload"]
+    )
+    for leak in ("actual_slope", "0.000366", "0.000259", "two_way_cluster"):
+        assert leak not in dumped
+
+
+def test_allowed_events_keep_only_their_listed_fields(ledger):
+    ledger.append("verdict_recorded",
+                  {"study_id": "s1", "verdict": "blocked", "next_action": "queue_forward",
+                   "rationale": "斜率 0.41 显著"},
+                  study_id="s1")
+    payload = ledger.read_events(role=Role.PROPOSER, study_id="s1")[0]["payload"]
+    assert payload["verdict"] == "blocked"
+    assert payload["study_id"] == "s1"
+    # 理由是自由文本，可能带数字；下一步动作与 candidate 相关，两者都不给
+    assert "rationale" not in payload
+    assert "next_action" not in payload
+    assert payload["withheld"] == WITHHELD
+
+
+def test_every_allowlisted_event_type_is_one_the_ledger_actually_writes(ledger):
+    """名单里写了一个从不产生的事件类型，等于以为挡住了什么而其实没有。"""
+    import arad.memory.ledger as ledger_mod
+    from arad.harness import episode
+
+    source = (
+        Path(episode.__file__).read_text(encoding="utf-8")
+        + Path(ledger_mod.__file__).read_text(encoding="utf-8")
+    )
+    for event_type in PROPOSER_VISIBLE_FIELDS:
+        assert f'"{event_type}"' in source, event_type
+
+
+def test_the_denylist_still_guards_whatever_the_allowlist_lets_through(tmp_path):
+    """白名单是第一道，黑名单是兜底。允许的事件类型里若混进效果字段，仍要被遮蔽。"""
+    from arad.memory.ledger import _project_for_role, _redact
+
+    kept = _redact(_project_for_role("proposal_recorded",
+                                     {"family": "f", "screened_out": False,
+                                      "reason": "ok", "slope": 0.41}))
+    assert "slope" not in kept          # 白名单先裁掉
+    assert _redact({"slope": 0.41, "se_two_way_cluster": 0.01})["slope"] == \
+        "<redacted:effect-field>"
+    assert _redact({"effects": {"whatever": 1}})["effects"] == "<redacted:effect-container>"
 
 
 def test_proposer_cannot_dump_the_whole_ledger(ledger):
@@ -344,36 +411,3 @@ def test_demo_is_idempotent_and_keeps_the_chain_intact(tmp_path):
     assert second["events"] > first["events"]  # 只追加，从不覆盖
     with EvidenceLedger(path) as led:
         assert led.require_intact() == second["events"]
-
-
-def test_effect_leakage_is_blocked_by_prefix_not_only_by_exact_name(tmp_path):
-    """名单只挡教科书叫法是不够的：标准误与最小可检测效应同样泄漏量级。"""
-    with EvidenceLedger(str(tmp_path / "l.db")) as ledger:
-        ledger.append("evaluation_result", {
-            "se_two_way_cluster": 0.0729,
-            "mde_at_2p8_se": 0.2042,
-            "coverage": {"rows_submitted": 1027},
-        }, study_id="s0")
-        payload = ledger.read_events(role=Role.PROPOSER, study_id="s0")[0]["payload"]
-    assert payload["se_two_way_cluster"] == "<redacted:effect-field>"
-    assert payload["mde_at_2p8_se"] == "<redacted:effect-field>"
-    assert payload["coverage"]["rows_submitted"] == 1027
-
-
-def test_the_whole_effects_container_is_redacted(tmp_path):
-    """逐字段挡只能挡住已经想到的名字；评价机每加一个统计量就开一个新口子。"""
-    with EvidenceLedger(str(tmp_path / "l.db")) as ledger:
-        ledger.append("evaluation_result", {
-            "effects": {"a_statistic_nobody_listed_yet": 3.14},
-        }, study_id="s0")
-        payload = ledger.read_events(role=Role.PROPOSER, study_id="s0")[0]["payload"]
-    assert payload["effects"] == "<redacted:effect-container>"
-
-
-def test_slope_is_an_effect_field(tmp_path):
-    """一元回归斜率就是效应量，换个名字不改变这一点（M9 发现的原名单缺口）。"""
-    with EvidenceLedger(str(tmp_path / "l.db")) as ledger:
-        ledger.append("evaluation_result", {"slope": 0.4116, "intercept": -4.77},
-                      study_id="s0")
-        payload = ledger.read_events(role=Role.PROPOSER, study_id="s0")[0]["payload"]
-    assert set(payload.values()) == {"<redacted:effect-field>"}
