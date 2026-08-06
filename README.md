@@ -24,8 +24,89 @@ Research Service 只能由人类暂停或关闭。
 - **M2.5 已完成并关闭**：Polymarket label-blind 全史普查（8.56 亿笔）与 PIT Market
   Index（市场与资产两级点时化身份，存在性与流动性资格分离）。`cn_registry_v3.parquet`
   已弃用并隔离。
-- **当前：#12 Polymarket 市场语义映射**，取证阶段已完成，待裁决机制族口径。
-- 其后：**M3**（最小 Research Kernel）。
+- **M3 已交付**：证据账本（SQLite 追加式哈希链）、受保护评价机、durable queue。
+- **M4 已交付**：Research Harness —— 特征规格语言、provider 适配（含真实 `claude -p`）、
+  盲化上下文组装、反馈格式化、Search Episode 闭环。**M4.1** 补齐 `zscore` 原语。
+- **M9 / M9.1 已交付**：Research Atlas 只读投影，以及 React 演化视图
+  （指标沿谱系的走势 + running best + 选择零假设带）。
+- 其后：**M5**（成本与容量模型、多元回归）。在成本模型建成之前，
+  任何 Study 都不可能取 candidate —— 这是评价机的硬闸门。
+
+## 怎么运行
+
+环境（一次）：
+
+```bash
+uv venv && uv pip install -e ".[dev]"
+```
+
+以下命令都用 `.venv/bin/python -m arad.cli <子命令>`（本项目没有安装 `arad` 可执行文件）。
+
+### 一、跑一遍研究循环并出 Atlas（最常用）
+
+```bash
+# 一条五版演化链：同一机制的连续变体，每一版由上一版的判决触发
+.venv/bin/python -m arad.cli episode demo --provider lineage \
+  --ledger data/ledger/lineage.db --queue data/ledger/lineage_q.db \
+  --atlas artifacts/atlas_lineage
+
+open artifacts/atlas_lineage/index.html      # 单文件，零网络请求，直接打开即可
+```
+
+`--provider` 三选一：
+
+| 值 | 用途 |
+|---|---|
+| `mock`（默认） | 四种结局各一次：走完评价、原语缺口、解释器缺口、解析失败。用于看环路的完整形态 |
+| `lineage` | 一条五版演化链。**演化曲线要看这个** |
+| `claude` | 真实调用 `claude -p`（**花钱**），只跑一轮。默认 `--model claude-opus-5` |
+
+前置：`data/spine/sc/target_sc_rv_next_session.parquet`（M2 产物）。没有它先跑
+`.venv/bin/python -m arad.cli spine build`。
+
+### 二、只从已有账本重渲 Atlas
+
+```bash
+.venv/bin/python -m arad.cli atlas render \
+  --ledger data/ledger/lineage.db --queue data/ledger/lineage_q.db \
+  --family demo_sc_price_volume --out artifacts/atlas_lineage
+```
+
+`--renderer static` 可退回服务端渲染的静态页（无演化曲线）。Atlas 只读账本，
+每次渲染都重算整条哈希链，因此它同时是账本完整性的持续检验。
+
+### 三、单独跑一个 Baseline Control
+
+```bash
+.venv/bin/python -m arad.cli study baseline      # SC 自身波动持续性，不计入另类因子库存
+```
+
+### 四、改前端后重新构建
+
+`atlas-app/` 是 React 源码，构建产物随包分发在 `src/arad/atlas/app_shell.html`，
+因此**渲染 Atlas 不需要 node**，只有改前端时才需要：
+
+```bash
+cd atlas-app && npm install && npm run build
+cp dist/index.html ../src/arad/atlas/app_shell.html
+```
+
+### 五、验收
+
+```bash
+.venv/bin/ruff check .
+.venv/bin/python -m pytest tests/ -q     # 当前基线：533 项通过
+```
+
+### 数据准备（只在首次或数据更新后）
+
+```bash
+.venv/bin/python -m arad.cli data-audit          # 三源只读扫描，出 manifest
+.venv/bin/python -m arad.cli spine build         # SC Temporal Spine（重，约数十分钟）
+.venv/bin/python -m arad.cli pm-index build      # Polymarket 普查与 PIT 索引（重）
+```
+
+源数据仓库**只读**；续爬、回爬与更新属于 acquisition 流程，需人类单独授权。
 
 ## 新会话开工指引（#12）
 
@@ -33,7 +114,7 @@ Research Service 只能由人类暂停或关闭。
 2. 取 `docs/ENGINEERING_PROMPT.md`，把其中 `<CURRENT_TICKET>` 替换为
    `docs/tickets/M12-pm-semantic-mapping.md` 的全文，作为实现会话的任务提示词；
 3. 环境：`uv venv && uv pip install -e ".[dev]"`；验收命令统一为
-   `ruff check .` 与 `python -m pytest tests/ -q`（当前基线：226 项测试通过）；
+   `ruff check .` 与 `python -m pytest tests/ -q`（当前基线：533 项测试通过）；
    数据审计入口 `python -m arad.cli data-audit`，
    Temporal Spine 入口 `python -m arad.cli spine build|replay|verify`，
    Polymarket 普查与索引入口 `python -m arad.cli pm-index build|metadata-audit`
@@ -65,8 +146,15 @@ Research Service 只能由人类暂停或关闭。
   t-1 主力视图、as-of join、目标定义、Episode 与 purge/embargo、spine manifest；
 - `src/arad/data_catalog/pm_census.py` 与 `temporal/pm_market_index.py`：
   Polymarket label-blind 普查与 PIT Market Index；
-- `src/arad/cli.py`：`data-audit`、`spine` 与 `pm-index` 命令；
-  `tests/contracts/`：226 项合同与回归测试；
+- `src/arad/registry/`、`src/arad/memory/`、`src/arad/evaluation/`、
+  `src/arad/orchestrator/`：不可变规格与判决词表、证据账本与判决快照、
+  受保护评价机与选择校正、durable queue；
+- `src/arad/features/`、`src/arad/providers/`、`src/arad/harness/`：
+  特征规格语言与解释器、模型无关的 provider（含 `claude -p`）、
+  盲化上下文组装、反馈格式化与 Search Episode 驱动；
+- `src/arad/atlas/` 与 `atlas-app/`：只读投影与 React 演化视图；
+- `src/arad/cli.py`：`data-audit`、`spine`、`pm-index`、`study`、`episode`、`atlas`；
+  `tests/contracts/`：533 项合同与回归测试；
 - 依赖（`pyproject.toml`，`uv.lock` 锁定）：pydantic、pyyaml、pyarrow；
   开发依赖 pytest、ruff。Python 3.11 以上。
 
