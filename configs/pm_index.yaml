@@ -36,3 +36,13 @@ inputs:
 
 sc:
   target_parquet: data/spine/sc/target_sc_rv_next_session.parquet
+
+text:
+  # 归纳期切点：只用首笔成交早于该日的市场归纳模板，期外市场只用于测量覆盖率。
+  # 每个切点对应一个可冻结的映射版本；Study 必须选择归纳期早于其 discovery 窗口的版本。
+  induction_cutoffs:
+    - "2024-01-01"
+    - "2025-01-01"
+    - "2025-07-01"
+    - "2026-01-01"
+  min_markets_per_template: 3

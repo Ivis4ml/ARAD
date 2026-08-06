@@ -1,0 +1,161 @@
+{
+  "spine_id": "pm-text-corpus",
+  "code_version": "text-corpus-0.1.0/src-728eb0c24c828167",
+  "generated_at": "2026-08-06T00:32:32.628685+00:00",
+  "config_digest": "c30a0c9724c368b4cd26e085d9e5ca812b820032fdb01f29e89274cfa4000361",
+  "inputs": {
+    "polymarket_tape": {
+      "fingerprint": "3d14332d44631c22eae943e84b4a1f9ee58a6017e7617fae91df7335f81a4dd2",
+      "source_snapshot_digest": "ab281d5d20706fa3e5d19089ceb9dcaa81fc5991f76b810d0d760459f9d49e64",
+      "scanner_version": "0.2.0"
+    },
+    "market_presence": {
+      "fingerprint": "fd401305874b02c0ea227f58254e558f9dde7fb4b88cde81af020382366044a0",
+      "source_snapshot_digest": "file_sha256",
+      "scanner_version": ""
+    }
+  },
+  "calendar": {},
+  "session_table": {},
+  "dominant_rule": {},
+  "targets": [],
+  "control_contracts": [],
+  "deprecated_sources": [],
+  "datasets": [
+    {
+      "name": "market_text",
+      "path": "data/pm_index/market_text.parquet",
+      "rows": 1208594,
+      "fingerprint": "6b0e76a904ecbc8465973dd1d841c24b2511e602c0d7dbdaafa53e479596697a",
+      "partitions": 0,
+      "note": ""
+    }
+  ],
+  "coverage": {
+    "coverage_curve": [
+      {
+        "induction_cutoff": "2024-01-01",
+        "markets_in_period": 2457,
+        "templates_kept": 97,
+        "markets_after_cutoff": 1206137,
+        "coverage_after_cutoff": 0.0002
+      },
+      {
+        "induction_cutoff": "2025-01-01",
+        "markets_in_period": 10204,
+        "templates_kept": 245,
+        "markets_after_cutoff": 1198390,
+        "coverage_after_cutoff": 0.0094
+      },
+      {
+        "induction_cutoff": "2025-07-01",
+        "markets_in_period": 24589,
+        "templates_kept": 1022,
+        "markets_after_cutoff": 1184005,
+        "coverage_after_cutoff": 0.0333
+      },
+      {
+        "induction_cutoff": "2026-01-01",
+        "markets_in_period": 158236,
+        "templates_kept": 2894,
+        "markets_after_cutoff": 1050358,
+        "coverage_after_cutoff": 0.2668
+      }
+    ],
+    "markets": 1208594
+  },
+  "findings": [
+    {
+      "severity": "info",
+      "code": "pm_text.template_induction",
+      "message": "模板由确定性规则归纳，不使用任何模型；模板是候选分组，不是机制族。机制族的语义命名、跨模型一致性审计与金标裁决属后续阶段",
+      "evidence": {
+        "markets": 1208594,
+        "coverage_curve": [
+          {
+            "induction_cutoff": "2024-01-01",
+            "markets_in_period": 2457,
+            "templates_kept": 97,
+            "markets_after_cutoff": 1206137,
+            "coverage_after_cutoff": 0.0002
+          },
+          {
+            "induction_cutoff": "2025-01-01",
+            "markets_in_period": 10204,
+            "templates_kept": 245,
+            "markets_after_cutoff": 1198390,
+            "coverage_after_cutoff": 0.0094
+          },
+          {
+            "induction_cutoff": "2025-07-01",
+            "markets_in_period": 24589,
+            "templates_kept": 1022,
+            "markets_after_cutoff": 1184005,
+            "coverage_after_cutoff": 0.0333
+          },
+          {
+            "induction_cutoff": "2026-01-01",
+            "markets_in_period": 158236,
+            "templates_kept": 2894,
+            "markets_after_cutoff": 1050358,
+            "coverage_after_cutoff": 0.2668
+          }
+        ]
+      }
+    },
+    {
+      "severity": "warning",
+      "code": "pm_text.multiple_raw_slugs",
+      "message": "部分市场见过多个原始 slug（跨抓取追加消歧数字段）；基名与模板取自归一化结果，原始 slug 只作观测记录",
+      "evidence": {
+        "markets_with_multiple_raw_slugs": 95
+      }
+    },
+    {
+      "severity": "warning",
+      "code": "pm_text.low_out_of_period_coverage",
+      "message": "部分归纳期切点下，期外市场被已知模板覆盖的比例低于一半；以该切点冻结的映射版本对后续市场解释力有限，选择切点是 PIT 诚实度与覆盖率之间的权衡，须由 Study 显式声明",
+      "evidence": {
+        "cutoffs_below_half": [
+          {
+            "induction_cutoff": "2024-01-01",
+            "markets_in_period": 2457,
+            "templates_kept": 97,
+            "markets_after_cutoff": 1206137,
+            "coverage_after_cutoff": 0.0002
+          },
+          {
+            "induction_cutoff": "2025-01-01",
+            "markets_in_period": 10204,
+            "templates_kept": 245,
+            "markets_after_cutoff": 1198390,
+            "coverage_after_cutoff": 0.0094
+          },
+          {
+            "induction_cutoff": "2025-07-01",
+            "markets_in_period": 24589,
+            "templates_kept": 1022,
+            "markets_after_cutoff": 1184005,
+            "coverage_after_cutoff": 0.0333
+          },
+          {
+            "induction_cutoff": "2026-01-01",
+            "markets_in_period": 158236,
+            "templates_kept": 2894,
+            "markets_after_cutoff": 1050358,
+            "coverage_after_cutoff": 0.2668
+          }
+        ]
+      }
+    }
+  ],
+  "assumptions": [
+    "机制族自下而上归纳（2026-08-05 人类裁决），不沿用旧系统的 8 个主题：那 8 个主题是看过结果后写成的规则表，继承它等于继承选择偏差。",
+    "本层完全确定性、不使用任何模型。模板是语法层的候选分组，不是机制族；语义命名、跨模型一致性审计与金标裁决属后续阶段。",
+    "归纳期切点是冻结参数：用全史文本归纳分类法等于用后见的市场宇宙定义分组，因此每个版本记录 induction_cutoff 并实测期外覆盖率。"
+  ],
+  "blockers": [
+    "机制族尚未命名：模板只是语法分组，市场→机制族与机制族→商品品种都还未定，PM 侧仍无可用的机制分族。"
+  ],
+  "fingerprint": "12be2522bb5810f4461b1847172aee6716de78295bf55ee750cf0e1216b85840"
+}

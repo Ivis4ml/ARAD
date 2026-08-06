@@ -33,6 +33,12 @@ from ..data_catalog.pm_metadata_audit import (
     METADATA_AUDIT_VERSION,
     audit_metadata_provenance,
 )
+from ..data_catalog.pm_text_corpus import (
+    CORPUS_VERSION,
+    build_market_text,
+    corpus_findings,
+    coverage_curve,
+)
 from ..data_catalog.schema import QualityFinding, Severity, load_manifest
 from .episode import SampleSegment, classify_segment
 from .manifest import (
@@ -186,6 +192,86 @@ def pm_metadata_audit(config_path: str) -> int:
         ],
     )
     path = os.path.join(manifest_dir, "pm_metadata_audit.json")
+    write_spine_manifest(manifest, path)
+    print(f"wrote {path} (fingerprint {manifest.fingerprint[:16]})")
+    return 0 if manifest.gate_passed() else 2
+
+
+def pm_text_corpus(config_path: str) -> int:
+    """#12 自下而上第一层：确定性的文本语料与模板归纳，不使用任何模型。"""
+    cfg = load_config(config_path)
+    roots = dict(cfg["source"]["roots"])
+    out_dir = cfg["output"]["data_dir"]
+    manifest_dir = cfg["output"]["manifest_dir"]
+    pm_manifest = load_manifest(cfg["inputs"]["polymarket_manifest"])
+    presence_path = os.path.join(out_dir, "market_presence.parquet")
+    if not os.path.exists(presence_path):
+        raise FileNotFoundError("缺少 market_presence.parquet；请先运行 pm-index build")
+
+    hb = Heartbeat(os.path.join(out_dir, "_heartbeat.json")).start()
+    market_text = build_market_text(roots, heartbeat=hb)
+    text_path = os.path.join(out_dir, "market_text.parquet")
+    pq.write_table(market_text, text_path)
+
+    hb.stage("template_induction")
+    presence = pq.read_table(presence_path, columns=["condition_id", "first_trade_ts"])
+    curve = coverage_curve(
+        market_text,
+        presence,
+        list(cfg["text"]["induction_cutoffs"]),
+        int(cfg["text"]["min_markets_per_template"]),
+    )
+    findings = corpus_findings(market_text, curve)
+    hb.stop()
+
+    manifest = SpineManifest(
+        spine_id="pm-text-corpus",
+        code_version=f"text-corpus-{CORPUS_VERSION}/src-{_code_digest()}",
+        config_digest=digest_json(cfg),
+        inputs={
+            "polymarket_tape": InputRef(
+                fingerprint=pm_manifest.fingerprint,
+                source_snapshot_digest=(
+                    pm_manifest.source_snapshot.digest if pm_manifest.source_snapshot else ""
+                ),
+                scanner_version=pm_manifest.scanner_version,
+            ),
+            "market_presence": InputRef(
+                fingerprint=file_digest(presence_path), source_snapshot_digest=DIGEST_METHOD
+            ),
+        },
+        coverage={"coverage_curve": curve, "markets": market_text.num_rows},
+        datasets=[
+            DatasetRef(
+                name="market_text",
+                path=text_path,
+                rows=market_text.num_rows,
+                fingerprint=fingerprint_table(market_text),
+            )
+        ],
+        findings=findings,
+        assumptions=[
+            (
+                "机制族自下而上归纳（2026-08-05 人类裁决），不沿用旧系统的 8 个主题："
+                "那 8 个主题是看过结果后写成的规则表，继承它等于继承选择偏差。"
+            ),
+            (
+                "本层完全确定性、不使用任何模型。模板是语法层的候选分组，不是机制族；"
+                "语义命名、跨模型一致性审计与金标裁决属后续阶段。"
+            ),
+            (
+                "归纳期切点是冻结参数：用全史文本归纳分类法等于用后见的市场宇宙定义分组，"
+                "因此每个版本记录 induction_cutoff 并实测期外覆盖率。"
+            ),
+        ],
+        blockers=[
+            (
+                "机制族尚未命名：模板只是语法分组，市场→机制族与机制族→商品品种"
+                "都还未定，PM 侧仍无可用的机制分族。"
+            ),
+        ],
+    )
+    path = os.path.join(manifest_dir, "pm_text_corpus.json")
     write_spine_manifest(manifest, path)
     print(f"wrote {path} (fingerprint {manifest.fingerprint[:16]})")
     return 0 if manifest.gate_passed() else 2
