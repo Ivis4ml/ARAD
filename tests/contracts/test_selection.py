@@ -15,6 +15,7 @@ from arad.evaluation.selection import (
     expected_max_sharpe,
     expected_max_z,
     selection_band,
+    sharpe_spread,
 )
 
 
@@ -92,3 +93,46 @@ def test_the_band_is_undefined_rather_than_guessed_when_there_is_no_spread():
     assert math.isnan(expected_max_sharpe(1, 0.05))
     assert math.isnan(expected_max_sharpe(50, 0.0))
     assert math.isnan(deflated_sharpe(float("nan"), benchmark_sharpe=0.1, n_periods=100))
+
+
+def test_the_sharpe_band_needs_the_family_to_have_tried_at_least_twice():
+    """尺度取自本链自身的 Sharpe 离散度：一次试验估不出离散度，不能假设一个。"""
+    points = [{"value": -0.03, "counts_toward_denominator": True},
+              {"value": -0.04, "counts_toward_denominator": True},
+              {"value": -0.01, "counts_toward_denominator": True}]
+    band = selection_band(points, metric="sharpe", n_periods=800)
+    assert band[0]["null_threshold"] is None
+    assert band[1]["null_threshold"] is not None
+    assert band[1]["null_threshold"] < band[2]["null_threshold"]
+
+
+def test_the_sharpe_band_uses_the_one_sided_expectation():
+    """搜索留下的是 Sharpe 最大的那个，不是 |Sharpe| 最大的那个。"""
+    values = [0.10, 0.02, 0.06, 0.04]
+    points = [{"value": v, "counts_toward_denominator": True} for v in values]
+    band = selection_band(points, metric="sharpe", n_periods=500)
+    spread = sharpe_spread(values)
+    assert band[-1]["null_threshold"] == __import__("pytest").approx(
+        expected_max_sharpe(4, spread)
+    )
+
+
+def test_a_sharpe_under_the_band_gets_a_deflated_probability_below_a_half():
+    points = [{"value": v, "counts_toward_denominator": True, "skew": 0.1,
+               "excess_kurtosis": 2.0} for v in (-0.035, -0.043, -0.010)]
+    band = selection_band(points, metric="sharpe", n_periods=887)
+    assert band[-1]["deflated_sharpe"] < 0.5
+
+
+def test_no_band_and_no_dsr_for_metrics_that_have_no_estimable_null():
+    points = [{"value": 0.05, "counts_toward_denominator": True} for _ in range(3)]
+    band = selection_band(points, metric="ic_spearman")
+    assert all(p["null_threshold"] is None for p in band)
+    assert all("deflated_sharpe" not in p for p in band)
+
+
+def test_the_spread_is_undefined_rather_than_guessed():
+    import math as _m
+
+    assert _m.isnan(sharpe_spread([0.1]))
+    assert _m.isnan(sharpe_spread([None, float("nan")]))

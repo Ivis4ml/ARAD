@@ -50,6 +50,12 @@ from ..providers.mock import MockProvider
 FAMILY = "demo_sc_price_volume"
 SEGMENT = "discovery"
 
+#: 标签取收益型 target：只有它的 label 是有符号收益，Sharpe 才有定义。
+#: 特征仍用已实现波动序列 —— 波动可以预测收益的**幅度**，本演示检验的是它能否
+#: 预测收益的**方向**（sign_unit 仓位规则下 Sharpe 度量的正是方向）。
+LABEL_TARGET = "sc_ret_next_session"
+FEATURE_TARGET = "sc_rv_next_session"
+
 #: 菜单偏差是实测过的（#12 taxonomy hindsight audit）。藏起来它会原样传导成提案偏差。
 MENU_BIASES = [
     DeclaredBias(
@@ -90,9 +96,9 @@ def _proposal_json() -> str:
     }
     return json.dumps(
         {
-            "mechanism": "波动聚集：短期已实现波动相对自身分布异常抬升时，下一 session 波动偏高",
+            "mechanism": "波动状态：短期已实现波动相对自身分布异常抬升时，下一 session 收益方向偏正",
             "source": "commodity_bar",
-            "target": "sc_rv_next_session",
+            "target": "sc_ret_next_session",
             "horizon": "next_session",
             "universe": "sc_dominant_t1",
             "direction": 1,
@@ -148,14 +154,14 @@ def _variant_json(v: dict) -> str:
     }
     return json.dumps(
         {
-            "mechanism": "波动聚集：短期已实现波动相对自身分布异常抬升时，下一 session 波动偏高",
+            "mechanism": "波动状态：短期已实现波动相对自身分布异常抬升时，下一 session 收益方向偏正",
             "source": "commodity_bar",
-            "target": "sc_rv_next_session",
+            "target": "sc_ret_next_session",
             "horizon": "next_session",
             "universe": "sc_dominant_t1",
             "direction": 1,
             "falsifiable_condition": "斜率不显著异于零，或置换检验不能把实际值与置换分布区分开",
-            "rationale": "量价对照集：解释器当前只接入 commodity_bar",
+            "rationale": "量价对照集：解释器当前只接入 commodity_bar；标签为收益型 target",
             "change_summary": v["change"],
             "feature_spec": spec,
         },
@@ -208,43 +214,70 @@ def _pm_proposal_json() -> str:
     )
 
 
-def _load_sc(target_path: str) -> tuple[list[dict], dict, dict]:
-    """读 M2 目标表的 discovery 段，构造 bar 序列与决策点。
+_COLUMNS = ["contract", "trading_day", "session_name", "decision_time", "label_start",
+            "label_end", "value", "no_trade", "episode_id", "sample_segment"]
 
-    序列的可用时刻取每个 session 的 `label_end` —— 已实现波动只有在其窗口结束后
-    才可知。决策时点严格晚于所用序列点，PIT 由构造保证，不靠检查。
-    """
-    table = pq.read_table(
-        target_path,
-        columns=["contract", "trading_day", "session_name", "decision_time",
-                 "label_start", "label_end", "value", "no_trade", "episode_id",
-                 "sample_segment"],
-    )
+
+def _key(row: dict) -> str:
+    return f"{row['contract']}:{row['trading_day']}:{row['session_name']}"
+
+
+def _read_target(path: str) -> list[dict]:
+    table = pq.read_table(path, columns=_COLUMNS)
     rows = [
         r for r in table.to_pylist()
-        if r["sample_segment"] == SEGMENT and not r["no_trade"]
-        and r["value"] is not None and r["value"] > 0
+        if r["sample_segment"] == SEGMENT and not r["no_trade"] and r["value"] is not None
     ]
     rows.sort(key=lambda r: r["label_end"])
+    return rows
+
+
+def _load_sc(target_path: str) -> tuple[list[dict], dict, dict]:
+    """读 M2 目标表的 discovery 段，构造 bar 序列、决策点与标签。
+
+    **特征序列与标签来自两张不同的表**：特征用已实现波动（正的量级，取对数），
+    标签用收益型 target（有符号）。两者按 (合约, 交易日, session) 对齐，
+    只保留两边都有取值的行 —— 这个交集不依赖标签取值本身，因此不是结果依赖过滤。
+
+    序列的可用时刻取每个 session 的 `label_end`：已实现波动只有在其窗口结束后才可知。
+    决策时点严格晚于所用序列点，PIT 由构造保证，不靠检查。
+    """
+    feature_rows = [r for r in _read_target(target_path) if r["value"] > 0]
+    label_path = target_path.replace(FEATURE_TARGET, LABEL_TARGET)
+    if not os.path.exists(label_path):
+        raise FileNotFoundError(
+            f"缺少收益型目标表 {label_path}；请先运行 `arad spine build`"
+        )
+    label_by_key = {_key(r): r for r in _read_target(label_path)}
+
+    rows = [r for r in feature_rows if _key(r) in label_by_key]
     series = {
         (Source.COMMODITY_BAR, "realised_volatility"): BarSeries(
             field="realised_volatility",
-            times=[r["label_end"] for r in rows],
-            values=[math.log(r["value"]) for r in rows],
+            times=[r["label_end"] for r in feature_rows],
+            values=[math.log(r["value"]) for r in feature_rows],
         )
     }
-    labels = {
-        f"{r['contract']}:{r['trading_day']}:{r['session_name']}": math.log(r["value"])
-        for r in rows
-    }
+    labels = {_key(r): label_by_key[_key(r)]["value"] for r in rows}
+    spans = [r["decision_time"] for r in rows]
+    years = (
+        (spans[-1] - spans[0]).total_seconds() / (365.2425 * 86400) if len(spans) > 1 else 0
+    )
     visible = {
         "segment": SEGMENT,
+        "feature_target": FEATURE_TARGET,
+        "label_target": LABEL_TARGET,
+        "label_is_return": True,
+        "feature_rows": len(feature_rows),
         "rows": len(rows),
+        "dropped_no_label": len(feature_rows) - len(rows),
+        "sessions_per_year": round(len(rows) / years, 2) if years > 0 else None,
         "from": rows[0]["label_end"].isoformat() if rows else None,
         "to": rows[-1]["label_end"].isoformat() if rows else None,
         "forward_data": "未读取：forward 段按 Study 逐个到期，Atlas 中只显示预约状态",
     }
-    return rows, {"series": series, "labels": labels}, visible
+    return rows, {"series": series, "labels": labels,
+                  "periods_per_year": visible["sessions_per_year"]}, visible
 
 
 def _build_evaluation(sc: dict, rows: list[dict], visible: dict):
@@ -258,7 +291,7 @@ def _build_evaluation(sc: dict, rows: list[dict], visible: dict):
         values, coverage = evaluate_series(spec, decision_times, series)
         eval_rows, authoritative, exclusions = [], [], {}
         for row, value in zip(rows, values, strict=True):
-            key = f"{row['contract']}:{row['trading_day']}:{row['session_name']}"
+            key = _key(row)
             authoritative.append(key)
             idx = bisect_left(times, row["decision_time"]) - 1
             if value is None or idx < 0:
@@ -292,6 +325,10 @@ def _build_evaluation(sc: dict, rows: list[dict], visible: dict):
             preregistered_exclusions=exclusions,
             cost_model_declared=False,   # M5 之前没有成本模型；声明为 True 就是伪造
             interpreter_version=INTERPRETER_VERSION,
+            label_is_return=True,
+            target_name=LABEL_TARGET,
+            label_rule="entry_to_close",
+            periods_per_year=sc.get("periods_per_year") or 485.3,
         )
         return request, labels, detail
 

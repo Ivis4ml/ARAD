@@ -25,9 +25,13 @@ export const METRIC_LABELS: Record<string, string> = {
   sharpe: 'Sharpe（pre-cost）',
 }
 
-/** 零假设带只对 |t| 有定义：它是"n 次独立检验下 |z| 最大值的期望"。 */
+/** 哪些指标配零假设带。
+ *  |t| 用「n 次独立检验下 |z| 最大值的期望」（双侧，搜索接受任一方向）；
+ *  Sharpe 用「n 次试验下 Sharpe 最大值的期望」（单侧，搜索只挑最大的），
+ *  尺度取自本链自身的 Sharpe 离散度，因此至少要两次有定义的试验。
+ *  IC 没有配：它的零假设离散度不能用同一套办法从本链估出来。 */
 export const METRIC_HAS_NULL_BAND: Record<string, boolean> = {
   abs_t: true,
   ic_spearman: false,
-  sharpe: false,
+  sharpe: true,
 }

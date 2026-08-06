@@ -1,7 +1,7 @@
 {
   "spine_id": "sc-temporal-spine",
   "code_version": "0.1.0",
-  "generated_at": "2026-08-05T22:34:27.927791+00:00",
+  "generated_at": "2026-08-06T15:41:35.462071+00:00",
   "config_digest": "40e3b70830a020596f1e71989a877d1183ef950b30016f7664b8472066f917ae",
   "inputs": {
     "commodity_tick": {
@@ -94,15 +94,15 @@
     {
       "name": "sc_rv_next_session",
       "kind": "primary",
-      "description": "决策 cutoff（session 开盘前 execution_lag 秒）之后，下一个 SC session 的已实现波动：同一连续竞价 segment 内相邻 1 分钟 bar 对数收益的平方和开方。集合竞价 bar 与跨 segment、跨 session 的价格变化不计入。",
+      "description": "决策 cutoff（session 开盘前 execution_lag 秒）之后，下一个 SC session 的已实现波动：同一连续竞价 segment 内相邻 1 分钟 bar 对数收益的平方和开方。集合竞价 bar 与跨 segment、跨 session 的价格变化不计入。**tradable_claim=False**：本数据集里没有 SC 的波动率工具，已实现波动是一个正的量级而不是可捕获的收益，因此它不承载可交易主张。原值为 True 属记录错误，2026-08-06 更正。",
       "execution_lag_seconds": 60,
-      "tradable_claim": true,
+      "tradable_claim": false,
       "params": {
         "min_returns": 2
       },
       "label_rule": "full_session",
       "rows": 1816,
-      "fingerprint": "9da4f5dba9aa20481ac9b9613abc93766a765d96a7c2e9369dee9062e558fb44",
+      "fingerprint": "1f04be7df20b1986b3d8384666fcb5d51cfbb31e5236dde0643607a50c5b0d8d",
       "sample_segments": {
         "discovery": 1054,
         "historical_validation": 486,
@@ -111,11 +111,39 @@
       "sample_segments_valued": {
         "discovery": 1040,
         "historical_validation": 479,
-        "contaminated_audit": 270
+        "contaminated_audit": 269
       },
       "no_trade_reasons": {
         "no_ticks": 24,
-        "limit_locked": 3
+        "limit_locked": 4
+      }
+    },
+    {
+      "name": "sc_ret_next_session",
+      "kind": "primary",
+      "description": "决策 cutoff 之后，下一个 SC session 从**入场时刻到收盘**的对数收益。入场时刻为开盘后 1 分钟，入场价取该分钟最后一笔（约 09:00:59），不是这一分钟的第一笔 —— 决策到成交需要时间，取本分钟最后一笔是保守的一侧。集合竞价成交价不参与，因此**开盘跳空不在本目标的主张之内**。入场或收盘价落在涨跌停上时判为无定义：那一刻买不进或卖不出。这是本数据集中第一个 label 本身即有符号收益的目标，Sharpe 因此才有定义。",
+      "execution_lag_seconds": 60,
+      "tradable_claim": true,
+      "params": {
+        "entry_offset_minutes": 1
+      },
+      "label_rule": "entry_to_close",
+      "rows": 1816,
+      "fingerprint": "220f2d7ae417821bbb03e5d8800205097d0b56255708d42075ea48e66efba449",
+      "sample_segments": {
+        "discovery": 1054,
+        "historical_validation": 486,
+        "contaminated_audit": 276
+      },
+      "sample_segments_valued": {
+        "discovery": 1040,
+        "historical_validation": 477,
+        "contaminated_audit": 265
+      },
+      "no_trade_reasons": {
+        "no_ticks": 24,
+        "entry_at_price_limit": 6,
+        "exit_at_price_limit": 4
       }
     },
     {
@@ -130,7 +158,7 @@
       },
       "label_rule": "first_k_minutes",
       "rows": 1816,
-      "fingerprint": "a1ef99e5ef2a0e71d14ea8acfa850eda216c56a99404525c63546ab66a01cc43",
+      "fingerprint": "f9cbda66698f18643f43b371610ae392e896095b478528b4bd7e34beee7d04df",
       "sample_segments": {
         "discovery": 1055,
         "historical_validation": 486,
@@ -423,5 +451,5 @@
     "Alpha-Data curve_daily.parquet 仅覆盖 2026-01-05 至 2026-07-13，只能作该窗口的独立交叉核对，无法覆盖 discovery 与 historical validation 段的日频等价性检查。",
     "郑商所 Turnover 口径与日内倒退的全品种普查仍为 provisional（M1 遗留）；SC 属 INE，本票未触及该问题。"
   ],
-  "fingerprint": "d66384b1b9978ba5c90b4317dcc27f97e8265debee583c1531bb65322b8dd0bb"
+  "fingerprint": "6cdb82e3ddc25ad01ee67e48f62fa551cead8d8ce51c81c079ae14a82a27881a"
 }

@@ -54,6 +54,20 @@ class LabelAccessDenied(RuntimeError):
     """非评价机角色试图读取标签。"""
 
 
+class LabelIsNotAReturn(RuntimeError):
+    """调用方声称 label 是收益，而该 target 的 label 规则并不产出收益。
+
+    没有这道检查，`tradable_claim` 就只是装饰：把 `label_is_return=True` 配上一张
+    已实现波动的表，评价机照样会出一个年化 Sharpe，而那个数没有任何含义。
+    """
+
+
+#: label 值本身即有符号收益的规则。**必须与 `temporal.targets.RETURN_LABEL_RULES`
+#: 一致**（有合同测试钉住）。这里复述一份而不是 import，是为了不让评价机依赖
+#: 数据层 —— 评价机要能在没有 spine 的环境里独立运行。
+RETURN_LABEL_RULES = frozenset({"entry_to_close"})
+
+
 @dataclass(frozen=True)
 class EvaluationRow:
     """一行可评价观测。标签由评价机持有，worker 提交的只有 prediction。"""
@@ -85,6 +99,10 @@ class EvaluationRequest:
     #: 已实现波动与吸收比例都不是收益，对它们算 Sharpe 会得到一个数，但那个数
     #: 不是 Sharpe。默认为假：要声明它，就要为它负责。
     label_is_return: bool = False
+    #: 该 label 来自哪个 target 与哪条 label 规则。进 digest：同一批预测配不同的
+    #: label 语义不是同一次评价。
+    target_name: str = ""
+    label_rule: str = ""
     #: 年化用的每年期数。SC 一天两个 session，但年化只是显示口径，不改变判决。
     periods_per_year: float = 252.0
     #: 仓位规则。sign_unit：按 prediction 的符号取单位多空。规则必须显式记录，
@@ -123,6 +141,8 @@ class EvaluationRequest:
                 ],
                 "interpreter_version": self.interpreter_version,
                 "label_is_return": self.label_is_return,
+                "target_name": self.target_name,
+                "label_rule": self.label_rule,
                 "position_rule": self.position_rule,
                 "periods_per_year": self.periods_per_year,
                 "authoritative_keys": sorted(self.authoritative_keys),
@@ -196,6 +216,12 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
     if role != "evaluator":
         raise LabelAccessDenied(
             f"角色 {role!r} 不得读取标签；research worker 只能提交冻结 spec 与预测"
+        )
+    if request.label_is_return and request.label_rule not in RETURN_LABEL_RULES:
+        raise LabelIsNotAReturn(
+            f"target {request.target_name!r} 的 label 规则 {request.label_rule!r} "
+            f"不产出有符号收益（可选 {sorted(RETURN_LABEL_RULES)}）；"
+            "对非收益 label 计算 Sharpe 会得到一个可被误读的数字"
         )
     _check_filtering(request)
     _check_leakage(request.rows)
@@ -328,7 +354,26 @@ def _performance(request: EvaluationRequest, x: list[float], y: list[float]) -> 
     out = stats.sharpe(returns, periods_per_year=request.periods_per_year)
     out.update(stats.moments(returns))
     out["position_rule"] = request.position_rule
+    out["periods_per_year_declared"] = request.periods_per_year
+    out["periods_per_year_derived"] = _derive_periods_per_year(request)
+    out["periods_note"] = (
+        "declared 与 derived 不一致不阻断：只覆盖夜盘的 Study 本就该导出更小的值。"
+        "年化只是显示口径，不改变判决"
+    )
     return out
+
+
+def _derive_periods_per_year(request: EvaluationRequest) -> float | None:
+    """从本次评价实际用到的决策时点导出每年期数。
+
+    年化系数不能沿用教科书的 252：SC 一天两个 session，实测每年约 485 个 session。
+    用错会把年化 Sharpe 系统性地低估约三成。
+    """
+    times = sorted(r.decision_time for r in request.rows)
+    if len(times) < 2:
+        return None
+    span_years = (times[-1] - times[0]).total_seconds() / (365.2425 * 86400)
+    return len(times) / span_years if span_years > 0 else None
 
 
 def _result(

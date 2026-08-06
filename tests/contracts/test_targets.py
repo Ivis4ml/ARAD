@@ -55,12 +55,19 @@ def pick(sessions, name):
 
 
 def test_target_specs_declare_decision_time_execution_lag_and_claim():
+    from arad.temporal.targets import RET_NEXT_SESSION
+
     assert RV_NEXT_SESSION.kind == "primary"
-    assert RV_NEXT_SESSION.tradable_claim is True
+    # 已实现波动是一个正的量级，不是可捕获的收益，且本数据集没有波动率工具
+    assert RV_NEXT_SESSION.tradable_claim is False
+    assert RV_NEXT_SESSION.label_is_return is False
     assert OPEN_GAP_ABSORPTION.kind == "diagnostic_only"
     assert OPEN_GAP_ABSORPTION.tradable_claim is False
     assert "不作可交易" in OPEN_GAP_ABSORPTION.description
     assert RV_NEXT_SESSION.execution_lag_seconds > 0
+    # 只有收益型规则才承载可交易主张，两者必须一致
+    assert RET_NEXT_SESSION.label_is_return is True
+    assert RET_NEXT_SESSION.tradable_claim is True
 
 
 def test_decision_time_precedes_the_label_window_by_the_execution_lag():
@@ -239,7 +246,7 @@ def test_target_rows_carry_pit_and_contamination_metadata():
     assert r["episode_id"]
     assert r["sample_segment"] == SampleSegment.CONTAMINATED_AUDIT.value
     assert r["target_name"] == RV_NEXT_SESSION.name
-    assert r["tradable_claim"] is True
+    assert r["tradable_claim"] is False
     assert r["contract"] == "sc2609"
 
 
@@ -291,3 +298,91 @@ def test_segment_counts_cover_every_row_including_no_trade():
     valued = segment_counts(table, valued_only=True)
     assert sum(valued.values()) == table.num_rows - sum(no_trade_counts(table).values())
     assert sum(valued.values()) < sum(counts.values())  # 该样例含一行 no-trade 夜盘
+
+
+# ---------------------------------------------------------------- 收益型目标（M2.1）
+
+
+def test_the_limit_guard_uses_a_tick_tolerance_not_float_equality():
+    """交易所限价与成交价之间有浮点噪声：精确相等会把锁死的 session 当成正常成交。
+
+    实测 sc2604 在 20260303 日盘整段 225 根 bar 收于 572.3，而限价字段是
+    572.3000000000002，差 2.7e-13。原实现返回 False，于是那一天被物化成
+    `value=0.0, no_trade=False` —— 一手都买不到的 session 记成一个真实的零。
+    """
+    from arad.temporal.targets import SessionBars
+
+    window = SC.sessions.windows(TD, prev_trading_day=PREV)[1]
+    bars = [{"close": 572.3, "open": 572.3, "volume": 1, "bar_end": window.open,
+             "bar_start": window.open}]
+    session = SessionBars(
+        product="sc", contract="sc2604", trading_day=TD, session_seq=window.seq,
+        session_name=window.name, window=window, auction=None, segments=[bars],
+        upper_limit=572.3000000000002, lower_limit=449.6, tick_size=0.1,
+    )
+    assert session.at_price_limit(572.3) is True
+    assert session.is_limit_locked() is True
+    # 一个 tick 之外的价格不应被误判
+    assert session.at_price_limit(572.1) is False
+
+
+def test_the_return_target_excludes_the_opening_gap_and_names_its_entry():
+    from arad.temporal.targets import RET_NEXT_SESSION
+
+    window = SC.sessions.windows(TD, prev_trading_day=PREV)[1]
+    start, end = RET_NEXT_SESSION.label_window(window)
+    assert start == window.open + timedelta(minutes=1)
+    assert end == window.close
+    assert RET_NEXT_SESSION.execution_time(window) == start
+    assert RET_NEXT_SESSION.decision_time(window) < start
+    assert "开盘跳空不在本目标的主张之内" in RET_NEXT_SESSION.description
+
+
+def test_a_return_is_undefined_when_entry_or_exit_sits_on_the_limit():
+    """入场那一刻锁在涨停就买不进，收盘锁在跌停就卖不出。整段是否锁死与此无关。"""
+    from arad.temporal.targets import SessionBars, entry_to_close_return
+
+    window = SC.sessions.windows(TD, prev_trading_day=PREV)[1]
+
+    def session(closes):
+        bars = [
+            {"close": c, "open": c, "volume": 5,
+             "bar_start": window.open + timedelta(minutes=i),
+             "bar_end": window.open + timedelta(minutes=i + 1)}
+            for i, c in enumerate(closes)
+        ]
+        return SessionBars(
+            product="sc", contract="sc2609", trading_day=TD, session_seq=window.seq,
+            session_name=window.name, window=window, auction=None, segments=[bars],
+            upper_limit=610.0, lower_limit=500.0, tick_size=0.1,
+        )
+
+    value, reason, _ = entry_to_close_return(session([610.0, 605.0, 600.0]),
+                                             entry_offset_minutes=1)
+    assert value is None and reason == "entry_at_price_limit"
+    value, reason, _ = entry_to_close_return(session([550.0, 570.0, 610.0]),
+                                             entry_offset_minutes=1)
+    assert value is None and reason == "exit_at_price_limit"
+    value, reason, extra = entry_to_close_return(session([550.0, 560.0, 561.0]),
+                                                entry_offset_minutes=1)
+    assert reason is None
+    assert extra["entry_price"] == 550.0 and extra["exit_price"] == 561.0
+    assert value == pytest.approx(math.log(561.0 / 550.0))
+
+
+def test_an_unregistered_label_rule_cannot_silently_materialise_rv():
+    """原实现是两分支 if/else 且 else 落在 RV 上：漏加分支会以新名字发出旧口径。"""
+    from arad.temporal.targets import TargetSpec
+
+    with pytest.raises(ValueError, match="未知的 label_rule"):
+        TargetSpec(name="x", kind="primary", description="d", execution_lag_seconds=60,
+                   tradable_claim=False, params={}, label_rule="not_a_rule")
+
+
+def test_a_return_label_must_declare_a_tradable_claim():
+    from arad.temporal.targets import TargetSpec
+
+    with pytest.raises(ValueError, match="tradable_claim"):
+        TargetSpec(name="x", kind="primary", description="d", execution_lag_seconds=60,
+                   tradable_claim=False, params={"entry_offset_minutes": 1},
+                   label_rule="entry_to_close")

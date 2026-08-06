@@ -30,6 +30,17 @@ from .sessions import Placement, ProductReference, SessionWindow
 
 TARGET_KINDS = ("primary", "diagnostic_only")
 
+#: label 规则 → 说明。**必须用映射派发**：原实现是两分支 if/else 且 else 落在已实现波动上，
+#: 新规则只加进校验元组而忘了加分支时，会静默地以新 target 的名义物化 RV。
+LABEL_RULES: dict[str, str] = {
+    "full_session": "整个 session 作为 label 窗口",
+    "first_k_minutes": "开盘后 K 分钟",
+    "entry_to_close": "入场时刻到 session 收盘",
+}
+
+#: label 值本身就是一条**有符号收益**的规则。Sharpe 只有在这些规则下才有定义。
+RETURN_LABEL_RULES = frozenset({"entry_to_close"})
+
 TARGET_SCHEMA = pa.schema(
     [
         ("target_name", pa.string()),
@@ -56,6 +67,8 @@ TARGET_SCHEMA = pa.schema(
         ("move_k", pa.float64()),
         ("open_price", pa.float64()),
         ("prev_close", pa.float64()),
+        ("entry_price", pa.float64()),
+        ("exit_price", pa.float64()),
     ]
 )
 
@@ -78,19 +91,42 @@ class TargetSpec:
                 "execution_lag_seconds 必须为正：决策时点等于 label 起点时，"
                 "任何 feature 都无法严格早于标签"
             )
-        if self.label_rule not in ("full_session", "first_k_minutes"):
-            raise ValueError(f"未知的 label_rule {self.label_rule!r}")
+        if self.label_rule not in LABEL_RULES:
+            raise ValueError(
+                f"未知的 label_rule {self.label_rule!r}；可选 {sorted(LABEL_RULES)}"
+            )
+        if self.label_is_return and not self.tradable_claim:
+            raise ValueError(
+                f"{self.name}：label 是收益却不声明 tradable_claim，两者必须一致"
+            )
 
     def decision_time(self, window: SessionWindow) -> datetime:
         return window.open - timedelta(seconds=self.execution_lag_seconds)
 
+    @property
+    def entry_offset_minutes(self) -> int:
+        return int(self.params.get("entry_offset_minutes", 0))
+
+    @property
+    def label_is_return(self) -> bool:
+        """label 值是否本身就是一条有符号收益。"""
+        return self.label_rule in RETURN_LABEL_RULES
+
     def execution_time(self, window: SessionWindow) -> datetime:
-        return window.open
+        """真正成交的时刻。
+
+        `entry_to_close` 下它是 `open + entry_offset`，而不是开盘 —— 开盘价来自
+        集合竞价，对决策时点不可执行（`sc_open_gap_absorption` 已记录这条假设）。
+        """
+        return window.open + timedelta(minutes=self.entry_offset_minutes)
 
     def label_window(self, window: SessionWindow) -> tuple[datetime, datetime]:
         if self.label_rule == "first_k_minutes":
             k = int(self.params.get("k_minutes", 30))
             return window.open, min(window.open + timedelta(minutes=k), window.close)
+        if self.label_rule == "entry_to_close":
+            # label 窗口自**入场时刻**起：收益是从这一刻捕获的，开盘跳空不在其中
+            return self.execution_time(window), window.close
         return window.open, window.close
 
     def record(self) -> dict:
@@ -102,6 +138,7 @@ class TargetSpec:
             "tradable_claim": self.tradable_claim,
             "params": dict(self.params),
             "label_rule": self.label_rule,
+            "label_is_return": self.label_is_return,
         }
 
 
@@ -112,9 +149,12 @@ RV_NEXT_SESSION = TargetSpec(
         "决策 cutoff（session 开盘前 execution_lag 秒）之后，下一个 SC session 的"
         "已实现波动：同一连续竞价 segment 内相邻 1 分钟 bar 对数收益的平方和开方。"
         "集合竞价 bar 与跨 segment、跨 session 的价格变化不计入。"
+        "**tradable_claim=False**：本数据集里没有 SC 的波动率工具，"
+        "已实现波动是一个正的量级而不是可捕获的收益，因此它不承载可交易主张。"
+        "原值为 True 属记录错误，2026-08-06 更正。"
     ),
     execution_lag_seconds=60,
-    tradable_claim=True,
+    tradable_claim=False,
     params={"min_returns": 2},
     label_rule="full_session",
 )
@@ -133,7 +173,24 @@ OPEN_GAP_ABSORPTION = TargetSpec(
     label_rule="first_k_minutes",
 )
 
-TARGET_SPECS = (RV_NEXT_SESSION, OPEN_GAP_ABSORPTION)
+RET_NEXT_SESSION = TargetSpec(
+    name="sc_ret_next_session",
+    kind="primary",
+    description=(
+        "决策 cutoff 之后，下一个 SC session 从**入场时刻到收盘**的对数收益。"
+        "入场时刻为开盘后 1 分钟，入场价取该分钟最后一笔（约 09:00:59），"
+        "不是这一分钟的第一笔 —— 决策到成交需要时间，取本分钟最后一笔是保守的一侧。"
+        "集合竞价成交价不参与，因此**开盘跳空不在本目标的主张之内**。"
+        "入场或收盘价落在涨跌停上时判为无定义：那一刻买不进或卖不出。"
+        "这是本数据集中第一个 label 本身即有符号收益的目标，Sharpe 因此才有定义。"
+    ),
+    execution_lag_seconds=60,
+    tradable_claim=True,
+    params={"entry_offset_minutes": 1},
+    label_rule="entry_to_close",
+)
+
+TARGET_SPECS = (RV_NEXT_SESSION, RET_NEXT_SESSION, OPEN_GAP_ABSORPTION)
 
 
 @dataclass
@@ -150,6 +207,9 @@ class SessionBars:
     segments: list[list[dict]] = field(default_factory=list)
     upper_limit: float | None = None
     lower_limit: float | None = None
+    #: 最小变动价位。涨跌停判据要用它做容差，交易所给出的限价与成交价之间
+    #: 存在浮点噪声（实测 2.7e-13），精确相等会漏判。
+    tick_size: float | None = None
 
     @property
     def segment_bars(self) -> list[dict]:
@@ -202,6 +262,22 @@ class SessionBars:
                 last = b["close"]
         return last
 
+    def at_price_limit(self, price: float | None) -> bool:
+        """该价格是否落在涨跌停上（按半个 tick 容差）。
+
+        **不能用精确相等。**实测 sc2604 在 20260303 夜盘整段 330 根 bar 收于 572.3，
+        而交易所限价字段是 572.3000000000002，差 2.7e-13；`price in (upper, lower)`
+        返回 False，于是一个一手都买不到的 session 被物化成 `value=0.0, no_trade=False`，
+        直接违反本模块假设 5「no-trade 一律是 NULL 加原因，绝不写 0.0」。
+        """
+        if price is None:
+            return False
+        tol = (self.tick_size or 0.0) / 2 or 1e-9
+        return any(
+            limit is not None and abs(price - limit) <= tol
+            for limit in (self.upper_limit, self.lower_limit)
+        )
+
     def is_limit_locked(self) -> bool:
         bars = self.segment_bars
         if not bars:
@@ -209,8 +285,7 @@ class SessionBars:
         closes = {b["close"] for b in bars}
         if len(closes) != 1:
             return False
-        only = next(iter(closes))
-        return only in (self.upper_limit, self.lower_limit)
+        return self.at_price_limit(next(iter(closes)))
 
 
 def build_session_bars(
@@ -256,6 +331,7 @@ def build_session_bars(
                     segments[idx].append(r)
             out.append(
                 SessionBars(
+                    tick_size=product.tick_size,
                     product=product.product,
                     contract=contract,
                     trading_day=trading_day,
@@ -316,6 +392,39 @@ def open_gap_absorption(
     return -move / gap, None, extra
 
 
+def entry_to_close_return(
+    session: SessionBars, *, entry_offset_minutes: int
+) -> tuple[float | None, str | None, dict]:
+    """从入场时刻到 session 收盘的对数收益。
+
+    **入场价是开盘后第 `entry_offset_minutes` 分钟那根 bar 的收盘价**，也就是
+    大约 09:00:59 的最后一笔，而不是这一分钟的第一笔（两者实测中位相差 11.5 个基点）。
+    这样取是因为「决策 → 下单 → 成交」需要时间，取本分钟最后一笔是保守的一侧。
+    集合竞价的成交价不参与：它对决策时点不可执行（本模块 OPEN_GAP_ABSORPTION 已记录
+    这条假设），因此开盘跳空**不在本目标的主张之内**。
+
+    涨跌停按**逐价**判断而非整段判断：入场那一刻锁在涨停上就买不进，收盘锁在跌停上
+    就卖不出，两者都使这条收益无法捕获，与整段是否锁死无关。
+    """
+    extra: dict = {"entry_price": None, "exit_price": None, "open_price": session.open_price}
+    if session.n_bars == 0:
+        return None, "no_ticks", extra
+    if session.total_volume == 0:
+        return None, "zero_volume", extra
+    entry = session.price_at(entry_offset_minutes)
+    exit_price = session.close_price
+    extra["entry_price"], extra["exit_price"] = entry, exit_price
+    if entry is None or entry <= 0:
+        return None, "no_entry_price", extra
+    if exit_price is None or exit_price <= 0:
+        return None, "no_exit_price", extra
+    if session.at_price_limit(entry):
+        return None, "entry_at_price_limit", extra
+    if session.at_price_limit(exit_price):
+        return None, "exit_at_price_limit", extra
+    return math.log(exit_price / entry), None, extra
+
+
 def build_target_table(
     sessions: list[SessionBars],
     spec: TargetSpec,
@@ -341,6 +450,7 @@ def build_target_table(
             prev_sb = seq[i - 1] if i > 0 else None
 
             gap = move_k = open_price = prev_close = None
+            entry_price = exit_price = None
             if spec.label_rule == "first_k_minutes":
                 value, reason, extra = open_gap_absorption(
                     sb,
@@ -351,9 +461,23 @@ def build_target_table(
                 n_returns = len(sb.returns(until=label_end))
                 gap, move_k = extra["gap"], extra["move_k"]
                 open_price, prev_close = extra["open_price"], extra["prev_close"]
-            else:
+            elif spec.label_rule == "entry_to_close":
+                value, reason, extra = entry_to_close_return(
+                    sb, entry_offset_minutes=spec.entry_offset_minutes
+                )
+                n_returns = len(sb.returns(until=label_end))
+                entry_price, exit_price = extra["entry_price"], extra["exit_price"]
+                open_price = extra["open_price"]
+            elif spec.label_rule == "full_session":
                 value, reason, n_returns = realized_volatility(sb)
                 open_price = sb.open_price
+            else:                                     # pragma: no cover - 由构造保证
+                raise ValueError(f"label_rule {spec.label_rule!r} 没有物化分支")
+
+            if value is not None and spec.label_is_return:
+                # 建表期后置条件：有取值就必须有正的入场与出场价，且取值确实是它们的对数比
+                assert entry_price and exit_price and entry_price > 0 and exit_price > 0
+                assert abs(value - math.log(exit_price / entry_price)) < 1e-12
 
             rows.append(
                 {
@@ -385,6 +509,8 @@ def build_target_table(
                     "move_k": move_k,
                     "open_price": open_price,
                     "prev_close": prev_close,
+                    "entry_price": entry_price,
+                    "exit_price": exit_price,
                 }
             )
     table = pa.Table.from_pylist(rows, schema=TARGET_SCHEMA)

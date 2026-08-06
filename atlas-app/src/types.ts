@@ -8,7 +8,11 @@ export type Metrics = {
   ic_spearman: number | null
   ic_kind: string | null
   sharpe: number | null
+  sharpe_annualised: number | null
   sharpe_undefined_reason: string | null
+  skew: number | null
+  excess_kurtosis: number | null
+  periods_per_year: number | null
   rows_submitted: number | null
   episodes: number | null
   placebo_exceed_rate: number | null
@@ -25,6 +29,7 @@ export type CurvePoint = {
   tests_so_far: number
   running_best: number | null
   null_threshold: number | null
+  deflated_sharpe?: number | null
 }
 
 export type Chain = {

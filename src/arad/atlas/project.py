@@ -225,7 +225,11 @@ def _metrics(snapshot: dict) -> dict:
         "ic_spearman": ic.get("ic_spearman"),
         "ic_kind": ic.get("kind"),
         "sharpe": performance.get("sharpe"),
+        "sharpe_annualised": performance.get("sharpe_annualised"),
         "sharpe_undefined_reason": performance.get("sharpe_undefined_reason"),
+        "skew": performance.get("skew"),
+        "excess_kurtosis": performance.get("excess_kurtosis"),
+        "periods_per_year": performance.get("periods_per_year"),
         "rows_submitted": coverage.get("rows_submitted"),
         "episodes": coverage.get("episodes"),
         "placebo_exceed_rate": (diagnostics.get("placebo") or {}).get("placebo_exceed_rate"),
@@ -270,10 +274,16 @@ def _curve(chain: list[dict], metric: str) -> list[dict]:
             "change_summary": s["change_summary"],
             "value": s["metrics"].get(metric),
             "counts_toward_denominator": bool(s["metrics"].get("outcome_reads")),
+            "skew": s["metrics"].get("skew"),
+            "excess_kurtosis": s["metrics"].get("excess_kurtosis"),
         }
         for s in chain
     ]
-    return selection_band(points, metric=metric)
+    rows = [s["metrics"].get("rows_submitted") for s in chain]
+    defined = [r for r in rows if isinstance(r, int)]
+    return selection_band(
+        points, metric=metric, n_periods=min(defined) if defined else None
+    )
 
 
 def _project_aborted(study_id: str, events: list[dict]) -> dict:

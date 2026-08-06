@@ -136,33 +136,65 @@ def deflated_sharpe(
     return _norm_cdf(z)
 
 
-def selection_band(points: list[dict], *, metric: str = "abs_t") -> list[dict]:
+def sharpe_spread(values: list[float | None]) -> float:
+    """同一族内各次试验 Sharpe 的标准差。
+
+    它衡量的是**这套搜索过程本身的噪声幅度**，只能从实际试过的那些试验里估。
+    不足两次有定义的试验时无定义 —— 不能假设一个值，那等于替搜索过程编一个噪声水平。
+    """
+    defined = [v for v in values if v is not None and math.isfinite(v)]
+    if len(defined) < 2:
+        return float("nan")
+    mean = math.fsum(defined) / len(defined)
+    return math.sqrt(math.fsum((v - mean) ** 2 for v in defined) / (len(defined) - 1))
+
+
+def selection_band(
+    points: list[dict], *, metric: str = "abs_t", n_periods: int | None = None
+) -> list[dict]:
     """把一串按顺序发生的试验变成曲线数据：每点的值、running best、零假设带。
 
     `points` 每项至少含 `value`（该次试验的指标）与 `counts_toward_denominator`
     （这次是否读过 outcome）。带的高度只随**读过 outcome 的次数**上升 ——
     被预检挡下、判 blocked 而未读 outcome 的轮次不抬高多重检验负担，但它们仍留在
     图上，因为它们是提案分母的一部分。
+
+    两种带：`abs_t` 用 |z| 最大值的期望（双侧，因为搜索接受任一方向）；
+    `sharpe` 用 Sharpe 最大值的期望（单侧，因为搜索只挑最大的那个），
+    其尺度取自本链自身的 Sharpe 离散度。`sharpe` 还额外给出紧缩 Sharpe：
+    观测值真正超过选择基准的概率。
     """
     out: list[dict] = []
     looked = 0
     best = float("-inf")
+    spread = (
+        sharpe_spread([p.get("value") for p in points]) if metric == "sharpe" else float("nan")
+    )
     for i, point in enumerate(points):
         if point.get("counts_toward_denominator"):
             looked += 1
         value = point.get("value")
         if value is not None and math.isfinite(value) and value > best:
             best = value
-        threshold = (
-            expected_max_abs_z(looked) if metric == "abs_t" and looked >= 1 else None
-        )
-        out.append(
-            {
-                **point,
-                "index": i,
-                "tests_so_far": looked,
-                "running_best": best if math.isfinite(best) else None,
-                "null_threshold": threshold,
-            }
-        )
+        threshold: float | None = None
+        if looked >= 1 and metric == "abs_t":
+            threshold = expected_max_abs_z(looked)
+        elif looked >= 2 and metric == "sharpe":
+            candidate = expected_max_sharpe(looked, spread)
+            threshold = candidate if math.isfinite(candidate) else None
+        row = {
+            **point,
+            "index": i,
+            "tests_so_far": looked,
+            "running_best": best if math.isfinite(best) else None,
+            "null_threshold": threshold,
+        }
+        if metric == "sharpe" and threshold is not None and value is not None and n_periods:
+            dsr = deflated_sharpe(
+                value, benchmark_sharpe=threshold, n_periods=n_periods,
+                skew=point.get("skew") or 0.0,
+                excess_kurtosis=point.get("excess_kurtosis") or 0.0,
+            )
+            row["deflated_sharpe"] = dsr if math.isfinite(dsr) else None
+        out.append(row)
     return out

@@ -385,17 +385,49 @@ def test_sharpe_is_undefined_when_the_label_is_not_a_return():
 
 def test_sharpe_is_computed_once_the_caller_declares_a_return_label():
     rows, labels = make_rows()
-    request = a_request(rows, label_is_return=True, periods_per_year=252.0)
+    request = a_request(rows, label_is_return=True, periods_per_year=485.3,
+                        target_name="sc_ret_next_session", label_rule="entry_to_close")
     perf = evaluate(request, labels, role="evaluator")["effects"]["performance"]
     assert perf["sharpe"] is not None
     assert perf["position_rule"] == "sign_unit"
     assert "pre-cost" in perf["note"]
     assert math.isfinite(perf["skew"])
+    assert perf["periods_per_year_derived"] is not None
 
 
 def test_declaring_a_return_label_changes_the_request_identity():
     """同一批预测、两种 label 语义，不能共用一个 request 摘要。"""
     rows, _ = make_rows()
     a = a_request(rows)
-    b = a_request(rows, label_is_return=True)
+    b = a_request(rows, label_is_return=True, label_rule="entry_to_close")
     assert a.digest() != b.digest()
+
+
+def test_a_return_claim_on_a_non_return_label_rule_is_refused():
+    """没有这道检查，tradable_claim 就只是装饰：一张已实现波动的表照样能出年化 Sharpe。"""
+    from arad.evaluation.kernel import LabelIsNotAReturn
+
+    rows, labels = make_rows()
+    request = a_request(rows, label_is_return=True,
+                        target_name="sc_rv_next_session", label_rule="full_session")
+    with pytest.raises(LabelIsNotAReturn, match="不产出有符号收益"):
+        evaluate(request, labels, role="evaluator")
+
+
+def test_the_kernel_and_the_spine_agree_on_which_rules_produce_returns():
+    """两处各存一份常量，必须钉在一起，否则加了新规则只改一边就会静默放行。"""
+    from arad.evaluation.kernel import RETURN_LABEL_RULES as kernel_rules
+    from arad.temporal.targets import RETURN_LABEL_RULES as spine_rules
+
+    assert kernel_rules == spine_rules
+
+
+def test_the_annualisation_factor_is_derived_from_the_actual_decision_times():
+    """SC 一天两个 session，沿用 252 会把年化 Sharpe 低估约三成。"""
+    rows, labels = make_rows(n=120)
+    request = a_request(rows, label_is_return=True, periods_per_year=252.0,
+                        target_name="sc_ret_next_session", label_rule="entry_to_close")
+    perf = evaluate(request, labels, role="evaluator")["effects"]["performance"]
+    # 造数每 6 小时一个决策点 -> 每年约 1461 个
+    assert perf["periods_per_year_derived"] > 1000
+    assert perf["periods_per_year_declared"] == 252.0

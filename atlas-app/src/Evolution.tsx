@@ -56,6 +56,12 @@ export function Evolution({ p }: { p: Projection }) {
   const showBand = axis === 'lineage' && (METRIC_HAS_NULL_BAND[metric] ?? false)
   const study = selected ? byId[selected] : null
 
+  /** DSR 只在 sharpe 曲线上算过，明细表从那条曲线里取，不重算。 */
+  function dsrOf(c: Chain, studyId: string): number | null {
+    const point = (c.curves.sharpe ?? []).find((x) => x.study_id === studyId)
+    return point?.deflated_sharpe ?? null
+  }
+
   return (
     <>
       <section>
@@ -113,16 +119,28 @@ export function Evolution({ p }: { p: Projection }) {
 
         {showBand ? (
           <p className="notice strong">
-            零假设带是「n 次独立检验下 |z| 最大值的期望」，n 取本链已读 outcome 的次数。
+            零假设带是{metric === 'sharpe'
+              ? '「n 次试验下 Sharpe 最大值的期望」（单侧，搜索只挑最大的那个）'
+              : '「n 次独立检验下 |z| 最大值的期望」（双侧，搜索接受任一方向）'}，
+            n 取本链已读 outcome 的次数。
             一条随迭代上升的曲线，正是选择在纯噪声上必然产出的形状 —— 只有在曲线
             <strong>离开</strong>这条带之后，「变好了」才有内容。该带按检验独立计算，
             而同族变体高度相关，因此它偏严：没越过带不等于确定无效。
           </p>
         ) : (
           <p className="notice">
-            该指标没有配零假设带：带的算法针对 |t| 这类可标准化为 z 的统计量。
-            {metric === 'sharpe' && ' Sharpe 的选择基准需要族内各次试验 Sharpe 的离散度，'
-              + '而当前 target 的 label 不是收益，Sharpe 本身就没有定义。'}
+            该指标没有配零假设带。IC 的零假设离散度不能用同一套办法从本链估出来，
+            要给它配带需要另做置换分布。
+          </p>
+        )}
+
+        {metric === 'sharpe' && (
+          <p className="notice">
+            Sharpe 的零假设带取自<strong>本链自身的 Sharpe 离散度</strong>，
+            因此至少要两次有定义的试验才画得出来，第一版必然没有。
+            DSR（紧缩 Sharpe）是「观测值真正超过该基准」的概率：低于 0.5 就意味着
+            这个 Sharpe 与选择在噪声上挑出来的最好值无法区分。全部为 pre-cost：
+            未扣交易成本与容量约束。
           </p>
         )}
       </section>
@@ -134,7 +152,7 @@ export function Evolution({ p }: { p: Projection }) {
             <thead>
               <tr>
                 <th>#</th><th style={{ textAlign: 'left' }}>Study</th><th>verdict</th>
-                <th>|t|</th><th>IC</th><th>Sharpe</th><th>已读 outcome</th>
+                <th>|t|</th><th>IC</th><th>Sharpe</th><th>年化</th><th>DSR</th>
                 <th style={{ textAlign: 'left' }}>相对上一版改了什么</th>
               </tr>
             </thead>
@@ -151,9 +169,12 @@ export function Evolution({ p }: { p: Projection }) {
                     <td className="mono">{num(s.metrics.abs_t)}</td>
                     <td className="mono">{num(s.metrics.ic_spearman, 4)}</td>
                     <td className="mono" title={s.metrics.sharpe_undefined_reason ?? undefined}>
-                      {s.metrics.sharpe === null ? '未定义' : num(s.metrics.sharpe)}
+                      {s.metrics.sharpe === null ? '未定义' : num(s.metrics.sharpe, 4)}
                     </td>
-                    <td className="mono">{s.metrics.outcome_reads}</td>
+                    <td className="mono">{num(s.metrics.sharpe_annualised)}</td>
+                    <td className="mono">
+                      {num(dsrOf(chain, id), 3)}
+                    </td>
                     <td style={{ textAlign: 'left', whiteSpace: 'normal' }}>
                       {s.change_summary || <span className="muted">未声明</span>}
                     </td>
