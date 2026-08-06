@@ -1,0 +1,103 @@
+{
+  "evaluator_version": "0.1.0",
+  "study_id": "baseline_sc_rv_persistence",
+  "confirmatory_id": "baseline-v1",
+  "family": "baseline_sc_rv_persistence",
+  "request_digest": "b29fc283edee04ea905999c7633dec4c7134cdcdfe4528c1e6f5c8b2c34a845c",
+  "coverage": {
+    "rows_submitted": 976,
+    "rows_authoritative": 976,
+    "rows_excluded_preregistered": 0,
+    "episodes": 499,
+    "date_clusters": 499,
+    "product_clusters": 1,
+    "decision_time_from": "2022-11-02T20:59:00+08:00",
+    "decision_time_to": "2024-12-31T08:59:00+08:00",
+    "min_lead_seconds": 64740
+  },
+  "effects": {
+    "intercept": -0.7301388410630514,
+    "slope": 0.8462377539315485,
+    "t_stat": 50.73297407117503,
+    "se_two_way_cluster": 0.016680231534314006,
+    "se_newey_west": 0.01622852333697809,
+    "mde_at_2p8_se": 0.04670464829607922
+  },
+  "diagnostics": {
+    "nominal_n": 976,
+    "episode": {
+      "nominal_n": 976,
+      "clusters": 499,
+      "kish_n_eff": 493.56269430051816,
+      "largest_cluster_share": 0.0020491803278688526
+    },
+    "date_cluster": {
+      "nominal_n": 976,
+      "clusters": 499,
+      "kish_n_eff": 493.56269430051816,
+      "largest_cluster_share": 0.0020491803278688526
+    },
+    "product_cluster": {
+      "nominal_n": 976,
+      "clusters": 1,
+      "kish_n_eff": 1.0,
+      "largest_cluster_share": 1.0
+    },
+    "residual_autocorrelation_lag1": 0.060513420388947074,
+    "suggested_block_length": 3,
+    "two_way_cluster": {
+      "variance": 0.0002782301240383234,
+      "se": 0.016680231534314006,
+      "clusters_a": 499,
+      "clusters_b": 1,
+      "variance_negative": false,
+      "degenerate_dimension": "cluster_b",
+      "fell_back_to": "cluster_a",
+      "note": "该维只有一组，双向 cluster 退化为恒零；已降级为单向 cluster。推断的相关结构只覆盖一个维度，须在 Study 中显式声明"
+    },
+    "hac": {
+      "variance": 0.0002633649696988424,
+      "se": 0.01622852333697809,
+      "lag": 5,
+      "variance_negative": false
+    },
+    "note": "Kish n_eff 只描述权重集中度，不替代双向 cluster、HAC 或 block bootstrap；主要推断单位由 mechanism 与 target 事前确定",
+    "controls_are_integrity_checked_only": true,
+    "controls_note": "本版回归为一元；controls 只检查缺失与恒定，不进入回归。残差化由 worker 在提交预测前完成，控制清单以 Confirmatory Lock 为准",
+    "influence": {
+      "top_k": 5,
+      "top_indices": [
+        521,
+        598,
+        417,
+        26,
+        901
+      ],
+      "top_dfbeta": [
+        -0.004252348133851887,
+        -0.003781346219222945,
+        -0.003664145543770662,
+        -0.0035339620979710365,
+        -0.002565016757939809
+      ],
+      "max_abs_dfbeta": 0.004252348133851887
+    },
+    "placebo": {
+      "draws": 200,
+      "seed": 20260805,
+      "actual_slope": 0.8462377539315485,
+      "placebo_exceed_rate": 0.0,
+      "placebo_slope_sd": 0.021829849821603322
+    },
+    "cost_model_declared": true,
+    "cost_note": "成本占位：真实成本与容量模型属 M5，未声明时不得取 candidate"
+  },
+  "blocked_reasons": [
+    "cluster_b 维只有一组，双向 cluster 退化，已降级为cluster_a单向；单品种样本的横截面相关结构无法识别"
+  ],
+  "suggested_verdict": "blocked",
+  "result_digest": "3ec71d89e2648bbafe7a9b8f4b4a70692a62bf064724941c605b3fd4e6af918f",
+  "inventory": "baseline_control",
+  "inventory_note": "Baseline Control，只用 SC 自身量价，不计入 Alternative Factor Inventory；纯量价因子不能被统计为另类因子（Merge-Plan-2 §3.1）",
+  "sample_segment": "discovery"
+}

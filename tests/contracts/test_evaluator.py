@@ -1,0 +1,361 @@
+"""最小评价机的合同测试（M3 第二块）。
+
+M3 出口条件要求"故意泄漏、单位错误、结果依赖过滤和记录删除全部失败"。
+前三条在这里，第四条在 test_ledger.py。
+"""
+
+from __future__ import annotations
+
+import math
+from datetime import UTC, datetime, timedelta
+
+import pytest
+
+from arad.evaluation import stats
+from arad.evaluation.kernel import (
+    DegenerateControl,
+    EvaluationRequest,
+    EvaluationRow,
+    LabelAccessDenied,
+    LeakageDetected,
+    OutcomeDependentFiltering,
+    evaluate,
+)
+
+BASE = datetime(2024, 1, 1, tzinfo=UTC)
+
+
+def make_rows(n=60, *, leak=False, constant_control=False, seed=7):
+    import random
+
+    rng = random.Random(seed)
+    rows, labels = [], {}
+    for i in range(n):
+        decision = BASE + timedelta(hours=6 * i)
+        label_start = decision + timedelta(minutes=1)
+        available = decision + timedelta(minutes=5) if leak else decision - timedelta(minutes=5)
+        pred = rng.gauss(0, 1)
+        rows.append(
+            EvaluationRow(
+                row_key=f"r{i:03d}",
+                episode_id=f"ep{i // 2:03d}",
+                date_cluster=f"d{i // 2:03d}",
+                product_cluster="sc",
+                decision_time=decision,
+                label_start=label_start,
+                availability_times={"pm_innovation": available},
+                prediction=pred,
+                controls={"news": 0.0 if constant_control else rng.gauss(0, 1)},
+            )
+        )
+        labels[f"r{i:03d}"] = rng.gauss(0, 1)
+    return rows, labels
+
+
+def a_request(rows, **kw):
+    base = {
+        "study_id": "s1",
+        "confirmatory_id": "c1",
+        "family": "fam",
+        "rows": rows,
+        "authoritative_keys": [r.row_key for r in rows],
+        "cost_model_declared": True,
+        "placebo_draws": 40,
+        "min_clusters": 5,
+    }
+    base.update(kw)
+    return EvaluationRequest(**base)
+
+
+# ---------------------------------------------------------------- 三条必须失败
+
+
+def test_deliberate_leakage_fails(): 
+    """feature 在决策时点之后才可用 —— 评价机必须拒绝出具结果。"""
+    rows, labels = make_rows(leak=True)
+    with pytest.raises(LeakageDetected, match="availability_time"):
+        evaluate(a_request(rows), labels, role="evaluator")
+
+
+def test_decision_at_or_after_label_start_fails():
+    rows, labels = make_rows()
+    bad = rows[0]
+    rows[0] = EvaluationRow(
+        **{**bad.__dict__, "label_start": bad.decision_time}
+    )
+    with pytest.raises(LeakageDetected, match="不早于 label 起点"):
+        evaluate(a_request(rows), labels, role="evaluator")
+
+
+def test_constant_control_fails_as_a_unit_error():
+    """旧系统真实故障：微秒时间戳按纳秒解析，新闻控制恒为零仍给出显著结果。"""
+    rows, labels = make_rows(constant_control=True)
+    with pytest.raises(DegenerateControl, match="恒为"):
+        evaluate(a_request(rows), labels, role="evaluator")
+
+
+def test_missing_control_value_fails():
+    rows, labels = make_rows()
+    bad = rows[0]
+    rows[0] = EvaluationRow(**{**bad.__dict__, "controls": {}})
+    with pytest.raises(DegenerateControl, match="缺失"):
+        evaluate(a_request(rows), labels, role="evaluator")
+
+
+def test_outcome_dependent_filtering_fails():
+    """看过结果之后再删行：没有预注册排除规则就必须失败。"""
+    rows, labels = make_rows()
+    kept = rows[:50]
+    request = a_request(kept, authoritative_keys=[r.row_key for r in rows])
+    with pytest.raises(OutcomeDependentFiltering, match="没有预注册的排除规则"):
+        evaluate(request, labels, role="evaluator")
+
+
+def test_preregistered_exclusions_are_accepted():
+    rows, labels = make_rows()
+    kept = rows[:50]
+    dropped = {r.row_key: "预注册：交易所数据错误" for r in rows[50:]}
+    request = a_request(
+        kept, authoritative_keys=[r.row_key for r in rows], preregistered_exclusions=dropped
+    )
+    result = evaluate(request, labels, role="evaluator")
+    assert result["coverage"]["rows_excluded_preregistered"] == 10
+
+
+def test_rows_outside_the_authoritative_set_fail():
+    rows, labels = make_rows()
+    request = a_request(rows, authoritative_keys=[r.row_key for r in rows[:30]])
+    with pytest.raises(OutcomeDependentFiltering, match="权威行集合之外"):
+        evaluate(request, labels, role="evaluator")
+
+
+# ---------------------------------------------------------------- 能力边界
+
+
+@pytest.mark.parametrize("role", ["proposer", "orchestrator", "research_worker", "human"])
+def test_only_the_evaluator_may_read_labels(role):
+    rows, labels = make_rows()
+    with pytest.raises(LabelAccessDenied):
+        evaluate(a_request(rows), labels, role=role)
+
+
+# ---------------------------------------------------------------- 结构化输出
+
+
+def test_result_reports_all_independence_dimensions():
+    """Merge-Plan-2 §5.4：nominal n、双向 cluster、HAC、Episode、序列相关必须同时出现。"""
+    rows, labels = make_rows()
+    result = evaluate(a_request(rows), labels, role="evaluator")
+    d = result["diagnostics"]
+    assert d["nominal_n"] == 60
+    assert d["episode"]["clusters"] == 30
+    assert d["date_cluster"]["clusters"] == 30
+    assert d["product_cluster"]["clusters"] == 1
+    assert "kish_n_eff" in d["episode"]
+    assert d["two_way_cluster"]["clusters_a"] == 30
+    assert d["two_way_cluster"]["degenerate_dimension"] == "cluster_b"  # 单品种
+    assert d["hac"]["lag"] == 5
+    assert "suggested_block_length" in d
+    assert "不替代" in d["note"]
+
+
+def test_kish_is_reported_alongside_cluster_and_hac_not_instead_of_them():
+    rows, labels = make_rows()
+    d = evaluate(a_request(rows), labels, role="evaluator")["diagnostics"]
+    assert d["episode"]["kish_n_eff"] > 0
+    assert not math.isnan(d["two_way_cluster"]["se"])
+    assert "se" in d["hac"]
+
+
+def test_result_is_deterministic_and_content_addressed():
+    rows, labels = make_rows()
+    a = evaluate(a_request(rows), labels, role="evaluator")
+    b = evaluate(a_request(rows), labels, role="evaluator")
+    assert a["request_digest"] == b["request_digest"]
+    assert a["result_digest"] == b["result_digest"]
+
+
+def test_changing_one_prediction_changes_both_digests():
+    rows, labels = make_rows()
+    a = evaluate(a_request(rows), labels, role="evaluator")
+    bad = rows[0]
+    rows[0] = EvaluationRow(**{**bad.__dict__, "prediction": bad.prediction + 1.0})
+    b = evaluate(a_request(rows), labels, role="evaluator")
+    assert a["request_digest"] != b["request_digest"]
+    assert a["result_digest"] != b["result_digest"]
+
+
+# ---------------------------------------------------------------- 准入
+
+
+def test_random_predictions_do_not_become_a_candidate():
+    """预测与标签独立时，置换检验应当挡住它。"""
+    rows, labels = make_rows(n=80, seed=11)
+    result = evaluate(a_request(rows), labels, role="evaluator")
+    assert result["suggested_verdict"] != "candidate"
+    assert result["blocked_reasons"]
+
+
+def test_missing_cost_model_blocks_candidate():
+    rows, labels = make_rows()
+    result = evaluate(a_request(rows, cost_model_declared=False), labels, role="evaluator")
+    assert any("成本模型" in r for r in result["blocked_reasons"])
+
+
+def test_too_few_episodes_yields_underpowered_not_null():
+    rows, labels = make_rows(n=40)
+    result = evaluate(a_request(rows, min_clusters=100), labels, role="evaluator")
+    assert result["suggested_verdict"] == "underpowered"
+
+
+def test_single_influential_point_blocks_candidate():
+    rows, labels = make_rows(n=60, seed=3)
+    # 造一个极端点：预测与标签同时被推得很远
+    bad = rows[0]
+    rows[0] = EvaluationRow(**{**bad.__dict__, "prediction": 50.0})
+    labels[bad.row_key] = 50.0
+    result = evaluate(a_request(rows), labels, role="evaluator")
+    assert any("单点影响过大" in r for r in result["blocked_reasons"])
+
+
+# ---------------------------------------------------------------- 统计原语
+
+
+def test_ols_recovers_a_known_slope():
+    x = [float(i) for i in range(20)]
+    y = [3.0 + 2.0 * xi for xi in x]
+    intercept, slope, resid = stats.ols(y, x)
+    assert slope == pytest.approx(2.0)
+    assert intercept == pytest.approx(3.0)
+    assert max(abs(r) for r in resid) < 1e-9
+
+
+def test_ols_refuses_a_constant_regressor():
+    with pytest.raises(ValueError, match="没有变异"):
+        stats.ols([1.0, 2.0, 3.0], [5.0, 5.0, 5.0])
+
+
+def test_two_way_cluster_se_exceeds_naive_when_clusters_are_coarse():
+    """粗 cluster 会放大方差；只报单向或不报 cluster 会低估不确定性。"""
+    x = [float(i % 7) - 3 for i in range(70)]
+    resid = [1.0 if i % 7 < 4 else -1.0 for i in range(70)]
+    products = [f"p{i % 5}" for i in range(70)]
+    fine = stats.two_way_cluster_se(x, resid, [f"d{i}" for i in range(70)], products)
+    coarse = stats.two_way_cluster_se(x, resid, [f"d{i // 10}" for i in range(70)], products)
+    assert coarse["variance"] > fine["variance"]
+    assert fine["degenerate_dimension"] is None
+
+
+def test_single_cluster_dimension_degrades_to_one_way_and_says_so():
+    """单品种样本：双向 cluster 恒为零，必须降级并声明，而不是吐 NaN。"""
+    x = [float(i % 7) - 3 for i in range(70)]
+    resid = [1.0 if i % 7 < 4 else -1.0 for i in range(70)]
+    got = stats.two_way_cluster_se(x, resid, [f"d{i // 10}" for i in range(70)], ["sc"] * 70)
+    assert got["degenerate_dimension"] == "cluster_b"
+    assert got["fell_back_to"] == "cluster_a"
+    assert got["variance"] > 0 and not math.isnan(got["se"])
+    assert "显式声明" in got["note"]
+
+
+def test_block_length_grows_with_serial_dependence():
+    import random as _random
+
+    rng = _random.Random(5)
+    independent = [rng.gauss(0, 1) for _ in range(200)]
+    persistent = [float(i % 50) for i in range(200)]
+    assert stats.suggested_block_length(persistent) > stats.suggested_block_length(independent)
+
+
+def test_block_length_reacts_to_strong_negative_autocorrelation_too():
+    """块自助关心的是序列相关的强度，正负都算。"""
+    alternating = [(-1.0) ** i for i in range(200)]
+    assert stats.suggested_block_length(alternating) > 1
+
+
+def test_kish_n_eff_penalises_concentration():
+    assert stats.kish_n_eff([1.0] * 10) == pytest.approx(10.0)
+    assert stats.kish_n_eff([100.0, 1.0, 1.0]) < 2.0
+
+
+def test_placebo_is_seeded_and_reproducible():
+    x = [float(i) for i in range(40)]
+    y = [float((i * 7) % 11) for i in range(40)]
+    groups = [f"g{i // 2}" for i in range(40)]
+    a = stats.placebo_slope_distribution(y, x, groups, draws=30, seed=1)
+    b = stats.placebo_slope_distribution(y, x, groups, draws=30, seed=1)
+    assert a == b
+    c = stats.placebo_slope_distribution(y, x, groups, draws=30, seed=2)
+    assert c["seed"] == 2
+
+
+# ---------------------------------------------------------------- Baseline Control
+
+import os
+
+BASELINE_TARGET = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "data", "spine", "sc", "target_sc_rv_next_session.parquet",
+)
+
+
+@pytest.mark.skipif(not os.path.exists(BASELINE_TARGET), reason="需要先运行 spine build")
+def test_baseline_pairs_only_the_same_session_type():
+    """夜盘与日盘的波动水平系统性不同；相邻 session 配对会造出假的负持续性。"""
+    from arad.evaluation.baseline import build_rows
+
+    rows, labels = build_rows(BASELINE_TARGET, "discovery")
+    assert len(rows) > 500
+    for r in rows:
+        session = r.row_key.rsplit(":", 1)[1]
+        assert session in ("night", "day")
+    assert set(labels) == {r.row_key for r in rows}
+
+
+@pytest.mark.skipif(not os.path.exists(BASELINE_TARGET), reason="需要先运行 spine build")
+def test_baseline_rows_are_pit_clean_by_construction():
+    from arad.evaluation.baseline import build_rows
+
+    rows, _ = build_rows(BASELINE_TARGET, "discovery")
+    for r in rows:
+        assert r.decision_time < r.label_start
+        for available in r.availability_times.values():
+            assert available < r.decision_time
+
+
+@pytest.mark.skipif(not os.path.exists(BASELINE_TARGET), reason="需要先运行 spine build")
+def test_baseline_volatility_persistence_has_the_expected_sign():
+    """对数已实现波动的一阶持续性应为正。负号说明配对构造有误。"""
+    from arad.evaluation.baseline import run_baseline
+
+    result = run_baseline(BASELINE_TARGET)
+    assert result["effects"]["slope"] > 0.5
+    assert result["diagnostics"]["placebo"]["placebo_exceed_rate"] < 0.05
+    assert result["coverage"]["min_lead_seconds"] > 0
+
+
+@pytest.mark.skipif(not os.path.exists(BASELINE_TARGET), reason="需要先运行 spine build")
+def test_baseline_is_not_counted_as_an_alternative_factor():
+    """纯量价因子不能被统计为另类因子（Merge-Plan-2 §3.1）。"""
+    from arad.evaluation.baseline import run_baseline
+
+    result = run_baseline(BASELINE_TARGET)
+    assert result["inventory"] == "baseline_control"
+    assert "不计入 Alternative Factor Inventory" in result["inventory_note"]
+
+
+@pytest.mark.skipif(not os.path.exists(BASELINE_TARGET), reason="需要先运行 spine build")
+def test_single_product_sample_cannot_reach_candidate():
+    """单品种样本识别不出横截面相关结构，评价机必须拒绝给 candidate。"""
+    from arad.evaluation.baseline import run_baseline
+
+    result = run_baseline(BASELINE_TARGET)
+    assert result["suggested_verdict"] != "candidate"
+    assert any("只有一组" in r for r in result["blocked_reasons"])
+
+
+def test_controls_are_declared_as_integrity_checked_only():
+    """一元回归里 controls 不进回归；产物必须显式声明，避免下游误以为已控制。"""
+    rows, labels = make_rows()
+    d = evaluate(a_request(rows), labels, role="evaluator")["diagnostics"]
+    assert d["controls_are_integrity_checked_only"] is True
+    assert "不进入回归" in d["controls_note"]

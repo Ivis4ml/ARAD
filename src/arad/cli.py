@@ -103,6 +103,10 @@ def main(argv: list[str] | None = None) -> int:
     sd.add_argument("--ledger", default="data/ledger/arad.db")
     sd.add_argument("--target", default="data/spine/sc/target_sc_rv_next_session.parquet")
     sd.add_argument("--out", default="artifacts/manifests/study_snapshot_demo.md")
+    sb = study_sub.add_parser("baseline", help="最小 Baseline Control：SC 自身波动持续性")
+    sb.add_argument("--target", default="data/spine/sc/target_sc_rv_next_session.parquet")
+    sb.add_argument("--segment", default="discovery")
+    sb.add_argument("--out", default="artifacts/manifests/baseline_sc_rv_persistence.json")
 
     args = parser.parse_args(argv)
     if args.cmd == "data-audit":
@@ -133,6 +137,20 @@ def main(argv: list[str] | None = None) -> int:
             return pm_text_corpus(args.config)
         return pm_index_build(args.config, force=args.force, workers=args.workers)
     if args.cmd == "study":
+        if args.study_cmd == "baseline":
+            from .evaluation.baseline import run_baseline
+
+            result = run_baseline(args.target, segment=args.segment)
+            os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
+            with open(args.out, "w", encoding="utf-8") as f:
+                json.dump(result, f, ensure_ascii=False, indent=2, default=str)
+                f.write("\n")
+            print(json.dumps(
+                {k: result[k] for k in
+                 ("study_id", "inventory", "sample_segment", "coverage",
+                  "effects", "blocked_reasons", "suggested_verdict")},
+                ensure_ascii=False, indent=2, default=str))
+            return 0
         from .memory.demo import run_demo
 
         result = run_demo(args.ledger, args.target, args.out)

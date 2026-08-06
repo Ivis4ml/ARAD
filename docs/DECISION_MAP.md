@@ -110,8 +110,23 @@
   statistical denominator 只增不减（DELETE 与 UPDATE 均被触发器拒绝）。
   快照渲染合同（决定 0003）：一个合成 Study 可从账本回放为自包含快照；
   缺任一必需段落即报 `SnapshotIncomplete`，按账本缺口处理。26 项合同测试。
-  **仍未交付**：最小 evaluator（coverage、Episode、MDE、n_eff、cluster/HAC、影响点、
-  placebo、成本占位、artifact hashing）、durable queue 与租约、最小 Baseline Control。
+  **第二块（最小 evaluator）已交付**：受保护的确定性评价机，唯一读取标签、唯一签发
+  evidence result。M3 出口要求的四类操作全部失败：故意泄漏（feature 可用时点不早于
+  决策时点，或决策不早于 label 起点）、单位错误（控制变量全样本恒定 —— 旧系统真实
+  故障形态）、结果依赖过滤（提交行集合是权威集合真子集且无预注册排除规则）、
+  记录删除（第一块）。结构化输出同时给出 nominal n、Episode/日期/品种三维 cluster、
+  Kish n_eff、双向 cluster 与 Newey-West HAC、残差自相关与建议块长、DFBETA 影响点、
+  按 Episode 整块置换的 placebo、成本占位；请求与结果均内容寻址。
+  **实测发现并修复的两个自身缺陷**：(1) 某个 cluster 维只有一组时双向 cluster 方差
+  恒为零（OLS 一阶条件），原实现吐 NaN，现降级为单向并显式声明；(2) 相邻 session
+  配对把夜盘/日盘水平差误读成波动反转，改为同类型配对。
+  **最小 Baseline Control 已跑通**：`arad study baseline` 在 SC discovery 段
+  976 个观测、499 个 Episode（2022-11-02 至 2024-12-31）上给出对数已实现波动的
+  一阶持续性 slope 0.846、双向 cluster SE 0.0167、置换检验通过、最小提前量 64,740 秒；
+  Verdict 为 blocked，理由是单品种样本识别不出横截面相关结构。该结果标注
+  `inventory: baseline_control`，**不计入 Alternative Factor Inventory**。
+  **仍未交付**：多元回归（本版一元，controls 只做完整性检查，残差化由 worker 负责）、
+  durable queue 与租约、block bootstrap、真实成本与容量模型。
 
 ## #7 — 统计准入与经济边界
 
