@@ -28,7 +28,7 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel, ValidationError
 
-from ..registry.specs import EFFECT_FIELDS, content_id
+from ..registry.specs import EFFECT_FIELD_PREFIXES, EFFECT_FIELDS, content_id
 
 PROVIDER_VERSION = "0.1.0"
 
@@ -67,6 +67,8 @@ def assert_blinded(prompt: str, role: Role) -> None:
     hits = sorted(
         name for name in EFFECT_FIELDS if re.search(rf"\b{re.escape(name)}\b", lowered)
     )
+    prefixes = "|".join(re.escape(p.rstrip("_")) for p in EFFECT_FIELD_PREFIXES)
+    hits += sorted({m.group(0) for m in re.finditer(rf"\b(?:{prefixes})_[a-z0-9_]+", lowered)})
     if hits:
         raise ContextLeak(
             f"角色 {role.value!r} 的 prompt 出现效果字段 {hits}；"

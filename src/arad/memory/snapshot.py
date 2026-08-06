@@ -28,14 +28,24 @@ class SnapshotIncomplete(RuntimeError):
     """账本事件不足以渲染自包含快照。这是账本缺口，不是渲染器缺陷。"""
 
 
+#: 快照的可选切片。缺失不算账本缺口 —— blocked 的 Study 本来就没有评价结果 ——
+#: 但只要有就必须呈现：决定 0003 快照层要求五关逐项结果、腿分解、红队诊断与工件哈希。
+OPTIONAL_SECTIONS = ("evaluation", "feature_spec")
+
+
 def collect_snapshot(events: list[dict], denominators: dict) -> dict:
     """把一个 Study 的事件流折叠成判决时刻快照。"""
     snap: dict = {s: None for s in REQUIRED_SECTIONS}
+    snap.update(dict.fromkeys(OPTIONAL_SECTIONS))
     snap["outcome_reads"] = []
     snap["denominators"] = denominators
     for event in events:
         kind, payload = event["event_type"], event["payload"]
-        if kind == "proposal_locked":
+        if kind == "evaluation_result":
+            snap["evaluation"] = payload
+        elif kind == "feature_spec_locked":
+            snap["feature_spec"] = payload
+        elif kind == "proposal_locked":
             snap["proposal"] = payload
         elif kind == "hypothesis_locked":
             snap["hypothesis_lock"] = payload

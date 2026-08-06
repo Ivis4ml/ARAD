@@ -112,6 +112,24 @@ def main(argv: list[str] | None = None) -> int:
     sb.add_argument("--segment", default="discovery")
     sb.add_argument("--out", default="artifacts/manifests/baseline_sc_rv_persistence.json")
 
+    episode = sub.add_parser("episode", help="Search Episode 闭环（M4）")
+    ep_sub = episode.add_subparsers(dest="episode_cmd", required=True)
+    ed = ep_sub.add_parser("demo", help="在真实 SC 数据上跑一次 Episode 并渲染 Atlas")
+    ed.add_argument("--ledger", default="data/ledger/episode_demo.db")
+    ed.add_argument("--queue", default="data/ledger/episode_demo_queue.db")
+    ed.add_argument("--target", default="data/spine/sc/target_sc_rv_next_session.parquet")
+    ed.add_argument("--atlas", default="artifacts/atlas")
+    ed.add_argument("--manifests", default="artifacts/manifests")
+
+    atlas = sub.add_parser("atlas", help="Research Atlas 只读投影（M9）")
+    atlas_sub = atlas.add_subparsers(dest="atlas_cmd", required=True)
+    ar = atlas_sub.add_parser("render", help="从账本渲染静态站点")
+    ar.add_argument("--ledger", default="data/ledger/arad.db")
+    ar.add_argument("--queue", default=None, help="可选：读取 Research Service 状态")
+    ar.add_argument("--family", default=None, help="只统计某个 experiment family 的分母")
+    ar.add_argument("--out", default="artifacts/atlas")
+    ar.add_argument("--manifests", default="artifacts/manifests")
+
     args = parser.parse_args(argv)
     if args.cmd == "data-audit":
         return data_audit(args.config, args.out)
@@ -163,6 +181,35 @@ def main(argv: list[str] | None = None) -> int:
 
         result = run_demo(args.ledger, args.target, args.out)
         print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+    if args.cmd == "episode":
+        from .harness.demo import run_episode_demo
+
+        result = run_episode_demo(
+            ledger_path=args.ledger, queue_path=args.queue, target_path=args.target,
+            atlas_dir=args.atlas, manifest_dir=args.manifests,
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+        return 0
+    if args.cmd == "atlas":
+        from .atlas.project import project
+        from .atlas.render import render_site
+        from .atlas.sources import data_freshness
+        from .memory.ledger import EvidenceLedger
+
+        service = None
+        if args.queue:
+            from .orchestrator.queue import DurableQueue
+
+            with DurableQueue(args.queue) as q:
+                service = {**q.service_state(), "tasks": q.stats()}
+        with EvidenceLedger(args.ledger) as ledger:
+            projection = project(ledger, family=args.family, service=service)
+            paths = render_site(
+                projection, args.out, freshness=data_freshness(args.manifests)
+            )
+        print(json.dumps({**paths, **projection.totals, "chain": projection.chain},
+                         ensure_ascii=False, indent=2, default=str))
         return 0
     return 1
 

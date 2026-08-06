@@ -20,7 +20,13 @@ from contextlib import contextmanager
 from enum import Enum
 from typing import Self
 
-from ..registry.specs import EFFECT_FIELDS, canonical_json, content_id, utc_now
+from ..registry.specs import (
+    EFFECT_CONTAINERS,
+    canonical_json,
+    content_id,
+    is_effect_field,
+    utc_now,
+)
 
 LEDGER_VERSION = "0.1.0"
 
@@ -114,10 +120,16 @@ def event_hash(prev_hash: str, seq: int, study_id: str | None, event_type: str,
 
 
 def _redact(payload: dict) -> dict:
-    """去掉效果字段。递归处理嵌套结构，避免把 β 藏在子字典里绕过边界。"""
+    """去掉效果字段。递归处理嵌套结构，避免把 β 藏在子字典里绕过边界。
+
+    整个 `effects` 子对象一律遮蔽：逐字段挡只能挡住已经想到的名字，
+    而评价机每加一个统计量都会开一个新口子。
+    """
     out: dict = {}
     for key, value in payload.items():
-        if key.lower() in EFFECT_FIELDS:
+        if key.lower() in EFFECT_CONTAINERS:
+            out[key] = "<redacted:effect-container>"
+        elif is_effect_field(key):
             out[key] = "<redacted:effect-field>"
         elif isinstance(value, dict):
             out[key] = _redact(value)

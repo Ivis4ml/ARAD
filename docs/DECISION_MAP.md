@@ -216,13 +216,77 @@
   **仍未交付**：机制族命名、金标样本、跨模型一致性审计；最大的族仍有 648 个 token
   且 `oil`/`gold` 陷在其中，需要更细的切分。
 
+## M3 Research Kernel（已交付，三块）
+
+- **账本**：SQLite WAL 上的追加式哈希链。UPDATE/DELETE 触发器直接 ABORT，
+  proposer 角色的查询路径递归遮蔽效果字段，两本分母分表存放且统计分母只增不减。
+  任意 Study 可折叠为自包含判决快照，拼不出即按 bug 处理；
+- **评价机**：唯一读取标签的组件。三类操作必须失败而非告警 —— 前视、控制变量恒定
+  （旧系统真实故障形态：微秒时间戳按纳秒解析致新闻控制恒为零）、结果依赖过滤。
+  推断用双向 cluster SE 与 Newey-West，另出 Kish n_eff、DFBETA 影响与置换安慰剂。
+  **本版回归是一元的，controls 只做完整性检查不进回归**，残差化是 worker 的职责；
+- **durable queue**：租约、过期回收、心跳、检查点、幂等完成、退避重试到
+  HUMAN_REVIEW_REQUIRED。ServiceState 只有 running / paused / shutdown，
+  **没有 completed**，且只有 `role="human"` 能改。
+
+## M4 Research Harness（已交付，五块）—— 环已转起来
+
+定位纠正：此前建的是确定性的一半，执行者 LLM 面向的一半一行都没有。M4 补上后者。
+
+- **特征规格语言**：PIT 安全是结构性的。所有窗口结束于决策时点之前，`offset_seconds`
+  只能非负，因此"写出一个前视特征"在这门语言里**无法表达**，而不是写出来被拦下。
+  原语不足以表达某机制时产出 `UnsupportedMechanism` —— 缺口是证据，不是失败；
+- **provider 适配层**：`ProviderRequest` 刻意没有会话 id、没有历史消息，
+  角色隔离因此是结构性的；盲化在**每次**发送前扫描 prompt（含修复重试）；
+  坏 JSON 重试用尽后降级为 `ParseFailure`，任务退避重排不丢。`claude -p` 适配器
+  与 MockProvider 并存，后者使闭环可在零调用成本下端到端测试；
+- **上下文组装器**：先组装结构化 facts 再渲染 prompt，facts 内容寻址且入账，
+  "模型当时看到了什么"是可回放的证据。菜单偏差（#12 实测的 83.7% 后见暴露与
+  10.4 个百分点的结果邻接）**必须写进 prompt**，藏起来会原样传导成提案偏差；
+- **反馈格式化器**：评价结果不能原样回灌 —— `blocked_reasons` 带着数字。
+  只回传白名单分类与白名单覆盖字段，建议文本不得含数字，有断言强制；
+- **Episode 循环**：认领任务 → 组装盲化上下文 → 调用 → 解析 → 计入分母 →
+  冻结两把锁 → 求特征 → 评价 → 判决入账 → 反馈。预算耗尽结束 Episode 并交回
+  剩余预算，**Research Service 不停**。
+
+**分母边界已精确化**：被预检挡下的提案与原语缺口声明都计入 proposal denominator；
+解析失败没有任何提案内容可供内容寻址，作为中止轮次单独入账，不计入分母 ——
+把它算进去等于虚构一个从未被提出的假设。
+
+**实跑结果（`arad episode demo`，真实 SC discovery 段 1,040 个决策点）**：
+四轮四种结局，evaluated / primitive_gap / source_gap / parse_failure 各一。
+唯一走完评价的是量价对照集（Baseline Control，**不计入 Alternative Factor Inventory**），
+斜率 0.4116、t 5.64，仍判 **blocked**，因为未声明成本模型且单品种样本使双向 cluster
+退化。另类数据侧的提案判 blocked：解释器尚未接入 `pm_market`。这与 M4 票的预期一致
+（第一版应当全是 underpowered 与 blocked），暴露的正是真实边界。
+
+## M9 Research Atlas（已交付，最小版本）
+
+技术选型定稿：**静态生成，不做服务端**。不引入新依赖，且只读边界从承诺变成物理事实
+（HTML 文件写不了账本），也不必解释"Atlas 停了是不是研究停了"。
+入口 `arad atlas render`，产物 `artifacts/atlas/index.html` 与 `atlas.json`。
+
+三个映射陷阱已处理：没有 study_id 的事件（原语缺口、Episode 起讫）进 Episode 层
+不被丢弃；有 study_id 但无 `study_created` 的轮次是中止轮次而非账本缺口；
+以 human 角色读账本，否则快照层会被 proposer 遮蔽规则清空。
+真实 Study 拼不出完整快照时抛 `SnapshotIncomplete`，按决定 0003 视为账本缺口。
+
+Atlas 每次渲染都重算整条哈希链，因此同时是账本完整性的持续检验。
+
+**M9 工作中发现并修复的能力边界缺陷（P1）**：`EFFECT_FIELDS` 原名单只有教科书叫法，
+漏了评价机实际输出的 `slope` 与 `intercept` —— 一元回归斜率就是效应量，换个名字
+不改变这一点。已补入名单，并另加前缀规则（`se_`、`mde_` 等标准误与最小可检测效应
+同样泄漏量级）与容器规则（整个 `effects` 子对象一律遮蔽），因为逐字段挡只能挡住
+已经想到的名字。
+
 ## 当前前沿
 
-**当前唯一在办票：#6 Study 合同与不可变评估器（M3），第一块已交付，评价机待建。**
+**#6（M3）、M4、M9 已交付。下一步是 M5：成本与容量模型 + 多元回归。**
+在成本模型建成之前，任何 Study 都不可能取 candidate，这是评价机的硬闸门。
 
 #12 的取证与自下而上归纳已完成并阻塞在账本上：机制族命名需要把整批实体提案
-计入 proposal denominator，而记账能力刚由 M3 第一块提供。#12 的剩余部分
-（机制族命名、金标、跨模型一致性）在 M3 的 evaluator 与 queue 建成后恢复。
+计入 proposal denominator，而记账能力已由 M3 提供。#12 的剩余部分
+（机制族命名、金标、跨模型一致性）可以恢复。
 
 已关闭：#3（M1）、#4（M2 SC 窄切片 Temporal Spine）、**M2.5（PIT Market Index，
 2026-08-05 三轮评审后关闭）**。#5 的时间侧随 M2 关闭，市场身份侧随 M2.5 关闭。
@@ -247,4 +311,15 @@ block bootstrap），已按裁决移交 **#6 评价机**，工程票同步修订
 两段都不含 negRisk 成交、语义映射另立票）。M1 的 Polymarket 字段合同已改为由实测
 schema 生成，`ENGINEERING_PROMPT.md` 与 `Merge-Plan-2.md` §2.1 已完成对应的文档归一化。
 
-M2.5 关闭 → #12 语义映射 → **#6 Study 合同与不可变评估器**（Merge-Plan-2 的 M3）。
+M2.5 关闭 → #12 语义映射 → #6（M3 Research Kernel）→ M4 Research Harness →
+M9 Research Atlas 最小版本，环已转起来且可视。
+
+M4/M9 遗留的阻塞事项（记录不修，属后续票）：
+
+1. **解释器只接入 `commodity_bar`**，`pm_market` 与 `cls_telegraph` 未接入，
+   因此另类因子的实证路径尚未打通，当前一切另类提案只能判 blocked（M5/M6）；
+2. **无成本与容量模型**，评价机的硬闸门使任何 Study 都不可能取 candidate（M5）；
+3. **回归仍是一元的**，多元回归与 block bootstrap 待建（M5）；
+4. **LLM 产出的代码没有沙箱**，当前只执行结构化规格，代码路径未开（M4 后续块）；
+5. 决定 0004 的两项验证测试（2024→2025 双重差分、forward 拆分试验）未补；
+6. 机制族命名、金标样本规模与标注人、跨模型一致性审计仍待人工安排（#12）。

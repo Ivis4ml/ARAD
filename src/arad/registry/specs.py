@@ -48,12 +48,28 @@ class LockStage(str, Enum):
 
 
 #: 效果字段：proposer 角色一律不可见（Merge-Plan-2 §7.2、§13.10）。
+#:
+#: 名单必须覆盖**评价机实际输出的字段名**，不能只覆盖教科书叫法。M9 渲染快照时
+#: 才发现原名单漏了 `slope` 与 `intercept` —— 评价机出具的一元回归斜率就是效应量，
+#: 换个名字并不改变它是效应量这件事。只按名字挡是脆的，因此另加前缀规则与容器规则。
 EFFECT_FIELDS = frozenset(
     {
         "beta", "t_stat", "p_value", "ic", "sharpe", "return", "pnl",
         "effect_size", "correlation", "alpha", "information_ratio",
+        "slope", "intercept", "t_value", "z_stat", "r_squared", "hit_rate",
     }
 )
+
+#: 前缀规则：标准误与最小可检测效应同样泄漏量级（`se_two_way_cluster`、`mde_at_2p8_se`）。
+EFFECT_FIELD_PREFIXES = ("se_", "mde_", "beta_", "ic_", "slope_", "sharpe_")
+
+#: 容器规则：整个子对象都是效果，逐字段挡不住新增的统计量。
+EFFECT_CONTAINERS = frozenset({"effects"})
+
+
+def is_effect_field(name: str) -> bool:
+    lowered = name.lower()
+    return lowered in EFFECT_FIELDS or lowered.startswith(EFFECT_FIELD_PREFIXES)
 
 
 def canonical_json(payload: Any) -> str:
