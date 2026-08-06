@@ -139,6 +139,80 @@ def mutual_knn_filter(
     return [e for e in edges if e[1] in top.get(e[0], ()) and e[0] in top.get(e[1], ())]
 
 
+def modularity_communities(
+    edges: list[tuple[str, str, float, int]], counts: dict[str, int], *, resolution: float = 1.0
+) -> list[dict]:
+    """带权模块度社区（Louvain 局部移动，确定性）。
+
+    互为 top-k 之后图已接近一棵树（实测 648 个 token 只有 738 条边、平均度 2.28），
+    连通分量必然把整条链并成一族。模块度按边权切断链上最弱的环节，
+    因此能把局部强配对分开。
+
+    确定性来源：节点按 (度降序, 名字) 固定顺序遍历，增益相同时取社区标签最小者。
+    """
+    adj: dict[str, dict[str, float]] = defaultdict(dict)
+    for a, b, pmi, _ in edges:
+        w = max(pmi, 0.0)
+        if w <= 0 or a == b:
+            continue
+        adj[a][b] = adj[a].get(b, 0.0) + w
+        adj[b][a] = adj[b].get(a, 0.0) + w
+    if not adj:
+        return []
+    degree = {n: sum(w.values()) for n, w in adj.items()}
+    m = sum(degree.values()) / 2.0
+    if m <= 0:
+        return []
+    community = {n: n for n in adj}
+    tot = dict(degree)
+    order = sorted(adj, key=lambda n: (-degree[n], n))
+
+    for _ in range(50):
+        moved = False
+        for node in order:
+            current = community[node]
+            tot[current] -= degree[node]
+            weights: dict[str, float] = defaultdict(float)
+            weights[current] += 0.0
+            for nb, w in adj[node].items():
+                weights[community[nb]] += w
+            best, best_gain = current, None
+            for cand in sorted(weights):
+                gain = weights[cand] / m - resolution * degree[node] * tot.get(cand, 0.0) / (
+                    2.0 * m * m
+                )
+                if best_gain is None or gain > best_gain + 1e-12:
+                    best, best_gain = cand, gain
+            community[node] = best
+            tot[best] = tot.get(best, 0.0) + degree[node]
+            if best != current:
+                moved = True
+        if not moved:
+            break
+
+    groups: dict[str, list[str]] = defaultdict(list)
+    for node, comm in community.items():
+        groups[comm].append(node)
+    return _as_families(groups.values(), counts)
+
+
+def _as_families(groups, counts: dict[str, int]) -> list[dict]:
+    out = []
+    for members in groups:
+        members = sorted(members, key=lambda t: (-counts.get(t, 0), t))
+        out.append(
+            {
+                "family_id": f"cand:{members[0]}",
+                "tokens": members,
+                "size": len(members),
+                "markets_upper_bound": sum(counts.get(t, 0) for t in members),
+                "head_tokens": members[:8],
+            }
+        )
+    out.sort(key=lambda g: (-g["markets_upper_bound"], g["family_id"]))
+    return out
+
+
 def connected_components(
     edges: list[tuple[str, str, float, int]], counts: dict[str, int]
 ) -> list[dict]:
@@ -162,20 +236,7 @@ def connected_components(
     groups: dict[str, list[str]] = defaultdict(list)
     for token in parent:
         groups[find(token)].append(token)
-    out = []
-    for members in groups.values():
-        members.sort(key=lambda t: (-counts.get(t, 0), t))
-        out.append(
-            {
-                "family_id": f"cand:{members[0]}",
-                "tokens": members,
-                "size": len(members),
-                "markets_upper_bound": sum(counts.get(t, 0) for t in members),
-                "head_tokens": members[:8],
-            }
-        )
-    out.sort(key=lambda g: (-g["markets_upper_bound"], g["family_id"]))
-    return out
+    return _as_families(groups.values(), counts)
 
 
 def induce_families(

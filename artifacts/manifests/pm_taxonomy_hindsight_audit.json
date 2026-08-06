@@ -1,0 +1,506 @@
+{
+  "emergence": {
+    "final_cutoff": "2026-08-01",
+    "probe_cutoffs": [
+      "2024-01-01",
+      "2025-01-01",
+      "2025-07-01",
+      "2026-01-01"
+    ],
+    "match_threshold": 0.5,
+    "families": 2108,
+    "families_emerging_only_at_final_cutoff": 1765,
+    "hindsight_exposure": 0.8372865275142315
+  },
+  "emergence_detail_head": [
+    {
+      "family_id": "cand:up",
+      "size": 5,
+      "head_tokens": [
+        "up",
+        "down",
+        "usd",
+        "jpy",
+        "krw"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:odd",
+      "size": 4,
+      "head_tokens": [
+        "odd",
+        "even",
+        "rounds",
+        "kills"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:any",
+      "size": 5,
+      "head_tokens": [
+        "any",
+        "player",
+        "penta",
+        "rampage",
+        "quadra"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:vs",
+      "size": 3,
+      "head_tokens": [
+        "vs",
+        "agameno",
+        "agamenone"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:4h",
+      "size": 5,
+      "head_tokens": [
+        "4h",
+        "multistrike",
+        "2pt79",
+        "2pt76",
+        "2pt73"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:both",
+      "size": 4,
+      "head_tokens": [
+        "both",
+        "slay",
+        "dragon",
+        "baron"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:teams",
+      "size": 4,
+      "head_tokens": [
+        "teams",
+        "destroy",
+        "inhibitors",
+        "barracks"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:winner",
+      "size": 3,
+      "head_tokens": [
+        "winner",
+        "bondiol",
+        "bondioli"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:assists",
+      "size": 4,
+      "head_tokens": [
+        "assists",
+        "jamal",
+        "musiala",
+        "shead"
+      ],
+      "emergence_cutoff": "2026-01-01",
+      "emerged_only_at_final_cutoff": false
+    },
+    {
+      "family_id": "cand:val",
+      "size": 3,
+      "head_tokens": [
+        "val",
+        "sge",
+        "6gpa"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:goals",
+      "size": 3,
+      "head_tokens": [
+        "goals",
+        "plus",
+        "gte4"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:during",
+      "size": 2,
+      "head_tokens": [
+        "during",
+        "astronaut"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:nhl",
+      "size": 6,
+      "head_tokens": [
+        "nhl",
+        "ott",
+        "nyi",
+        "nsh",
+        "cbj",
+        "sj"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:5pt5",
+      "size": 3,
+      "head_tokens": [
+        "5pt5",
+        "green",
+        "draymond"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:reach",
+      "size": 3,
+      "head_tokens": [
+        "reach",
+        "1pt55",
+        "1pt65"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:rebounds",
+      "size": 5,
+      "head_tokens": [
+        "rebounds",
+        "ryan",
+        "rollins",
+        "kalkbrenner",
+        "gravenberch"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:shots",
+      "size": 2,
+      "head_tokens": [
+        "shots",
+        "gte5"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:round",
+      "size": 5,
+      "head_tokens": [
+        "round",
+        "mibra",
+        "ldp",
+        "fdb",
+        "vexa1"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:close",
+      "size": 4,
+      "head_tokens": [
+        "close",
+        "aapl",
+        "msft",
+        "amzn"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:dip",
+      "size": 4,
+      "head_tokens": [
+        "dip",
+        "1pt25",
+        "1pt05",
+        "0pt95"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:det",
+      "size": 4,
+      "head_tokens": [
+        "det",
+        "16pt5",
+        "jenkins",
+        "daniss"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:1h",
+      "size": 4,
+      "head_tokens": [
+        "1h",
+        "114pt5",
+        "115pt5",
+        "116pt5"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:oak",
+      "size": 6,
+      "head_tokens": [
+        "oak",
+        "cws",
+        "laa",
+        "k",
+        "zack",
+        "tanner"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:6pt5",
+      "size": 3,
+      "head_tokens": [
+        "6pt5",
+        "avdija",
+        "deni"
+      ],
+      "emergence_cutoff": "2026-01-01",
+      "emerged_only_at_final_cutoff": false
+    },
+    {
+      "family_id": "cand:min",
+      "size": 3,
+      "head_tokens": [
+        "min",
+        "divincenzo",
+        "donte"
+      ],
+      "emergence_cutoff": "2026-01-01",
+      "emerged_only_at_final_cutoff": false
+    },
+    {
+      "family_id": "cand:kc",
+      "size": 4,
+      "head_tokens": [
+        "kc",
+        "vit",
+        "rl",
+        "kdc"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:phi",
+      "size": 4,
+      "head_tokens": [
+        "phi",
+        "kelly",
+        "oubre",
+        "carson"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:tor",
+      "size": 3,
+      "head_tokens": [
+        "tor",
+        "jakob",
+        "poeltl"
+      ],
+      "emergence_cutoff": "2026-01-01",
+      "emerged_only_at_final_cutoff": false
+    },
+    {
+      "family_id": "cand:cle",
+      "size": 3,
+      "head_tokens": [
+        "cle",
+        "tyson",
+        "jaylon"
+      ],
+      "emergence_cutoff": "2026-01-01",
+      "emerged_only_at_final_cutoff": false
+    },
+    {
+      "family_id": "cand:atl",
+      "size": 3,
+      "head_tokens": [
+        "atl",
+        "okongwu",
+        "onyeka"
+      ],
+      "emergence_cutoff": "2026-01-01",
+      "emerged_only_at_final_cutoff": false
+    },
+    {
+      "family_id": "cand:bos",
+      "size": 3,
+      "head_tokens": [
+        "bos",
+        "neemias",
+        "queta"
+      ],
+      "emergence_cutoff": "2026-01-01",
+      "emerged_only_at_final_cutoff": false
+    },
+    {
+      "family_id": "cand:lal",
+      "size": 3,
+      "head_tokens": [
+        "lal",
+        "rui",
+        "hachimura"
+      ],
+      "emergence_cutoff": "2026-01-01",
+      "emerged_only_at_final_cutoff": false
+    },
+    {
+      "family_id": "cand:hou",
+      "size": 3,
+      "head_tokens": [
+        "hou",
+        "eason",
+        "tari"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:mia",
+      "size": 3,
+      "head_tokens": [
+        "mia",
+        "ware",
+        "kelel"
+      ],
+      "emergence_cutoff": "2026-01-01",
+      "emerged_only_at_final_cutoff": false
+    },
+    {
+      "family_id": "cand:bb4",
+      "size": 6,
+      "head_tokens": [
+        "bb4",
+        "1win",
+        "ic",
+        "g",
+        "poorra",
+        "silk"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:chi",
+      "size": 3,
+      "head_tokens": [
+        "chi",
+        "buzelis",
+        "matas"
+      ],
+      "emergence_cutoff": "2026-01-01",
+      "emerged_only_at_final_cutoff": false
+    },
+    {
+      "family_id": "cand:be",
+      "size": 5,
+      "head_tokens": [
+        "be",
+        "cover",
+        "athlete",
+        "madden",
+        "2k26"
+      ],
+      "emergence_cutoff": "2025-07-01",
+      "emerged_only_at_final_cutoff": false
+    },
+    {
+      "family_id": "cand:half",
+      "size": 2,
+      "head_tokens": [
+        "half",
+        "second"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:world",
+      "size": 5,
+      "head_tokens": [
+        "world",
+        "fifa",
+        "announcers",
+        "assist",
+        "handball"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    },
+    {
+      "family_id": "cand:navi",
+      "size": 6,
+      "head_tokens": [
+        "navi",
+        "vpp",
+        "55pt5",
+        "enjoy",
+        "bald",
+        "huliga"
+      ],
+      "emergence_cutoff": "2026-08-01",
+      "emerged_only_at_final_cutoff": true
+    }
+  ],
+  "outcome_adjacency": {
+    "top_decile": 0.1,
+    "top_days": 90,
+    "days_with_returns": 908,
+    "families_with_activity": 1637,
+    "late_families": 1395,
+    "early_families": 242,
+    "mean_top_share_late": 0.2786304062909781,
+    "mean_top_share_early": 0.17420973142637558,
+    "observed_difference": 0.10442067486460255,
+    "effect_size_in_sd": 0.4137060201660633,
+    "permutations": 500,
+    "seed": 20260805,
+    "permutation_p_value": 0.0,
+    "interpretation": "晚涌现族的活动若系统性更集中在大波动日上，即定量证明全史归纳在与结果相关的通道上做了选择；差值不显著则说明该通道的偏差在本样本上不可检出"
+  }
+}

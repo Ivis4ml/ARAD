@@ -115,6 +115,32 @@ class ProposalSpec(FrozenSpec):
         return v
 
 
+class TaxonomyContamination(BaseModel):
+    """分类法归纳语料与本 Study 裁决区间的重叠情况（决定 0004）。
+
+    市场宇宙不是外生文本：创建哪些市场对真实事件内生，而这些事件正是推动商品
+    价格的事件。因此归纳语料若覆盖 Study 读取 outcome 的任何区间，机制选择就
+    发生在与结果相关的变量上，条件化之后选择偏差变成估计偏差。
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    taxonomy_id: str
+    taxonomy_freeze_at: str
+    induction_corpus_max_date: str
+    outcome_read_intervals: list[tuple[str, str]] = Field(default_factory=list)
+
+    @property
+    def overlaps_outcome_window(self) -> bool:
+        return any(
+            start <= self.induction_corpus_max_date for start, _ in self.outcome_read_intervals
+        )
+
+    def verdict_cap(self) -> Verdict | None:
+        """重叠时 verdict 上限为 candidate：历史段结论本就以 Candidate 封顶。"""
+        return Verdict.CANDIDATE if self.overlaps_outcome_window else None
+
+
 class HypothesisLock(FrozenSpec):
     """第一次冻结：在读取任何相关目标结果**之前**。"""
 
@@ -122,6 +148,7 @@ class HypothesisLock(FrozenSpec):
     experiment_family: str
     controls: list[str] = Field(default_factory=list)
     sample_segments: list[str] = Field(default_factory=list)
+    taxonomy_contamination: TaxonomyContamination | None = None
     locked_at: str = Field(default_factory=utc_now)
     stage: LockStage = LockStage.HYPOTHESIS
 
