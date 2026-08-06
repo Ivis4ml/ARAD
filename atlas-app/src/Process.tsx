@@ -12,7 +12,7 @@ export function Process({ p }: { p: Projection }) {
         {p.episodes.map((ep) => (
           <details key={ep.episode_id} open>
             <summary>
-              Episode {ep.episode_id}　
+              Episode {ep.episode_id}{'\u3000'}
               <span className="mono small muted">
                 {when(ep.started_at)} → {when(ep.ended_at) || '（未结束）'}
               </span>

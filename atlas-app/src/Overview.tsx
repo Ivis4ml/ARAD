@@ -1,5 +1,5 @@
 import type { Projection } from './types'
-import { int, num, short, when } from './format'
+import { int, short, when } from './format'
 import { VerdictChip } from './Value'
 
 /** 总览层（决定 0003 层一）：两本分母、verdict 分布、库存覆盖、三源新鲜度。 */
@@ -159,5 +159,3 @@ export function Overview({ p }: { p: Projection }) {
     </>
   )
 }
-
-export const _unused = num

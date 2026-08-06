@@ -72,7 +72,7 @@ export function App({ p }: { p: Projection }) {
               {p.studies.map((s) => (
                 <details key={s.study_id}>
                   <summary>
-                    <VerdictChip verdict={s.verdict} />　
+                    <VerdictChip verdict={s.verdict} />{'\u3000'}
                     <span className="mono">{s.study_id}</span>　{s.mechanism.slice(0, 70)}
                   </summary>
                   <div><StudyPanel study={s} /></div>
