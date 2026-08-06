@@ -29,6 +29,10 @@ from ..data_catalog.pm_census import (
     verify_artifact_integrity,
     verify_rebuild_determinism,
 )
+from ..data_catalog.pm_metadata_audit import (
+    METADATA_AUDIT_VERSION,
+    audit_metadata_provenance,
+)
 from ..data_catalog.schema import QualityFinding, Severity, load_manifest
 from .episode import SampleSegment, classify_segment
 from .manifest import (
@@ -135,6 +139,56 @@ def _input_refs(cfg: dict, pm_manifest, summaries: list[dict]) -> dict[str, Inpu
                 fingerprint=file_digest(path), source_snapshot_digest=DIGEST_METHOD
             )
     return refs
+
+
+def pm_metadata_audit(config_path: str) -> int:
+    """#12 的取证阶段：只审计文本元数据的填充率与跨抓取可变性，不做语义判断。"""
+    cfg = load_config(config_path)
+    roots = dict(cfg["source"]["roots"])
+    out_dir = cfg["output"]["data_dir"]
+    manifest_dir = cfg["output"]["manifest_dir"]
+    pm_manifest = load_manifest(cfg["inputs"]["polymarket_manifest"])
+
+    print("auditing market metadata provenance...", flush=True)
+    findings, facts = audit_metadata_provenance(
+        roots, out_dir, sample_partitions=int(cfg["audit"]["metadata_sample_partitions"])
+    )
+    manifest = SpineManifest(
+        spine_id="pm-metadata-audit",
+        code_version=f"metadata-audit-{METADATA_AUDIT_VERSION}/src-{_code_digest()}",
+        config_digest=digest_json(cfg),
+        inputs={
+            "polymarket_tape": InputRef(
+                fingerprint=pm_manifest.fingerprint,
+                source_snapshot_digest=(
+                    pm_manifest.source_snapshot.digest if pm_manifest.source_snapshot else ""
+                ),
+                scanner_version=pm_manifest.scanner_version,
+            )
+        },
+        coverage=facts,
+        findings=findings,
+        assumptions=[
+            (
+                "本审计只看文本字段是否存在与是否变化，不做任何语义分类；"
+                "分类法、金标样本与跨模型一致性审计属 Decision Map #12 的后续阶段。"
+            ),
+            (
+                "市场级字段按 condition_id 归并，资产级字段按 asset_id 归并："
+                "用错键会把同一市场的多个 outcome token 当成同一实体的多个取值。"
+            ),
+        ],
+        blockers=[
+            (
+                "语义映射的可用文本受限于上述填充率与可变性结论；"
+                "任何以完整 slug 为键的映射都会在市场改名后静默失配。"
+            ),
+        ],
+    )
+    path = os.path.join(manifest_dir, "pm_metadata_audit.json")
+    write_spine_manifest(manifest, path)
+    print(f"wrote {path} (fingerprint {manifest.fingerprint[:16]})")
+    return 0 if manifest.gate_passed() else 2
 
 
 def load_config(path: str) -> dict:

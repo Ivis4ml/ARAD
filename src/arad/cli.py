@@ -91,6 +91,8 @@ def main(argv: list[str] | None = None) -> int:
     pmb.add_argument("--config", default="configs/pm_index.yaml")
     pmb.add_argument("--force", action="store_true")
     pmb.add_argument("--workers", type=int, default=None)
+    pma = pmi_sub.add_parser("metadata-audit", help="文本元数据的 PIT 可证性审计（#12 取证）")
+    pma.add_argument("--config", default="configs/pm_index.yaml")
 
     args = parser.parse_args(argv)
     if args.cmd == "data-audit":
@@ -109,8 +111,10 @@ def main(argv: list[str] | None = None) -> int:
             return spine_replay(args.config)
         return spine_verify(args.config)
     if args.cmd == "pm-index":
-        from .temporal.pm_pipeline import pm_index_build
+        from .temporal.pm_pipeline import pm_index_build, pm_metadata_audit
 
+        if args.pm_cmd == "metadata-audit":
+            return pm_metadata_audit(args.config)
         return pm_index_build(args.config, force=args.force, workers=args.workers)
     return 1
 

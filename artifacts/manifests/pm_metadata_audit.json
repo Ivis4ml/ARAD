@@ -1,0 +1,169 @@
+{
+  "spine_id": "pm-metadata-audit",
+  "code_version": "metadata-audit-0.1.0/src-dcde345c47f64746",
+  "generated_at": "2026-08-06T00:21:43.061313+00:00",
+  "config_digest": "96caa62948376098510329e7d632d3650dc1b14a474afc1e7a67015794238fc5",
+  "inputs": {
+    "polymarket_tape": {
+      "fingerprint": "3d14332d44631c22eae943e84b4a1f9ee58a6017e7617fae91df7335f81a4dd2",
+      "source_snapshot_digest": "ab281d5d20706fa3e5d19089ceb9dcaa81fc5991f76b810d0d760459f9d49e64",
+      "scanner_version": "0.2.0"
+    }
+  },
+  "calendar": {},
+  "session_table": {},
+  "dominant_rule": {},
+  "targets": [],
+  "control_contracts": [],
+  "deprecated_sources": [],
+  "datasets": [],
+  "coverage": {
+    "version": "0.1.0",
+    "coverage": {
+      "hf": {
+        "sampled_rows": 16170499,
+        "fill_rate": {
+          "market_slug": 1.0,
+          "category": 1.0,
+          "category_refined": 1.0,
+          "outcome_label": 1.0
+        },
+        "markets_sampled": 41916,
+        "assets_sampled": 71810
+      },
+      "ext": {
+        "sampled_rows": 133561230,
+        "fill_rate": {
+          "market_slug": 1.0,
+          "category": 0.0,
+          "category_refined": 0.0,
+          "outcome_label": 1.0
+        },
+        "markets_sampled": 248243,
+        "assets_sampled": 439924
+      }
+    },
+    "cross_segment": {
+      "comparable_markets": 1864,
+      "differs": {
+        "category": 1864,
+        "category_refined": 1864,
+        "market_slug": 78
+      },
+      "differs_after_normalisation": {
+        "category": 1864,
+        "category_refined": 1864
+      },
+      "comparable_assets": 3094,
+      "examples": [
+        {
+          "field": "category",
+          "condition_id": "0x41bec5ebc53028",
+          "ext": null,
+          "hf": "Ukraine"
+        },
+        {
+          "field": "category_refined",
+          "condition_id": "0x41bec5ebc53028",
+          "ext": null,
+          "hf": "Politics"
+        },
+        {
+          "field": "category",
+          "condition_id": "0x23ad896f6bc3f1",
+          "ext": null,
+          "hf": "Crypto"
+        },
+        {
+          "field": "category_refined",
+          "condition_id": "0x23ad896f6bc3f1",
+          "ext": null,
+          "hf": "Crypto"
+        },
+        {
+          "field": "category",
+          "condition_id": "0x4092815fea8f91",
+          "ext": null,
+          "hf": "Fed"
+        }
+      ]
+    },
+    "normalisation_rule": "market_slug 去掉末尾的 (-<数字>)+ 消歧段后作为基名；基名是跨抓取稳定的文本特征，完整 slug 保留为观测值"
+  },
+  "findings": [
+    {
+      "severity": "error",
+      "code": "pm_metadata.field_absent_in_segment",
+      "message": "段 ext 的文本字段 ['category', 'category_refined'] 全为空；依赖这些字段的语义映射在该段无法执行",
+      "evidence": {
+        "segment": "ext",
+        "fields": [
+          "category",
+          "category_refined"
+        ],
+        "sampled_rows": 133561230
+      }
+    },
+    {
+      "severity": "error",
+      "code": "pm_metadata.mutable_across_scrapes",
+      "message": "同一市场的文本元数据在两次抓取之间发生变化，证明这些字段历史时点不可见；语义映射必须以 condition_id 为键，以跨抓取稳定的基名为文本特征，并对每个版本留快照",
+      "evidence": {
+        "segments": [
+          "ext",
+          "hf"
+        ],
+        "comparable_markets": 1864,
+        "differs": {
+          "category": 1864,
+          "category_refined": 1864,
+          "market_slug": 78
+        },
+        "differs_after_slug_normalisation": {
+          "category": 1864,
+          "category_refined": 1864
+        },
+        "examples": [
+          {
+            "field": "category",
+            "condition_id": "0x41bec5ebc53028",
+            "ext": null,
+            "hf": "Ukraine"
+          },
+          {
+            "field": "category_refined",
+            "condition_id": "0x41bec5ebc53028",
+            "ext": null,
+            "hf": "Politics"
+          },
+          {
+            "field": "category",
+            "condition_id": "0x23ad896f6bc3f1",
+            "ext": null,
+            "hf": "Crypto"
+          },
+          {
+            "field": "category_refined",
+            "condition_id": "0x23ad896f6bc3f1",
+            "ext": null,
+            "hf": "Crypto"
+          },
+          {
+            "field": "category",
+            "condition_id": "0x4092815fea8f91",
+            "ext": null,
+            "hf": "Fed"
+          }
+        ]
+      }
+    }
+  ],
+  "assumptions": [
+    "本审计只看文本字段是否存在与是否变化，不做任何语义分类；分类法、金标样本与跨模型一致性审计属 Decision Map #12 的后续阶段。",
+    "市场级字段按 condition_id 归并，资产级字段按 asset_id 归并：用错键会把同一市场的多个 outcome token 当成同一实体的多个取值。"
+  ],
+  "blockers": [
+    "语义映射的可用文本受限于上述填充率与可变性结论；任何以完整 slug 为键的映射都会在市场改名后静默失配。"
+  ],
+  "fingerprint": "65360ed134f8e1565141cc5cda995d13ecd9805d87c4a1d17ad5212cb32b92eb"
+}

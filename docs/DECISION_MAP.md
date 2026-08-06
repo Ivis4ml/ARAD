@@ -139,18 +139,26 @@
 - **Blocked by**: #5（时间侧已闭）
 - **Type**: Research
 - **Question**: 如何从原始市场标题、描述与创建时间构造版本化的地缘/能源/商品语义映射？
-- **Answer**: 未回答。约束已定：只用经 PIT 审计的原始元数据与 `markets_clob.parquet`，
-  不使用 `cn_registry_v3`；任何可变或无法证明历史时点可见的元数据保持 provisional；
-  需要金标样本与跨模型一致性审计。M2.5 已交付市场身份与点时资格，语义分组尚缺，
-  因此 PM 侧目前没有可用的机制分族。
+- **Answer**: 取证阶段已完成（2026-08-05），语义部分未回答。工程票见
+  `docs/tickets/M12-pm-semantic-mapping.md`，产物见 `artifacts/manifests/pm_metadata_audit.json`
+  （`arad pm-index metadata-audit`，因文本不可证而以非零码退出）。
+  **三条实测结论约束后续设计**：(1) `category`/`category_refined` 在扩展段填充率为 0
+  （HF 段 100%），而扩展段占全史成交 87.9%，交易所类别在最密集区段不可用；
+  (2) `market_slug` 跨抓取会变化（3,258 个可比市场中 78 个不同，形态是末尾追加
+  消歧数字段），去掉末尾 `(-<数字>)+` 后差异归零，因此映射必须以 `condition_id` 为键、
+  以归一化基名为文本特征；(3) `outcome_label` 跨抓取稳定但是 **asset 级**字段，
+  按市场级归并会产生假漂移。
+  历史时点可证明可见的文本仅：`condition_id`、归一化 slug 基名、按 asset 的
+  `outcome_label`。`markets_clob.parquet` 的 `question`/`tags`/`end_date_iso`
+  均无可证明的历史可见性。不使用 `cn_registry_v3`；需要金标样本与跨模型一致性审计。
+  **待人类裁决**：机制族的粒度与清单、金标样本规模与标注人、市场→商品映射是否属本票。
 
 ## 当前前沿
 
-**当前唯一在办票：M2.5（PIT Market Index），处于验收中，尚未关闭。**
-关闭后进入 **#12 Polymarket 市场语义映射**。
+**当前唯一在办票：#12 Polymarket 市场语义映射（取证阶段已完成，待人类裁决机制族口径）。**
 
-已关闭：#3（M1）、#4（M2 SC 窄切片 Temporal Spine）。#5 的时间侧随 M2 关闭；
-市场身份侧由 M2.5 交付，待验收。
+已关闭：#3（M1）、#4（M2 SC 窄切片 Temporal Spine）、**M2.5（PIT Market Index，
+2026-08-05 三轮评审后关闭）**。#5 的时间侧随 M2 关闭，市场身份侧随 M2.5 关闭。
 
 M2.5 验收轮次：第二轮评审提出 Standards 5 项、Spec 3 项，已全部修复
 （整文件内容哈希、整包代码哈希、产物完整性与独立重建确定性分开报告、

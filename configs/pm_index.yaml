@@ -28,6 +28,8 @@ audit:
   markets_clob: /Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket_chain/markets_clob.parquet
   # 从来源独立重跑并比对指纹的分区数
   determinism_sample: 12
+  # #12 取证阶段：每段抽多少分区做文本元数据审计
+  metadata_sample_partitions: 40
 
 inputs:
   polymarket_manifest: artifacts/manifests/polymarket_tape.json
