@@ -171,7 +171,12 @@ def selection_band(
         sharpe_spread([p.get("value") for p in points]) if metric == "sharpe" else float("nan")
     )
     for i, point in enumerate(points):
-        if point.get("counts_toward_denominator"):
+        # 检验次数按**族**累计。调用方给了 tests_so_far 就用它 —— 多重检验的负担
+        # 来自这个族一共读了多少次 outcome，与这一次分在哪条链上无关。链内自增会在
+        # 分叉时把带钉在最低点，读图的人会以为负担没涨。
+        if point.get("tests_so_far") is not None:
+            looked = int(point["tests_so_far"])
+        elif point.get("counts_toward_denominator"):
             looked += 1
         value = point.get("value")
         if value is not None and math.isfinite(value) and value > best:

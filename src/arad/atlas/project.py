@@ -76,6 +76,7 @@ class AtlasProjection:
     replay: list[dict] = field(default_factory=list)
     key_moments: list[dict] = field(default_factory=list)
     service_notes: list[dict] = field(default_factory=list)
+    search_verdict: dict | None = None
     service: dict | None = None
     atlas_version: str = ATLAS_VERSION
 
@@ -94,6 +95,7 @@ class AtlasProjection:
             "replay": self.replay,
             "key_moments": self.key_moments,
             "service_notes": self.service_notes,
+            "search_verdict": self.search_verdict,
             "curve_metrics": list(CURVE_METRICS),
         }
 
@@ -301,8 +303,11 @@ def _lineage(studies: list[dict]) -> list[dict]:
     return chains
 
 
-def _curve(chain: list[dict], metric: str) -> list[dict]:
-    """一条链的曲线数据：每点的值、running best、零假设带。"""
+def _curve(chain: list[dict], metric: str, tests_at: dict[str, int]) -> list[dict]:
+    """一条链的曲线数据：每点的值、running best、零假设带。
+
+    `tests_at` 给出每个 Study 判决时**全族**已读过多少次 outcome。
+    """
     points = [
         {
             "study_id": s["study_id"],
@@ -310,6 +315,7 @@ def _curve(chain: list[dict], metric: str) -> list[dict]:
             "change_summary": s["change_summary"],
             "value": s["metrics"].get(metric),
             "counts_toward_denominator": bool(s["metrics"].get("outcome_reads")),
+            "tests_so_far": tests_at.get(s["study_id"]),
             "skew": s["metrics"].get("skew"),
             "excess_kurtosis": s["metrics"].get("excess_kurtosis"),
         }
@@ -440,6 +446,53 @@ def _key_moments(beats: list[dict], chains: list[dict], metric: str = "abs_t") -
     return sorted({m["beat"]: m for m in out}.values(), key=lambda m: m["beat"])
 
 
+def _search_verdict(
+    lineage: list[dict], denominators: dict, notes: list[dict], metric: str = "abs_t"
+) -> dict | None:
+    """整轮搜索的结论。**app 不算任何东西，这里把该比的都比好。**
+
+    要回答的只有一个问题：这次搜索找到东西了吗。答案是「本族最好的一次」与
+    「同样次数的搜索在纯噪声上的期望」两个数的比较 —— 两个数都已经在曲线里，
+    这里只是把它们摆到一起并把比较的结果写下来。
+    """
+    best_value = None
+    best_study = None
+    band = None
+    for chain in lineage:
+        for point in chain["curves"].get(metric) or []:
+            value = point.get("value")
+            if value is None:
+                continue
+            if best_value is None or value > best_value:
+                best_value, best_study = value, point["study_id"]
+            if point.get("null_threshold") is not None:
+                band = point["null_threshold"]
+    if best_value is None:
+        return None
+    stopped = next(
+        (n["payload"].get("stopped_because") for n in notes
+         if n["event_type"] == "service_stopped"), None,
+    )
+    return {
+        "metric": metric,
+        "family": denominators.get("family"),
+        "best_value": best_value,
+        "best_study_id": best_study,
+        "null_threshold": band,
+        "exceeded_band": bool(band is not None and best_value > band),
+        "statistical_denominator": denominators.get("statistical_denominator"),
+        "proposal_denominator": denominators.get("proposal_denominator"),
+        "stopped_because": stopped,
+        "human_review_required": any(
+            n["event_type"] == "human_review_required" for n in notes
+        ),
+        "caveat": (
+            "零假设带按检验独立计算，而同族变体高度相关，因此它偏严："
+            "没越过带不等于确定无效，越过了也还要过成本与容量这一关"
+        ),
+    }
+
+
 def _service_notes(events: list[dict]) -> list[dict]:
     """服务级事件：为什么停、是否请求人工复核。"""
     return [
@@ -540,6 +593,15 @@ def project(
             }
         )
 
+    # 每个 Study 判决时，全族已读过多少次 outcome。按 seq 顺序数，与分链无关。
+    tests_at: dict[str, int] = {}
+    looked = 0
+    for event in events:
+        if event["event_type"] == "outcome_read":
+            looked += 1
+        if event["event_type"] == "verdict_recorded" and event["study_id"]:
+            tests_at[event["study_id"]] = looked
+
     ordered = sorted(studies, key=lambda s: (s["created_at"] or "", s["study_id"]))
     by_id = {s["study_id"]: s for s in ordered}
     lineage = []
@@ -548,16 +610,18 @@ def project(
         lineage.append({
             **entry,
             "family": members[0]["family"],
-            "curves": {m: _curve(members, m) for m in CURVE_METRICS},
+            "curves": {m: _curve(members, m, tests_at) for m in CURVE_METRICS},
         })
 
     replay = _replay(events)
+    notes = _service_notes(events)
     return AtlasProjection(
+        search_verdict=_search_verdict(lineage, denominators, notes),
         chain=chain,
         lineage=lineage,
         replay=replay,
         key_moments=_key_moments(replay, lineage),
-        service_notes=_service_notes(events),
+        service_notes=notes,
         denominators=denominators,
         verdicts=verdicts,
         coverage=_coverage(studies),

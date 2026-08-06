@@ -427,3 +427,46 @@ def test_service_notes_surface_the_stop_reason(ledger):
     ledger.append("human_review_required", {"reason": "问不出新东西"})
     kinds = [n["event_type"] for n in project(ledger, family=FAMILY).service_notes]
     assert kinds == ["service_stopped", "human_review_required"]
+
+
+def test_the_null_band_accumulates_across_the_family_not_within_a_chain(ledger):
+    """分叉时链内自增会把带钉在最低点，读图的人会以为多重检验的负担没涨。"""
+    a_chain(ledger, ["a0", "a1"], t_stats=[1.0, 1.1])
+    a_chain(ledger, ["b0", "b1"], t_stats=[1.2, 1.3])
+    p = project(ledger, family=FAMILY)
+    assert len(p.lineage) == 2
+    thresholds = [
+        pt["null_threshold"] for c in p.lineage for pt in c["curves"]["abs_t"]
+    ]
+    # 四次检验，四条不同的带高；若按链自增会出现两两重复
+    assert len(set(thresholds)) == 4
+    assert max(thresholds) == pytest.approx(
+        __import__("arad.evaluation.selection", fromlist=["x"]).expected_max_abs_z(4)
+    )
+
+
+def test_the_search_verdict_states_the_comparison_the_app_must_not_compute(ledger):
+    a_chain(ledger, ["s0", "s1", "s2"], t_stats=[0.4, 0.5, 0.45])
+    ledger.append("service_stopped", {"stopped_because": "stalled"})
+    ledger.append("human_review_required", {"reason": "问不出新东西"})
+    v = project(ledger, family=FAMILY).search_verdict
+    assert v["best_value"] == pytest.approx(0.5)
+    assert v["best_study_id"] == "s1"
+    assert v["exceeded_band"] is False
+    assert v["null_threshold"] > v["best_value"]
+    assert v["statistical_denominator"] == 3
+    assert v["stopped_because"] == "stalled"
+    assert v["human_review_required"] is True
+    assert "偏严" in v["caveat"]
+
+
+def test_a_search_that_cleared_the_band_says_so(ledger):
+    a_chain(ledger, ["s0", "s1"], t_stats=[9.0, 9.5])
+    v = project(ledger, family=FAMILY).search_verdict
+    assert v["exceeded_band"] is True
+    assert v["best_value"] == pytest.approx(9.5)
+
+
+def test_no_verdict_when_nothing_was_ever_evaluated(ledger):
+    a_study(ledger, "s0")
+    assert project(ledger, family=FAMILY).search_verdict is None
