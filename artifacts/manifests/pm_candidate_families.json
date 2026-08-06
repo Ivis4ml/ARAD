@@ -1,0 +1,1206 @@
+{
+  "spec": {
+    "version": "0.1.0",
+    "induction": {
+      "version": "0.1.0",
+      "induction_cutoff": "2026-01-01",
+      "min_markets_per_template": 3,
+      "rule": "只用首笔公开成交早于 induction_cutoff 的市场归纳模板；该切点之后的市场只用于测量覆盖率，不参与归纳"
+    },
+    "max_tokens": 1500,
+    "min_cooccurrence": 5,
+    "min_pmi": 3.0,
+    "mutual_knn": 3,
+    "rule": "只统计归纳期内、按市场数排前 max_tokens 的 token 的两两共现；PMI 不低于 min_pmi、共现不低于 min_cooccurrence，且两个 token 互为对方的前 mutual_knn 强邻居时才建边；连通分量即候选机制族，无名字、无语义判断"
+  },
+  "induction_stats": {
+    "markets_in_induction_period": 158236,
+    "tokens_kept": 1500,
+    "distinct_pairs": 63925,
+    "edges": 1250,
+    "families": 81,
+    "largest_family_tokens": 648,
+    "tokens_in_families": 1147,
+    "isolated_tokens": 353
+  },
+  "families_registered": 81,
+  "families_screened_out": 0,
+  "denominators": {
+    "family": "pm_candidate_family",
+    "proposal_denominator": 81,
+    "proposals_screened_out": 0,
+    "statistical_denominator": 0
+  },
+  "families": [
+    {
+      "family_id": "cand:1h",
+      "proposal_id": "be9f97d8f918ce981c21311e2919b44dcb538cfdb3916e8705a43ee386accbca",
+      "tokens": 648,
+      "head_tokens": [
+        "1h",
+        "cs2",
+        "cwbb",
+        "dota2",
+        "hou",
+        "lac",
+        "td",
+        "cha"
+      ],
+      "markets": 51317,
+      "trades": 19954206,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:mem",
+      "proposal_id": "1ecf26fa7ef787713b2ed345c35850c8be840af29aa74cf98d7266f91b27a08c",
+      "tokens": 101,
+      "head_tokens": [
+        "mem",
+        "rec",
+        "lol",
+        "election",
+        "kamala",
+        "hok",
+        "val",
+        "score"
+      ],
+      "markets": 8710,
+      "trades": 3776217,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:by",
+      "proposal_id": "5be5d8424ae7a222932fdd7a2f520264f3b424913c24b98a870588bf47bf7836",
+      "tokens": 8,
+      "head_tokens": [
+        "by",
+        "win",
+        "ufc",
+        "ko",
+        "tko",
+        "go",
+        "distance",
+        "submission"
+      ],
+      "markets": 6647,
+      "trades": 10982706,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:4h",
+      "proposal_id": "4bb7bd986c96658e98fd442919c0a3266adc6fd83aee2908abcd534ad7bef458",
+      "tokens": 6,
+      "head_tokens": [
+        "4h",
+        "multistrike",
+        "2pt97",
+        "2pt79",
+        "2pt76",
+        "2pt73"
+      ],
+      "markets": 6154,
+      "trades": 293248,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:during",
+      "proposal_id": "ca6dcec1d360e34d7979b24b418b8a85a020485a1a1d8b72e915c0bf9ff69952",
+      "tokens": 3,
+      "head_tokens": [
+        "during",
+        "dinner",
+        "todays"
+      ],
+      "markets": 5793,
+      "trades": 1260546,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:cfb",
+      "proposal_id": "a999de4983f18cab481a968578092999b4a90e046b70f52fb69fabbc97582c7d",
+      "tokens": 3,
+      "head_tokens": [
+        "cfb",
+        "55pt5",
+        "56pt5"
+      ],
+      "markets": 4735,
+      "trades": 927101,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:mlb",
+      "proposal_id": "4747968f5c9f54d9cf22ab380bfdf4f3d07b16c0833ae04824a7b1aa35a7c9b2",
+      "tokens": 7,
+      "head_tokens": [
+        "mlb",
+        "oak",
+        "nyy",
+        "nym",
+        "laa",
+        "cws",
+        "nrfi"
+      ],
+      "markets": 3921,
+      "trades": 1616366,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:nhl",
+      "proposal_id": "b2117e92884180e85c42ea4a7cbaa3e2229315a10f3584629d693f6bba39a430",
+      "tokens": 12,
+      "head_tokens": [
+        "nhl",
+        "cal",
+        "edm",
+        "nj",
+        "nyr",
+        "wpg",
+        "ana",
+        "lak"
+      ],
+      "markets": 3533,
+      "trades": 2079450,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:games",
+      "proposal_id": "067d3618a8320e96d3cc6b92fdbb1b92dc50f775fff2c21728db392d00f2cf0e",
+      "tokens": 13,
+      "head_tokens": [
+        "games",
+        "after",
+        "day",
+        "one",
+        "fdv",
+        "from",
+        "season",
+        "than"
+      ],
+      "markets": 2975,
+      "trades": 2089516,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:gsw",
+      "proposal_id": "d2c16ab14387b9498a4b4ef30af28c45de713cec8ba6885f7521c964bfe49764",
+      "tokens": 30,
+      "head_tokens": [
+        "gsw",
+        "elon",
+        "interview",
+        "state",
+        "musk",
+        "america",
+        "again",
+        "zelenskyy"
+      ],
+      "markets": 2944,
+      "trades": 2140488,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:before",
+      "proposal_id": "ba34b0514d1d9c5d41faf9d335d0c51e1dd2321d5d5ea0c02610347a533c6cf4",
+      "tokens": 16,
+      "head_tokens": [
+        "before",
+        "russia",
+        "as",
+        "ukraine",
+        "capture",
+        "trade",
+        "deal",
+        "traded"
+      ],
+      "markets": 2941,
+      "trades": 7654991,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:team",
+      "proposal_id": "ab13f0737d68be2c429de09e6f25ac628d4d4a23f52fe8f01b5e0e8fba08b758",
+      "tokens": 2,
+      "head_tokens": [
+        "team",
+        "19pt5"
+      ],
+      "markets": 2526,
+      "trades": 35422,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:cin",
+      "proposal_id": "10a1cc3ca8feb0eb103f7d9f1e5e989b4b41623dcb7c1c3bff743671831ce470",
+      "tokens": 3,
+      "head_tokens": [
+        "cin",
+        "bal",
+        "ari"
+      ],
+      "markets": 2333,
+      "trades": 667608,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:times",
+      "proposal_id": "ec58ed1397101d4f121011747dc09756c6a31ff847fa82cec388438ceb6372c9",
+      "tokens": 2,
+      "head_tokens": [
+        "times",
+        "hell"
+      ],
+      "markets": 2184,
+      "trades": 460990,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:beat",
+      "proposal_id": "1bec2036635a995abb62256cae0990b24fe76f82d7c45ed55f57502b7af163eb",
+      "tokens": 10,
+      "head_tokens": [
+        "beat",
+        "pm",
+        "am",
+        "tariff",
+        "agree",
+        "candle",
+        "arizona",
+        "texas"
+      ],
+      "markets": 1939,
+      "trades": 626543,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:reach",
+      "proposal_id": "690e7fdf85dedbf97142c47738e18870360dbe54228dd981a33c58a486916ab3",
+      "tokens": 2,
+      "head_tokens": [
+        "reach",
+        "dogecoin"
+      ],
+      "markets": 1807,
+      "trades": 3358168,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:for",
+      "proposal_id": "84220706170763dd1421170c78aa36f83622ab7273270bd1b3f72568eaea9c9b",
+      "tokens": 3,
+      "head_tokens": [
+        "for",
+        "and",
+        "combine"
+      ],
+      "markets": 1484,
+      "trades": 705687,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:dip",
+      "proposal_id": "b2a5c4183bcfcd24f67b72993eb32287ab55407ea2e45a2fd343b23ca1d737b6",
+      "tokens": 2,
+      "head_tokens": [
+        "dip",
+        "hyperliquid"
+      ],
+      "markets": 1446,
+      "trades": 1788717,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:first",
+      "proposal_id": "b96b62b968b56d1a156a3852b277ac6b0c9d32e4c252af2888f374e4cac4e654",
+      "tokens": 10,
+      "head_tokens": [
+        "first",
+        "pardon",
+        "days",
+        "trumps",
+        "tuesday",
+        "approval",
+        "eurobasket",
+        "germany"
+      ],
+      "markets": 1343,
+      "trades": 1314966,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:moneyline",
+      "proposal_id": "c68bceed64dc68f9cae0c8dda7b966900b060198d279900dbbf82ab4ddb7a576",
+      "tokens": 5,
+      "head_tokens": [
+        "moneyline",
+        "wnba",
+        "conn",
+        "gsv",
+        "nyl"
+      ],
+      "markets": 1338,
+      "trades": 122017,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:car",
+      "proposal_id": "fbca177508e514254a73f6d33feb55e6aed87e010ce849c005ecc9d78df03649",
+      "tokens": 2,
+      "head_tokens": [
+        "car",
+        "no"
+      ],
+      "markets": 1253,
+      "trades": 347732,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:top",
+      "proposal_id": "a424eff0b27642a8bea7b83e8443fc1a897e0ac5a144198b56d23ff76791787c",
+      "tokens": 17,
+      "head_tokens": [
+        "top",
+        "finish",
+        "de",
+        "eurovision",
+        "wimbledon",
+        "france",
+        "sinner",
+        "zverev"
+      ],
+      "markets": 1220,
+      "trades": 501991,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:rally",
+      "proposal_id": "54d3efc5416c56ec752beaa427fb05d783dc4419985cff2765f4f84fc86b97bd",
+      "tokens": 6,
+      "head_tokens": [
+        "rally",
+        "pennsylvania",
+        "michigan",
+        "wisconsin",
+        "tampon",
+        "pittsburgh"
+      ],
+      "markets": 1179,
+      "trades": 322521,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:israel",
+      "proposal_id": "ab298af8e7c0ede3fe588bed60f0f056f7ccd7f8315e8deadecfe8c5a4db9bb0",
+      "tokens": 6,
+      "head_tokens": [
+        "israel",
+        "strike",
+        "china",
+        "gaza",
+        "lebanon",
+        "invade"
+      ],
+      "markets": 1159,
+      "trades": 3156498,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:okc",
+      "proposal_id": "8664a97ce72028abe694884d99ed926d37075fc5d9bbb63c0584e4d0f618fd70",
+      "tokens": 3,
+      "head_tokens": [
+        "okc",
+        "223pt5",
+        "alexander"
+      ],
+      "markets": 1103,
+      "trades": 532329,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:earnings",
+      "proposal_id": "f4b8c3b69b99229a7a7c5227f4d6b23adb065d187eda768788f98d72bbaad46e",
+      "tokens": 5,
+      "head_tokens": [
+        "earnings",
+        "eps",
+        "quarterly",
+        "nongaap",
+        "gaap"
+      ],
+      "markets": 1089,
+      "trades": 197265,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:4pm",
+      "proposal_id": "9b69f77578698448b2bea7d819892af9fb2358c2bcc89158b464584e62be9950",
+      "tokens": 3,
+      "head_tokens": [
+        "4pm",
+        "113pt5k",
+        "114pt5k"
+      ],
+      "markets": 1061,
+      "trades": 868550,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:launch",
+      "proposal_id": "47e9ca09469c3e2ae909bfa95142e1bfe0c6b9ddde1e04533be034305ddb6d4d",
+      "tokens": 4,
+      "head_tokens": [
+        "launch",
+        "token",
+        "airdrop",
+        "pumpfun"
+      ],
+      "markets": 943,
+      "trades": 2327156,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:esports",
+      "proposal_id": "403952465f922bbcb99ecea795fe4eb8c799d475bdf55da8808787505dc8bc6a",
+      "tokens": 8,
+      "head_tokens": [
+        "esports",
+        "maps",
+        "xi",
+        "ex",
+        "pre",
+        "mana",
+        "tri9",
+        "betera"
+      ],
+      "markets": 894,
+      "trades": 496023,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:uta",
+      "proposal_id": "3d55be86437840f2791cb34d79cda7dd2e3dedee9abefcb26da6a89d9b7554e9",
+      "tokens": 4,
+      "head_tokens": [
+        "uta",
+        "239pt5",
+        "240pt5",
+        "241pt5"
+      ],
+      "markets": 861,
+      "trades": 363236,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:week",
+      "proposal_id": "75feedd652d590751f94aeaecd65321fcdab2d9cecb33a02eeffc1a4287fa7bc",
+      "tokens": 4,
+      "head_tokens": [
+        "week",
+        "this",
+        "trans",
+        "transgender"
+      ],
+      "markets": 841,
+      "trades": 270070,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:sac",
+      "proposal_id": "bf289ab2a572dd4d615ec70d1f2d27e928047dfbfa0d8ec444bf07ae56b7a940",
+      "tokens": 2,
+      "head_tokens": [
+        "sac",
+        "123pt5"
+      ],
+      "markets": 751,
+      "trades": 378133,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:nop",
+      "proposal_id": "c870046b6a3ea55688add89c8acdb8dce76e163520c699a081c7b99a9352cb81",
+      "tokens": 2,
+      "head_tokens": [
+        "nop",
+        "110pt5"
+      ],
+      "markets": 719,
+      "trades": 369244,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:x",
+      "proposal_id": "9f096fc1ed76a79f3cb944af5e4ee90a6a11581abedf3ed3d0947149c1d800f7",
+      "tokens": 7,
+      "head_tokens": [
+        "x",
+        "ceasefire",
+        "hamas",
+        "red",
+        "space",
+        "mibr",
+        "force"
+      ],
+      "markets": 669,
+      "trades": 1824475,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:0pt5",
+      "proposal_id": "9444ec9f198145b4d655d2a617e4c745f72983fc1aba4d9416758ee46d2c9dfb",
+      "tokens": 2,
+      "head_tokens": [
+        "0pt5",
+        "mls"
+      ],
+      "markets": 622,
+      "trades": 26436,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:north",
+      "proposal_id": "bce70b0935224c8e87a10f8b965a9862da4b455343c68d08aac070f9b1a5b301",
+      "tokens": 8,
+      "head_tokens": [
+        "north",
+        "carolina",
+        "korea",
+        "national",
+        "signing",
+        "act",
+        "defense",
+        "missile"
+      ],
+      "markets": 556,
+      "trades": 506711,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:crypto",
+      "proposal_id": "f3c8f8c5270990c8e0778a6e3d272385b251321fcc6caba3f78cac992293e0db",
+      "tokens": 3,
+      "head_tokens": [
+        "crypto",
+        "summit",
+        "mcdonalds"
+      ],
+      "markets": 555,
+      "trades": 189024,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:round",
+      "proposal_id": "f6068eb090e69db273a41d9b8b71be7e761b29c82fd315925a8e49060a0f5a67",
+      "tokens": 7,
+      "head_tokens": [
+        "round",
+        "qualify",
+        "governor",
+        "votes",
+        "second",
+        "california",
+        "portugal"
+      ],
+      "markets": 499,
+      "trades": 334161,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:mentions",
+      "proposal_id": "b060b881c85aef663de319f98a65a9d9a94390d6278db50f32112189a18c801f",
+      "tokens": 2,
+      "head_tokens": [
+        "mentions",
+        "amazon"
+      ],
+      "markets": 470,
+      "trades": 36935,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:lei",
+      "proposal_id": "01fa4167f721eb32b18ea59fe8219af4c91c4d8a51f062f02721fdf271eaa50c",
+      "tokens": 10,
+      "head_tokens": [
+        "lei",
+        "der",
+        "bbr",
+        "hul",
+        "mid",
+        "pne",
+        "swe",
+        "she"
+      ],
+      "markets": 462,
+      "trades": 27650,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:house",
+      "proposal_id": "0260f658ebecbcaa477317f94a46cb56cf9b73b4fa4b727820a35bb8bcbb92a8",
+      "tokens": 4,
+      "head_tokens": [
+        "house",
+        "leavitt",
+        "briefing",
+        "karoline"
+      ],
+      "markets": 459,
+      "trades": 93947,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:any",
+      "proposal_id": "ba59e192fcd4a6511f55c78610e80b7f787fe6b26b95b7274e2017c6619a96ba",
+      "tokens": 7,
+      "head_tokens": [
+        "any",
+        "eve",
+        "administration",
+        "christmas",
+        "service",
+        "member",
+        "leave"
+      ],
+      "markets": 454,
+      "trades": 527671,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:mon",
+      "proposal_id": "40687c88ae6a5bf9521c158d3e66b54c7551495f140c74cfb173d57bc59c154c",
+      "tokens": 2,
+      "head_tokens": [
+        "mon",
+        "ott"
+      ],
+      "markets": 419,
+      "trades": 253128,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:epstein",
+      "proposal_id": "103cfa2d0f951e4428fdde199cf2121c547159ad5e38d8548f2923d376f25113",
+      "tokens": 5,
+      "head_tokens": [
+        "epstein",
+        "released",
+        "files",
+        "named",
+        "newly"
+      ],
+      "markets": 418,
+      "trades": 813375,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:ips",
+      "proposal_id": "7eac4489c95026c6064be58c764e424cb8795c4700b45fc587532d3cfa885713",
+      "tokens": 9,
+      "head_tokens": [
+        "ips",
+        "bir",
+        "cov",
+        "wat",
+        "swa",
+        "wba",
+        "oxf",
+        "qpr"
+      ],
+      "markets": 402,
+      "trades": 11383,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:million",
+      "proposal_id": "e4a5d4d58c2dc35a5319c20ed7e505f2642f9eb218a64323f66f5cda11c32669",
+      "tokens": 6,
+      "head_tokens": [
+        "million",
+        "billion",
+        "mrbeast",
+        "trillion",
+        "video",
+        "views"
+      ],
+      "markets": 401,
+      "trades": 256866,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:over",
+      "proposal_id": "b336c289cf13b4b78bc7d67f0a23f9495ca557382f7678a4a6392752d68f2342",
+      "tokens": 4,
+      "head_tokens": [
+        "over",
+        "public",
+        "sale",
+        "committed"
+      ],
+      "markets": 399,
+      "trades": 660772,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:bar",
+      "proposal_id": "8e07e6a59d5a602d86d53ffb3b84643f88517f6106559c97896b76bfd117e934",
+      "tokens": 7,
+      "head_tokens": [
+        "bar",
+        "tim",
+        "cnn",
+        "shl",
+        "walz",
+        "mal",
+        "vil"
+      ],
+      "markets": 372,
+      "trades": 95428,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:announcers",
+      "proposal_id": "7676a6f3665a24e31d7d14a580c19905c9108cdd88c1c3b20a9959545c37ab56",
+      "tokens": 8,
+      "head_tokens": [
+        "announcers",
+        "chiefs",
+        "bills",
+        "commanders",
+        "jaguars",
+        "lions",
+        "bears",
+        "patriots"
+      ],
+      "markets": 362,
+      "trades": 26428,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:las",
+      "proposal_id": "51971b5fb4f064f7e85f68c0137cd03d572bee21c3d597a55e68c2ef39e13bab",
+      "tokens": 2,
+      "head_tokens": [
+        "las",
+        "vegas"
+      ],
+      "markets": 347,
+      "trades": 165385,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:set",
+      "proposal_id": "6e862ec729770cac4c3f6a516af3a5974f23703ed75a03ebd8c3f0b792f8d6c0",
+      "tokens": 8,
+      "head_tokens": [
+        "set",
+        "tien",
+        "blockx",
+        "kjaer",
+        "prizmic",
+        "basavar",
+        "jodar",
+        "landalu"
+      ],
+      "markets": 343,
+      "trades": 36544,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:taylor",
+      "proposal_id": "a09535e1e40555f1b7e3929f5d4b2fe98348e1c8f6d7c9b211095f55566c9f19",
+      "tokens": 5,
+      "head_tokens": [
+        "taylor",
+        "swift",
+        "travis",
+        "wednesday",
+        "kelce"
+      ],
+      "markets": 324,
+      "trades": 124950,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:playoffs",
+      "proposal_id": "df3ac105451915a60c4a8917bc543a2562d634cb5de211cd715f04863ad8858d",
+      "tokens": 3,
+      "head_tokens": [
+        "playoffs",
+        "los",
+        "minnesota"
+      ],
+      "markets": 323,
+      "trades": 164574,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:heroic",
+      "proposal_id": "bf8591611365472b0231d09462b2b3dbce985924a6d10e19e72dddc7d1fde998",
+      "tokens": 3,
+      "head_tokens": [
+        "heroic",
+        "navi",
+        "aur1"
+      ],
+      "markets": 308,
+      "trades": 129695,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:applst",
+      "proposal_id": "cdcff47adf06d92fa921581f914b3208644f76b715e77b02ae1eaf0686d119f7",
+      "tokens": 2,
+      "head_tokens": [
+        "applst",
+        "gas"
+      ],
+      "markets": 288,
+      "trades": 20693,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:nevada",
+      "proposal_id": "d3b99b38483c5925b3ebf496135e001594afc86a7898c946991a1bc470a15cb3",
+      "tokens": 2,
+      "head_tokens": [
+        "nevada",
+        "wash"
+      ],
+      "markets": 285,
+      "trades": 41297,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:flatl",
+      "proposal_id": "5b8eadcb25ab0e49cb613b2ba50dc039a35d01ddfd4c063f94091568747d41f1",
+      "tokens": 3,
+      "head_tokens": [
+        "flatl",
+        "nmx",
+        "flgc"
+      ],
+      "markets": 266,
+      "trades": 21605,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:efa",
+      "proposal_id": "43f3745af87c1daea0b8fce1f7d07171112952c7f613e821bffddcb0974e606c",
+      "tokens": 3,
+      "head_tokens": [
+        "efa",
+        "sunday",
+        "fire"
+      ],
+      "markets": 252,
+      "trades": 110462,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:talk",
+      "proposal_id": "0b40759accdb07dbacdf3e294eda9f76c34ca321e43fc692c442034175d32959",
+      "tokens": 3,
+      "head_tokens": [
+        "talk",
+        "maduro",
+        "silva"
+      ],
+      "markets": 232,
+      "trades": 333215,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:government",
+      "proposal_id": "c5c8b2aa3eaa466e27ccfad3b5b35768c2519b98d7a4237448d6ac2b760da425",
+      "tokens": 5,
+      "head_tokens": [
+        "government",
+        "shutdown",
+        "netherlands",
+        "palestine",
+        "recognize"
+      ],
+      "markets": 229,
+      "trades": 539083,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:toledo",
+      "proposal_id": "488015de84871488c086defb322ffd0ec262dbd282f13a63b2a469b8dca8e27e",
+      "tokens": 2,
+      "head_tokens": [
+        "toledo",
+        "nill"
+      ],
+      "markets": 205,
+      "trades": 15755,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:h2h",
+      "proposal_id": "d08927e70f3a7f795a3e4ae7e791b96f89ab63233bcddb5fa7cd8488fc6df90d",
+      "tokens": 7,
+      "head_tokens": [
+        "h2h",
+        "verstappen",
+        "gp",
+        "leclerc",
+        "norris",
+        "hamilton",
+        "piastri"
+      ],
+      "markets": 200,
+      "trades": 9678,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:opening",
+      "proposal_id": "4bcacc30ee7d5359d48415dea1b8993915d721735b377351f6db742cac2a4338",
+      "tokens": 4,
+      "head_tokens": [
+        "opening",
+        "weekend",
+        "its",
+        "gross"
+      ],
+      "markets": 196,
+      "trades": 68977,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:major",
+      "proposal_id": "5a64f3c2c5ff26cfc8513fcb062ca08274f06c2e394a8bf593bd4b2a3d33ebe4",
+      "tokens": 4,
+      "head_tokens": [
+        "major",
+        "austin",
+        "blasttv",
+        "stage"
+      ],
+      "markets": 180,
+      "trades": 130369,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:handicap",
+      "proposal_id": "f0dc2e42ccabc82932c45f292530b73049f18ed072deaa4a1ac7a4cc00bc2ede",
+      "tokens": 2,
+      "head_tokens": [
+        "handicap",
+        "map"
+      ],
+      "markets": 177,
+      "trades": 4522,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:bernie",
+      "proposal_id": "31ae1a3da3e4e83c5f08212ecc7113d4b8096426c5102af9b54b289183eaa205",
+      "tokens": 4,
+      "head_tokens": [
+        "bernie",
+        "sanders",
+        "fighting",
+        "oligarchy"
+      ],
+      "markets": 167,
+      "trades": 41815,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:pain",
+      "proposal_id": "e5f5e3c68b8cd82ef4755b9189fe3a7afda457ef4534daf6ff17b11149aa12e3",
+      "tokens": 3,
+      "head_tokens": [
+        "pain",
+        "b8",
+        "tyloo"
+      ],
+      "markets": 155,
+      "trades": 72266,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:mamdani",
+      "proposal_id": "058b1bb8c266ce7b8d1de58f3e34bb5fd2017877de4dacbe644f3212ad358eda",
+      "tokens": 2,
+      "head_tokens": [
+        "mamdani",
+        "zohran"
+      ],
+      "markets": 145,
+      "trades": 90242,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:album",
+      "proposal_id": "b8e563861f917114438c5eb0941b528190c491517cc40bb36d2e01cbed031a7c",
+      "tokens": 4,
+      "head_tokens": [
+        "album",
+        "annual",
+        "grammy",
+        "68th"
+      ],
+      "markets": 141,
+      "trades": 73554,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:starmer",
+      "proposal_id": "f4839334b021073ca030854f4b3ea77fddf0a01991863ac154894b4ea87c60db",
+      "tokens": 4,
+      "head_tokens": [
+        "starmer",
+        "keir",
+        "questions",
+        "ministers"
+      ],
+      "markets": 141,
+      "trades": 126740,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:wol",
+      "proposal_id": "d389283903689a39ba98fdb55427355858d948d3d465b45ab6fe093eb927512c",
+      "tokens": 2,
+      "head_tokens": [
+        "wol",
+        "mun"
+      ],
+      "markets": 135,
+      "trades": 38386,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:driver",
+      "proposal_id": "e8ac482e5830fa2556a1d9c28fa4ebc31560f8ae5593ab6b412ddb9825e9959f",
+      "tokens": 5,
+      "head_tokens": [
+        "driver",
+        "podium",
+        "abu",
+        "brazilian",
+        "dhabi"
+      ],
+      "markets": 134,
+      "trades": 9137,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:draft",
+      "proposal_id": "a8987120c3cab128d73308df5f513659f4fdab259d8121ed4cb280c49f1cbea2",
+      "tokens": 2,
+      "head_tokens": [
+        "draft",
+        "drafted"
+      ],
+      "markets": 132,
+      "trades": 10557,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:etf",
+      "proposal_id": "bb41cc82ecb75994d25ed66f2390c8d3d48cc1ed4a7cc1ac34e1f238e300fe83",
+      "tokens": 2,
+      "head_tokens": [
+        "etf",
+        "flows"
+      ],
+      "markets": 129,
+      "trades": 85350,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:test",
+      "proposal_id": "4d64c153fff4369875570887345b37638a116c83b4323fae5aaa46007a21a7b9",
+      "tokens": 4,
+      "head_tokens": [
+        "test",
+        "spacex",
+        "starship",
+        "flight"
+      ],
+      "markets": 129,
+      "trades": 135249,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:india",
+      "proposal_id": "a04d006ed974a873f161d4c82c961b0024355da30967b6fa7cbbc217e2d55938",
+      "tokens": 2,
+      "head_tokens": [
+        "india",
+        "pakistan"
+      ],
+      "markets": 112,
+      "trades": 109752,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:james",
+      "proposal_id": "c78dc9ffd5d9389c93ea67a2e9a3663f667eabfdcb7488f1a85665627a5c71ba",
+      "tokens": 2,
+      "head_tokens": [
+        "james",
+        "lebron"
+      ],
+      "markets": 95,
+      "trades": 20489,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:rams",
+      "proposal_id": "65dd80417cfbce39aad9ab69bcdb5e753239e15262de39fc8abcfde2aba432ce",
+      "tokens": 2,
+      "head_tokens": [
+        "rams",
+        "49ers"
+      ],
+      "markets": 90,
+      "trades": 2589,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:forzer",
+      "proposal_id": "ca00e600e84d9d4e3732f2c8a351cfa63eae4271732138472f47fc49f573df02",
+      "tokens": 2,
+      "head_tokens": [
+        "forzer",
+        "aab"
+      ],
+      "markets": 85,
+      "trades": 3581,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:googles",
+      "proposal_id": "488ae345d337ba2f0cbd2b7ff71d0ac3473a0066d5085068f117744b7bc1ad40",
+      "tokens": 4,
+      "head_tokens": [
+        "googles",
+        "rank",
+        "searched",
+        "people"
+      ],
+      "markets": 82,
+      "trades": 68368,
+      "screened_out": false
+    },
+    {
+      "family_id": "cand:jets",
+      "proposal_id": "6a313b5486869ac946b4d183e4b84174f8ef0e7349a18e2fbd5889b10a58c182",
+      "tokens": 2,
+      "head_tokens": [
+        "jets",
+        "dolphins"
+      ],
+      "markets": 82,
+      "trades": 8022,
+      "screened_out": false
+    }
+  ],
+  "ledger_events": 162
+}

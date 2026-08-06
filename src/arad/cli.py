@@ -96,6 +96,10 @@ def main(argv: list[str] | None = None) -> int:
     pma.add_argument("--config", default="configs/pm_index.yaml")
     pmt = pmi_sub.add_parser("text-corpus", help="确定性文本语料与模板归纳（#12 第一层）")
     pmt.add_argument("--config", default="configs/pm_index.yaml")
+    pmf = pmi_sub.add_parser("families", help="候选机制族归纳并登记为提案（#12 第二层）")
+    pmf.add_argument("--config", default="configs/pm_index.yaml")
+    pmf.add_argument("--ledger", default="data/ledger/arad.db")
+    pmf.add_argument("--out", default="artifacts/manifests/pm_candidate_families.json")
 
     study = sub.add_parser("study", help="Study 账本与快照（M3）")
     study_sub = study.add_subparsers(dest="study_cmd", required=True)
@@ -135,6 +139,10 @@ def main(argv: list[str] | None = None) -> int:
             return pm_metadata_audit(args.config)
         if args.pm_cmd == "text-corpus":
             return pm_text_corpus(args.config)
+        if args.pm_cmd == "families":
+            from .temporal.pm_pipeline import pm_families
+
+            return pm_families(args.config, args.ledger, args.out)
         return pm_index_build(args.config, force=args.force, workers=args.workers)
     if args.cmd == "study":
         if args.study_cmd == "baseline":

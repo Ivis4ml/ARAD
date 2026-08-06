@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import collections
 import glob
+import json
 import os
 from datetime import UTC, datetime, timedelta
 
@@ -275,6 +276,50 @@ def pm_text_corpus(config_path: str) -> int:
     write_spine_manifest(manifest, path)
     print(f"wrote {path} (fingerprint {manifest.fingerprint[:16]})")
     return 0 if manifest.gate_passed() else 2
+
+
+def pm_families(config_path: str, ledger_path: str, out_path: str) -> int:
+    """#12 第二层：候选机制族归纳并登记为提案。命名与金标属后续阶段。"""
+    from ..data_catalog.pm_entity_clusters import ClusterSpec
+    from ..data_catalog.pm_family_proposals import register_families
+    from ..data_catalog.pm_text_corpus import InductionSpec
+    from ..memory.ledger import EvidenceLedger
+
+    cfg = load_config(config_path)
+    out_dir = cfg["output"]["data_dir"]
+    text = pq.read_table(os.path.join(out_dir, "market_text.parquet"))
+    presence = pq.read_table(
+        os.path.join(out_dir, "market_presence.parquet"),
+        columns=["condition_id", "first_trade_ts"],
+    )
+    totals = pq.read_table(os.path.join(out_dir, "market_totals.parquet"))
+    families_cfg = cfg["families"]
+    spec = ClusterSpec(
+        induction=InductionSpec(
+            families_cfg["induction_cutoff"],
+            min_markets_per_template=int(cfg["text"]["min_markets_per_template"]),
+        ),
+        max_tokens=int(families_cfg["max_tokens"]),
+        min_cooccurrence=int(families_cfg["min_cooccurrence"]),
+        min_pmi=float(families_cfg["min_pmi"]),
+        mutual_knn=int(families_cfg["mutual_knn"]),
+    )
+    os.makedirs(os.path.dirname(ledger_path) or ".", exist_ok=True)
+    with EvidenceLedger(ledger_path) as ledger:
+        report = register_families(
+            ledger, text, presence, totals, spec,
+            min_markets=int(families_cfg["min_markets"]),
+        )
+        report["ledger_events"] = ledger.require_intact()
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False, indent=2, default=str)
+        f.write("\n")
+    print(json.dumps(
+        {k: report[k] for k in
+         ("families_registered", "families_screened_out", "denominators", "ledger_events")},
+        ensure_ascii=False, indent=2))
+    return 0
 
 
 def load_config(path: str) -> dict:

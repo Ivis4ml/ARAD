@@ -46,3 +46,14 @@ text:
     - "2025-07-01"
     - "2026-01-01"
   min_markets_per_template: 3
+
+families:
+  # 候选机制族的冻结参数。族没有名字，只有 id、成员 token 与规模。
+  induction_cutoff: "2026-01-01"
+  max_tokens: 1500
+  min_cooccurrence: 5
+  min_pmi: 3.0
+  # 互为 top-k 近邻才建边：单靠 PMI 阈值会渗流，95% 的 token 会挤进一个巨型分量
+  mutual_knn: 3
+  # 规模预检下限。低于它的族照样登记进 proposal denominator，只是标为被挡下
+  min_markets: 50
