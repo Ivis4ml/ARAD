@@ -101,3 +101,76 @@ select { font: inherit; font-size: 13px; padding: 5px 8px; border: 1px solid var
          border-radius: 7px; background: var(--panel); color: var(--ink); }
 footer { border-top: 1px solid var(--line); padding: 18px 0 40px; color: var(--muted);
          font-size: 12.5px; }
+
+/* ---- 回放 ---- */
+.replay { padding: 16px 18px 18px; }
+.transport { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.transport button { appearance: none; font: inherit; font-size: 13px; padding: 6px 14px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
+  color: var(--ink); cursor: pointer; transition: background .15s, border-color .15s; }
+.transport button:hover:not(:disabled) { border-color: var(--teal); color: var(--teal); }
+.transport button:disabled { opacity: .4; cursor: not-allowed; }
+.transport button.primary { background: var(--teal); border-color: var(--teal);
+  color: #fff; font-weight: 650; min-width: 74px; }
+.transport button.primary:hover { background: #12586c; color: #fff; }
+.seqbadge { margin-left: auto; }
+
+.scrub { width: 100%; margin: 14px 0 4px; accent-color: var(--teal); }
+
+.counters { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 6px; }
+.chip.counter { min-width: 104px; padding: 8px 12px; }
+.chip.counter .v { font-size: 22px; }
+.chip.counter.accent { border-color: var(--accent); }
+.chip.counter.accent .v { color: var(--accent); }
+/* 计数跳动：数字变了就重挂一次，让「又看了一次」这件事被看见 */
+.chip.counter .v { animation: tick .45s cubic-bezier(.2,.9,.3,1); }
+@keyframes tick {
+  0% { transform: translateY(-8px) scale(1.18); opacity: 0; }
+  100% { transform: none; opacity: 1; }
+}
+
+svg.curve { display: block; margin: 4px 0 2px; }
+svg.curve path { transition: d .5s ease, opacity .4s ease; }
+svg.curve .point circle { transition: r .18s ease; }
+svg.curve .point.landed circle { animation: land .55s cubic-bezier(.2,.9,.3,1); }
+@keyframes land {
+  0% { opacity: 0; transform-box: fill-box; transform-origin: center;
+       transform: translateY(-14px) scale(.2); }
+  60% { opacity: 1; transform-box: fill-box; transform-origin: center; transform: scale(1.35); }
+  100% { opacity: 1; transform: none; }
+}
+svg.curve .pending { animation: breathe 1.8s ease-in-out infinite; }
+@keyframes breathe { 0%,100% { opacity: .5 } 50% { opacity: 1 } }
+.swatch.dot.hollow { background: none; border: 2px solid #8a6d1f; }
+
+.beatcard { border: 1px solid var(--line); border-left: 3px solid var(--teal);
+  border-radius: 8px; background: var(--ground); padding: 11px 14px; margin: 12px 0 4px;
+  animation: fadein .4s ease; }
+@keyframes fadein { from { opacity: 0; transform: translateY(6px) } to { opacity: 1 } }
+.beatcard.stage-look { border-left-color: var(--accent); background: #fdf3f1; }
+.beatcard.stage-verdict { border-left-color: var(--candidate); }
+.beatcard.stage-failure, .beatcard.stage-gap { border-left-color: var(--underpowered); }
+.beathead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.beathead .stage { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted); }
+
+/* position:relative 是必需的：没有它 ol.beats 不是子项的 offsetParent，
+   自动滚动算出来的 offsetTop 差值就不是列表内坐标，滚动永远不触发 */
+ol.beats { list-style: none; padding: 0; margin: 8px 0 0; position: relative;
+  max-height: 340px; overflow-y: auto; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--panel); }
+ol.beats li { border-bottom: 1px solid var(--line-soft); }
+ol.beats li:last-child { border-bottom: none; }
+ol.beats button { display: grid; grid-template-columns: 46px 84px 1fr auto; gap: 10px;
+  width: 100%; text-align: left; appearance: none; border: 0; background: none;
+  font: inherit; font-size: 12.5px; padding: 7px 12px; cursor: pointer; align-items: baseline; }
+ol.beats button:hover { background: var(--line-soft); }
+ol.beats li.past button { opacity: .48; }
+ol.beats li.current { background: var(--teal-soft); }
+ol.beats li.current button { opacity: 1; font-weight: 650; }
+ol.beats .seq { color: var(--muted); }
+ol.beats .stage { font-family: var(--mono); font-size: 10.5px; color: var(--teal);
+  letter-spacing: .06em; }
+ol.beats li.stage-look .stage { color: var(--accent); font-weight: 700; }
+ol.beats .who { color: var(--muted); font-size: 11px; }
+ol.beats .what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

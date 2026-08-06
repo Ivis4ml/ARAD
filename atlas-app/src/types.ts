@@ -32,6 +32,20 @@ export type CurvePoint = {
   deflated_sharpe?: number | null
 }
 
+export type Beat = {
+  seq: number
+  at: string
+  event_type: string
+  study_id: string | null
+  stage: string
+  headline: string
+  detail: Record<string, unknown>
+  pending_point: boolean
+  reveal_point: boolean
+  proposals_so_far: number
+  tests_so_far: number
+}
+
 export type Chain = {
   chain_id: string
   study_ids: string[]
@@ -121,6 +135,7 @@ export type Projection = {
   studies: Study[]
   aborted_rounds: AbortedRound[]
   lineage: Chain[]
+  replay: Beat[]
   curve_metrics: string[]
   data_freshness: Freshness[]
 }

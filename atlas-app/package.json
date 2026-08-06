@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "build": "tsc -b && vite build",
+    "build": "node check-jsx-text.mjs && tsc -b && vite build",
     "dev": "vite"
   },
   "dependencies": {

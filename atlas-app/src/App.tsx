@@ -2,11 +2,13 @@ import { useState } from 'react'
 import type { Projection } from './types'
 import { Overview } from './Overview'
 import { Evolution } from './Evolution'
+import { Replay } from './Replay'
 import { Process } from './Process'
 import { StudyPanel } from './StudyPanel'
 import { VerdictChip } from './Value'
 
 const TABS = [
+  { id: 'replay', label: '回放' },
   { id: 'evolution', label: '演化' },
   { id: 'overview', label: '总览' },
   { id: 'process', label: '过程' },
@@ -14,7 +16,7 @@ const TABS = [
 ] as const
 
 export function App({ p }: { p: Projection }) {
-  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('evolution')
+  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('replay')
   return (
     <>
       <header className="hero">
@@ -63,6 +65,7 @@ export function App({ p }: { p: Projection }) {
 
       <main>
         <div className="col">
+          {tab === 'replay' && <Replay p={p} />}
           {tab === 'evolution' && <Evolution p={p} />}
           {tab === 'overview' && <Overview p={p} />}
           {tab === 'process' && <Process p={p} />}

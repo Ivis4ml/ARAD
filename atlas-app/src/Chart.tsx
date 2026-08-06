@@ -3,12 +3,11 @@ import { num } from './format'
 
 /** 演化曲线。手写 SVG：不引第三方图表库，也就没有任何网络依赖。
  *
- * 三条内容缺一不可：
- *  - 每次尝试的点（含未读 outcome 的轮次，它们是提案分母的一部分）
- *  - running best
- *  - 零假设带：同样次数的搜索在纯噪声上能达到的水平
+ * 三条内容缺一不可：每次尝试的点、running best、零假设带。只画前两条会系统性地
+ * 骗人 —— 一条随迭代上升的曲线，正是选择在纯噪声上必然产出的形状。
  *
- * 只画前两条会系统性地骗人 —— 一条随迭代上升的曲线，正是选择在噪声上必然产出的形状。
+ * **纵轴范围一次性由全部点定死，不随回放变化。**否则每落一个点整张图都重新缩放，
+ * 早期的点看起来会比它实际的位置高，那是用动画撒谎。
  */
 
 const VERDICT_FILL: Record<string, string> = {
@@ -22,14 +21,22 @@ type Props = {
   showNullBand: boolean
   selected: string | null
   onSelect: (studyId: string) => void
+  /** 已出结果的点数。回放时逐步增加；静态视图传 points.length。 */
+  revealed?: number
+  /** 已冻结但还没出结果的那个提案 —— 画成空心待定点。 */
+  pendingId?: string | null
 }
 
-export function Chart({ points, metric, showNullBand, selected, onSelect }: Props) {
+export function Chart({
+  points, metric, showNullBand, selected, onSelect,
+  revealed, pendingId,
+}: Props) {
   const W = 720
-  const H = 300
-  const pad = { top: 18, right: 18, bottom: 46, left: 52 }
+  const H = 320
+  const pad = { top: 20, right: 18, bottom: 50, left: 56 }
   const innerW = W - pad.left - pad.right
   const innerH = H - pad.top - pad.bottom
+  const shown = revealed === undefined ? points.length : revealed
 
   const values: number[] = []
   points.forEach((p) => {
@@ -40,16 +47,16 @@ export function Chart({ points, metric, showNullBand, selected, onSelect }: Prop
   if (!values.length) {
     return (
       <p className="muted small">
-        本链在该指标上没有任何有定义的取值。这不是渲染问题：判决未走到评价的
-        Study 没有这个数，Atlas 不会替它补一个。
+        本链在该指标上没有任何有定义的取值。这不是渲染问题：判决未走到评价的 Study
+        没有这个数，Atlas 不会替它补一个。
       </p>
     )
   }
   const lo = Math.min(0, ...values)
   const hi = Math.max(...values)
   const span = hi - lo || 1
-  const yMin = lo - span * 0.08
-  const yMax = hi + span * 0.12
+  const yMin = lo - span * 0.1
+  const yMax = hi + span * 0.14
   const x = (i: number) =>
     pad.left + (points.length === 1 ? innerW / 2 : (i / (points.length - 1)) * innerW)
   const y = (v: number) => pad.top + innerH - ((v - yMin) / (yMax - yMin)) * innerH
@@ -57,10 +64,10 @@ export function Chart({ points, metric, showNullBand, selected, onSelect }: Prop
   const ticks = 4
   const gridY = Array.from({ length: ticks + 1 }, (_, i) => yMin + ((yMax - yMin) * i) / ticks)
 
-  const line = (accessor: (p: CurvePoint) => number | null) => {
+  const line = (accessor: (p: CurvePoint) => number | null, limit: number) => {
     const segs: string[] = []
     let open = false
-    points.forEach((p, i) => {
+    points.slice(0, limit).forEach((p, i) => {
       const v = accessor(p)
       if (v === null || !Number.isFinite(v)) { open = false; return }
       segs.push(`${open ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`)
@@ -71,19 +78,20 @@ export function Chart({ points, metric, showNullBand, selected, onSelect }: Prop
 
   const bandPath = (() => {
     if (!showNullBand) return ''
-    const top: string[] = []
-    points.forEach((p, i) => {
-      if (p.null_threshold === null) return
-      top.push(`${top.length ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.null_threshold).toFixed(1)}`)
-    })
-    if (!top.length) return ''
-    const first = points.findIndex((p) => p.null_threshold !== null)
-    const last = points.length - 1 - [...points].reverse().findIndex((p) => p.null_threshold !== null)
-    return `${top.join(' ')} L${x(last).toFixed(1)},${y(yMin).toFixed(1)} L${x(first).toFixed(1)},${y(yMin).toFixed(1)} Z`
+    const visible = points.slice(0, shown)
+    const idx = visible.map((p, i) => [p, i] as const).filter(([p]) => p.null_threshold !== null)
+    if (!idx.length) return ''
+    const top = idx.map(([p, i], k) =>
+      `${k ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.null_threshold!).toFixed(1)}`).join(' ')
+    const first = idx[0][1]
+    const last = idx[idx.length - 1][1]
+    return `${top} L${x(last).toFixed(1)},${y(yMin).toFixed(1)} L${x(first).toFixed(1)},${y(yMin).toFixed(1)} Z`
   })()
 
+  const pendingIndex = pendingId ? points.findIndex((p) => p.study_id === pendingId) : -1
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img"
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" className="curve"
          aria-label={`${metric} 随迭代的走势，含 running best 与零假设带`}>
       {gridY.map((v, i) => (
         <g key={i}>
@@ -95,15 +103,31 @@ export function Chart({ points, metric, showNullBand, selected, onSelect }: Prop
           </text>
         </g>
       ))}
+
       {bandPath && <path d={bandPath} fill="#c0392b" fillOpacity={0.07} />}
       {showNullBand && (
-        <path d={line((p) => p.null_threshold)} fill="none" stroke="#c0392b"
+        <path d={line((p) => p.null_threshold, shown)} fill="none" stroke="#c0392b"
               strokeWidth={1.5} strokeDasharray="5 4" />
       )}
-      <path d={line((p) => p.running_best)} fill="none" stroke="#17708a" strokeWidth={2} />
-      {points.map((p, i) =>
+      <path d={line((p) => p.running_best, shown)} fill="none" stroke="#17708a"
+            strokeWidth={2} strokeLinecap="round" />
+
+      {pendingIndex >= 0 && pendingIndex >= shown && (
+        <g className="pending">
+          <line x1={x(pendingIndex)} x2={x(pendingIndex)} y1={pad.top} y2={pad.top + innerH}
+                stroke="#8a6d1f" strokeWidth={1} strokeDasharray="3 4" opacity={0.55} />
+          <circle cx={x(pendingIndex)} cy={pad.top + innerH} r={5.5}
+                  fill="none" stroke="#8a6d1f" strokeWidth={2} />
+          <text x={x(pendingIndex)} y={pad.top + innerH - 12} textAnchor="middle"
+                fontSize={10.5} fill="#8a6d1f">提案已冻结，尚未取值</text>
+        </g>
+      )}
+
+      {points.slice(0, shown).map((p, i) =>
         p.value === null || !Number.isFinite(p.value) ? null : (
-          <g key={p.study_id} onClick={() => onSelect(p.study_id)} style={{ cursor: 'pointer' }}>
+          <g key={p.study_id} onClick={() => onSelect(p.study_id)}
+             style={{ cursor: 'pointer' }}
+             className={i === shown - 1 ? 'point landed' : 'point'}>
             <circle cx={x(i)} cy={y(p.value)} r={selected === p.study_id ? 7 : 5}
                     fill={VERDICT_FILL[p.verdict] ?? '#5a6270'}
                     stroke="#fff" strokeWidth={selected === p.study_id ? 2.5 : 1.5} />
@@ -114,14 +138,16 @@ export function Chart({ points, metric, showNullBand, selected, onSelect }: Prop
           </g>
         ),
       )}
+
       {points.map((p, i) => (
-        <text key={`x${p.study_id}`} x={x(i)} y={H - pad.bottom + 16} textAnchor="middle"
-              fontSize={10.5} fill={selected === p.study_id ? '#131a22' : '#5c6773'}
-              fontFamily="var(--mono)" fontWeight={selected === p.study_id ? 700 : 400}>
+        <text key={`x${p.study_id}`} x={x(i)} y={H - pad.bottom + 18} textAnchor="middle"
+              fontSize={10.5} fill={i < shown ? '#5c6773' : '#c2c8d0'}
+              fontFamily="var(--mono)"
+              fontWeight={selected === p.study_id ? 700 : 400}>
           {i + 1}
         </text>
       ))}
-      <text x={pad.left + innerW / 2} y={H - 8} textAnchor="middle" fontSize={11} fill="#5c6773">
+      <text x={pad.left + innerW / 2} y={H - 10} textAnchor="middle" fontSize={11} fill="#5c6773">
         第几版（沿谱系）　·　点开一个点看它的判决快照
       </text>
     </svg>

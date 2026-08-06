@@ -72,6 +72,7 @@ class AtlasProjection:
     studies: list[dict] = field(default_factory=list)
     aborted_rounds: list[dict] = field(default_factory=list)
     lineage: list[dict] = field(default_factory=list)
+    replay: list[dict] = field(default_factory=list)
     service: dict | None = None
     atlas_version: str = ATLAS_VERSION
 
@@ -87,6 +88,7 @@ class AtlasProjection:
             "studies": self.studies,
             "aborted_rounds": self.aborted_rounds,
             "lineage": self.lineage,
+            "replay": self.replay,
             "curve_metrics": list(CURVE_METRICS),
         }
 
@@ -207,6 +209,34 @@ _CONTEXT_ONLY = {"context_assembled"}
 #: 曲线上可选的纵轴。全部来自评价机存下的 payload，Atlas 不重算。
 CURVE_METRICS = ("abs_t", "ic_spearman", "sharpe")
 
+#: 回放的分幕。账本本来就是一条按 seq 递增的追加式事件流，回放不需要编任何东西：
+#: 每一拍都是一个真实事件，顺序就是它当时发生的顺序。
+#:
+#: 一次性画完的曲线会把整个搜索过程抹平 —— 看不到它看了多少次、每看一次零假设带
+#: 涨多少、哪些轮次连点都没落下。逐拍回放让这些重新可见。
+BEAT_STAGES: dict[str, tuple[str, str]] = {
+    "episode_started": ("episode", "Episode 开始"),
+    "context_assembled": ("assemble", "组装盲化上下文：把数据覆盖、原语清单与菜单偏差交给提案器"),
+    "proposal_recorded": ("count", "提案计入 proposal denominator"),
+    "proposal_locked": ("propose", "提案冻结"),
+    "hypothesis_locked": ("freeze", "Hypothesis Lock：在读取任何 outcome 之前冻结假设"),
+    "confirmatory_locked": ("freeze", "Confirmatory Lock：预注册对抗诊断"),
+    "study_created": ("study", "Study 建立"),
+    "feature_spec_locked": ("spec", "特征规格冻结"),
+    "visible_data_range": ("data", "记录判决当时可见的数据范围"),
+    "outcome_read": ("look", "读取 outcome —— 统计分母加一，零假设带随之抬高"),
+    "evaluation_result": ("evaluate", "评价机出具结构化结果"),
+    "verdict_recorded": ("verdict", "判决入账"),
+    "primitive_gap_declared": ("gap", "声明原语缺口：现有语言表达不了该机制"),
+    "parse_failure": ("failure", "输出无法解析为结构化提案"),
+    "interpretation_gap": ("failure", "解释器尚不能求值该规格"),
+    "context_blocked": ("failure", "上下文组装泄漏效果字段，调用被拒绝"),
+    "provider_repair": ("failure", "模型首次输出不合规，已按修复提示重试"),
+    "invalid_proposal": ("failure", "提案缺必填字段"),
+    "provider_error": ("failure", "provider 调用故障"),
+    "episode_ended": ("episode", "Episode 结束"),
+}
+
 
 def _metrics(snapshot: dict) -> dict:
     """从判决快照里取出曲线要用的量。取不到就是 None，不补默认值。"""
@@ -284,6 +314,75 @@ def _curve(chain: list[dict], metric: str) -> list[dict]:
     return selection_band(
         points, metric=metric, n_periods=min(defined) if defined else None
     )
+
+
+def _beat_detail(event_type: str, payload: dict) -> dict:
+    """每一拍摊开给人看的东西。**只从 payload 里取，不补任何解释性的数字。**"""
+    if event_type == "proposal_locked":
+        return {k: payload.get(k) for k in ("mechanism", "target", "horizon", "direction")}
+    if event_type == "feature_spec_locked":
+        return {
+            "feature_id": payload.get("feature_id"),
+            "steps": [f"{s['name']}: {s['kind']}" for s in payload.get("steps", [])],
+            "required_lookback_seconds": payload.get("required_lookback_seconds"),
+        }
+    if event_type == "hypothesis_locked":
+        return {k: payload.get(k) for k in ("experiment_family", "sample_segments")}
+    if event_type == "confirmatory_locked":
+        return {"formula": payload.get("formula"),
+                "preregistered_diagnostics": payload.get("preregistered_diagnostics")}
+    if event_type == "study_created":
+        return {k: payload.get(k) for k in ("parent_study_id", "change_summary")}
+    if event_type == "evaluation_result":
+        coverage = payload.get("coverage") or {}
+        return {"rows_submitted": coverage.get("rows_submitted"),
+                "episodes": coverage.get("episodes"),
+                "blocked_reasons": payload.get("blocked_reasons")}
+    if event_type == "verdict_recorded":
+        return {k: payload.get(k) for k in ("verdict", "next_action", "rationale")}
+    if event_type == "visible_data_range":
+        return {k: payload.get(k) for k in ("segment", "from", "to", "rows")}
+    if event_type == "episode_ended":
+        return {k: payload.get(k) for k in ("rounds", "ended_because", "outcomes")}
+    if event_type in ("primitive_gap_declared", "parse_failure", "interpretation_gap"):
+        return payload
+    return {}
+
+
+def _replay(events: list[dict]) -> list[dict]:
+    """把账本折成一串可逐拍播放的节拍。
+
+    三件事必须在回放里看得见，否则它就只是把静态图慢放：
+    提案分母何时加一、**统计分母何时加一**（零假设带正是随它抬高）、
+    以及哪些轮次根本没有落点。
+    """
+    beats: list[dict] = []
+    proposals = tests = 0
+    for event in events:
+        stage, headline = BEAT_STAGES.get(
+            event["event_type"], ("other", event["event_type"])
+        )
+        if event["event_type"] == "proposal_recorded":
+            proposals += 1
+        if event["event_type"] == "outcome_read":
+            tests += 1
+        beats.append(
+            {
+                "seq": event["seq"],
+                "at": event["created_at"],
+                "event_type": event["event_type"],
+                "study_id": event["study_id"],
+                "stage": stage,
+                "headline": headline,
+                "detail": _beat_detail(event["event_type"], event["payload"]),
+                # 落点分两步：提案时先出一个待定点，评价出结果时它才有取值与颜色
+                "pending_point": event["event_type"] == "proposal_locked",
+                "reveal_point": event["event_type"] == "evaluation_result",
+                "proposals_so_far": proposals,
+                "tests_so_far": tests,
+            }
+        )
+    return beats
 
 
 def _project_aborted(study_id: str, events: list[dict]) -> dict:
@@ -391,6 +490,7 @@ def project(
     return AtlasProjection(
         chain=chain,
         lineage=lineage,
+        replay=_replay(events),
         denominators=denominators,
         verdicts=verdicts,
         coverage=_coverage(studies),
