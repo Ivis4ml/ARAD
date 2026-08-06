@@ -30,8 +30,8 @@ Research Service 只能由人类暂停或关闭。
 ## 新会话开工指引（#12）
 
 1. 完整阅读 `Merge-Plan-2.md`、`CONTEXT.md`、`docs/DECISION_MAP.md`；
-2. 取 `docs/ENGINEERING_PROMPT.md`，把其中 `<CURRENT_TICKET>` 替换为 M3 工程票全文，
-   作为实现会话的任务提示词；
+2. 取 `docs/ENGINEERING_PROMPT.md`，把其中 `<CURRENT_TICKET>` 替换为
+   `docs/tickets/M12-pm-semantic-mapping.md` 的全文，作为实现会话的任务提示词；
 3. 环境：`uv venv && uv pip install -e ".[dev]"`；验收命令统一为
    `ruff check .` 与 `python -m pytest tests/ -q`（当前基线：226 项测试通过）；
    数据审计入口 `python -m arad.cli data-audit`，
