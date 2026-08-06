@@ -37,7 +37,7 @@ from ..atlas.project import project
 from ..atlas.render import render_site
 from ..atlas.sources import data_freshness
 from ..evaluation.kernel import EvaluationRequest, EvaluationRow
-from ..features.interpreter import BarSeries, evaluate_series
+from ..features.interpreter import INTERPRETER_VERSION, BarSeries, evaluate_series
 from ..features.spec import FeatureSpec, Source
 from ..harness.context import DeclaredBias, assemble_proposer_context
 from ..harness.episode import run_episode
@@ -68,8 +68,8 @@ MENU_BIASES = [
 def _proposal_json() -> str:
     """一个可被现有原语表达的提案：SC 自身波动的短期创新。"""
     spec = {
-        "feature_id": "sc_rv_innovation_3d_vs_20d",
-        "mechanism": "SC 自身已实现波动的短期创新相对长期基线",
+        "feature_id": "sc_rv_innovation_z_3d_vs_20d",
+        "mechanism": "SC 自身已实现波动的短期创新，相对其自身过去 90 天分布标准化",
         "steps": [
             {"name": "rv_recent", "kind": "window", "source": "commodity_bar",
              "field": "realised_volatility", "op": "mean", "window_seconds": 259200},
@@ -77,14 +77,20 @@ def _proposal_json() -> str:
              "field": "realised_volatility", "op": "mean", "window_seconds": 1728000},
             {"name": "rv_innovation", "kind": "difference",
              "inputs": ["rv_recent", "rv_baseline"]},
+            {"name": "rv_innovation_z", "kind": "zscore", "inputs": ["rv_innovation"],
+             "window_seconds": 7776000, "sample_every_seconds": 86400,
+             "min_samples": 30},
         ],
-        "output_step": "rv_innovation",
-        "failure_condition": "若创新量与下一 session 已实现波动无关，则本特征被证伪",
+        "output_step": "rv_innovation_z",
+        "failure_condition": (
+            "若标准化后的创新量与下一 session 已实现波动无关，则本特征被证伪；"
+            "参考分布被长假截断到少于 30 个互异取值时该点无定义"
+        ),
         "authored_by": "llm_proposer",
     }
     return json.dumps(
         {
-            "mechanism": "波动聚集：短期已实现波动高于长期基线时，下一 session 波动偏高",
+            "mechanism": "波动聚集：短期已实现波动相对自身分布异常抬升时，下一 session 波动偏高",
             "source": "commodity_bar",
             "target": "sc_rv_next_session",
             "horizon": "next_session",
@@ -226,6 +232,7 @@ def _build_evaluation(sc: dict, rows: list[dict], visible: dict):
             authoritative_keys=authoritative,
             preregistered_exclusions=exclusions,
             cost_model_declared=False,   # M5 之前没有成本模型；声明为 True 就是伪造
+            interpreter_version=INTERPRETER_VERSION,
         )
         return request, labels, detail
 

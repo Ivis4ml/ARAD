@@ -85,10 +85,18 @@ STEP_SCHEMA: dict[str, dict] = {
                    "note": "baseline_seconds 必须长于 window_seconds"},
     "ratio": {"required": ["name", "kind", "inputs"], "note": "inputs 恰好两个已定义步骤名"},
     "difference": {"required": ["name", "kind", "inputs"], "note": "inputs 恰好两个"},
-    "zscore": {"required": ["name", "kind", "inputs", "window_seconds"],
-               "note": "inputs 恰好一个"},
+    "zscore": {"required": ["name", "kind", "inputs", "window_seconds",
+                            "sample_every_seconds", "min_samples"],
+               "note": (
+                   "inputs 恰好一个。参考分布取自输入步骤在 t - k*sample_every_seconds"
+                   "（k = 1..window_seconds//sample_every_seconds）上的取值；"
+                   "sample_every_seconds >= 60；min_samples >= 3 且不得超过该样本数；"
+                   "样本数上限 512。min_samples 计**互异取值**：采样步长小于数据节奏时"
+                   "会反复读到同一批数据，重复样本压低标准差并放大 z"
+               )},
     "residualise": {"required": ["name", "kind", "inputs", "controls"],
-                    "note": "inputs 恰好一个；controls 至少一个已登记的 Baseline Control"},
+                    "note": "inputs 恰好一个；controls 至少一个已登记的 Baseline Control；"
+                            "解释器尚未实现，提交后会判 blocked"},
 }
 
 #: FeatureSpec 自身的字段。同样是 extra="forbid"。
@@ -111,6 +119,8 @@ def primitive_catalogue() -> dict:
         "hard_rules": [
             ("字段名以 step_schema 与 feature_spec_schema 为准；"
              "**多写任何字段都会使整条规格被拒**"),
+            "offset_seconds 只属于 window/innovation；派生步骤写它会被拒绝",
+            "每个步骤都必须能从 output_step 沿 inputs 到达，否则整条规格被拒",
             "所有窗口结束于决策时点之前；offset_seconds 只能非负",
             "特征必须声明经济含义（mechanism）与失败条件（failure_condition）",
             "步骤按依赖顺序排列，不允许环",

@@ -78,6 +78,9 @@ class EvaluationRequest:
     family: str
     rows: list[EvaluationRow]
     authoritative_keys: list[str]
+    #: 算出这些 prediction 的解释器版本。由调用方填入（kernel 不依赖 features 层）。
+    #: 进 digest：同一规格换一个解释器版本可能算出另一个数，证据必须能区分。
+    interpreter_version: str = ""
     preregistered_exclusions: dict[str, str] = field(default_factory=dict)
     cost_model_declared: bool = False
     placebo_draws: int = 200
@@ -109,6 +112,7 @@ class EvaluationRequest:
                     }
                     for r in sorted(self.rows, key=lambda r: r.row_key)
                 ],
+                "interpreter_version": self.interpreter_version,
                 "authoritative_keys": sorted(self.authoritative_keys),
                 "preregistered_exclusions": dict(sorted(self.preregistered_exclusions.items())),
                 "params": {
@@ -300,6 +304,7 @@ def _result(
         "study_id": request.study_id,
         "confirmatory_id": request.confirmatory_id,
         "family": request.family,
+        "interpreter_version": request.interpreter_version,
         "request_digest": request.digest(),
         "coverage": coverage,
         "effects": effects,

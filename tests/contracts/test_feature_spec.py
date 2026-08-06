@@ -90,7 +90,7 @@ def test_innovation_baseline_must_be_longer_than_the_observation_window():
         name="i", kind=StepKind.INNOVATION, source=Source.PM_MARKET, field="price",
         op=Op.MEAN, window_seconds=3600, baseline_seconds=86400,
     )
-    assert ok.earliest_lookback_seconds == 86400
+    assert ok.own_lookback_seconds == 86400
 
 
 @pytest.mark.parametrize("kind", [StepKind.RATIO, StepKind.DIFFERENCE])
@@ -115,7 +115,9 @@ def test_window_steps_do_not_reference_other_steps():
 def test_steps_must_be_in_dependency_order_and_acyclic():
     with pytest.raises(ValidationError, match="尚未定义"):
         a_spec(
-            steps=[Step(name="r", kind=StepKind.ZSCORE, inputs=["w"], window_seconds=86400),
+            steps=[Step(name="r", kind=StepKind.ZSCORE, inputs=["w"],
+                        window_seconds=86400, sample_every_seconds=3600,
+                        min_samples=6),
                    window()],
             output_step="r",
         )
@@ -169,14 +171,17 @@ def test_describe_is_machine_readable_for_the_ledger_and_atlas():
     spec = a_spec(
         steps=[
             window("innov", kind=StepKind.INNOVATION, baseline_seconds=86400),
-            Step(name="z", kind=StepKind.ZSCORE, inputs=["innov"], window_seconds=604800),
+            Step(name="z", kind=StepKind.ZSCORE, inputs=["innov"],
+                 window_seconds=604800, sample_every_seconds=86400, min_samples=5),
         ],
         output_step="z",
     )
     d = spec.describe()
     assert d["output_step"] == "z"
     assert d["sources"] == ["pm_market"]
-    assert d["required_lookback_seconds"] == 604800
+    # 回看深度沿 DAG 累加：zscore 的参考样本本身取到 t-604800，每个样本又要把
+    # innovation 的 86400 基线再往前推一次。逐步取 max 会把这个数写小。
+    assert d["required_lookback_seconds"] == 604800 + 86400
     assert [s["kind"] for s in d["steps"]] == ["innovation", "zscore"]
     assert d["content_id"] == spec.content_id
 
@@ -194,3 +199,73 @@ def test_unsupported_mechanism_is_a_recordable_artifact():
     assert gap.missing_primitive
     with pytest.raises(ValidationError):
         gap.mechanism = "别的"
+
+
+# ---------------------------------------------------------------- zscore 的规格约束
+
+
+def a_zscore(**kw) -> Step:
+    base = {"name": "z", "kind": StepKind.ZSCORE, "inputs": ["w"],
+            "window_seconds": 36000, "sample_every_seconds": 3600, "min_samples": 5}
+    base.update(kw)
+    return Step(**base)
+
+
+def test_zscore_must_declare_its_own_sampling_grid():
+    """采样网格是规格的一部分。让实现替它决定，同一 content id 会得到不同的数。"""
+    with pytest.raises(ValidationError, match="sample_every_seconds"):
+        Step(name="z", kind=StepKind.ZSCORE, inputs=["w"], window_seconds=36000)
+
+
+def test_a_zscore_that_can_never_be_defined_is_rejected_at_the_language_layer():
+    with pytest.raises(ValidationError, match="不可能有定义"):
+        a_zscore(window_seconds=7200, sample_every_seconds=3600, min_samples=5)
+
+
+def test_the_reference_sample_count_is_bounded():
+    with pytest.raises(ValidationError, match="超过上限"):
+        a_zscore(window_seconds=3600 * 600, sample_every_seconds=3600, min_samples=5)
+
+
+def test_sampling_fields_belong_to_zscore_only():
+    with pytest.raises(ValidationError, match="只属于 zscore"):
+        window(sample_every_seconds=3600)
+
+
+def test_derived_steps_reject_offset_because_it_was_silently_ignored():
+    """让它生效会使同一个 content id 算出另一个数；拒绝不改变任何现存规格的值。"""
+    with pytest.raises(ValidationError, match="不接受 offset_seconds"):
+        Step(name="r", kind=StepKind.RATIO, inputs=["a", "b"], offset_seconds=60)
+
+
+def test_unreachable_steps_are_rejected():
+    """求值够不到它，而 describe() 仍会声称本特征用了它的数据源。"""
+    with pytest.raises(ValidationError, match="不可达"):
+        a_spec(
+            steps=[window("live"),
+                   window("dead", source=Source.PM_MARKET, field="price")],
+            output_step="live",
+        )
+
+
+def test_nested_zscore_is_rejected():
+    with pytest.raises(ValidationError, match="输入链上还有 zscore"):
+        a_spec(
+            steps=[window("w"), a_zscore(name="z1"),
+                   a_zscore(name="z2", inputs=["z1"])],
+            output_step="z2",
+        )
+
+
+def test_the_content_id_of_a_pinned_spec_does_not_drift_silently():
+    """金标：新增字段或改默认值都会改变全部 content id，这里让它可见而不是无声发生。"""
+    spec = FeatureSpec(
+        feature_id="pinned", mechanism="金标规格", output_step="w",
+        failure_condition="窗口内无数据", authored_by="test",
+        spec_version="0.2.0",
+        steps=[Step(name="w", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                    field="realised_volatility", op=Op.MEAN, window_seconds=86400)],
+    )
+    assert spec.content_id == (
+        "89500f5803d6e55cd572697625ed8999e9368597064e1daa7f1a44c38778f4ac"
+    )

@@ -209,3 +209,30 @@ def test_context_bundle_requires_a_role():
 
 def test_role_is_the_proposer_role(ledger):
     assert build(ledger).role is Role.PROPOSER
+
+
+def test_step_schema_matches_the_model_so_a_compliant_model_is_not_rejected():
+    """提示词里的字段清单与 Step 的必填集合必须一致。
+
+    这类遗漏已经发生过两次：提示词没写字段名，模型照做却被 extra="forbid" 拒掉。
+    把两边钉在一起，第三次就不可能了。
+    """
+    from arad.features.spec import Step, StepKind
+    from arad.harness.context import STEP_SCHEMA
+
+    probe = {
+        StepKind.WINDOW: {"source": "commodity_bar", "field": "close", "op": "mean",
+                          "window_seconds": 600},
+        StepKind.INNOVATION: {"source": "commodity_bar", "field": "close", "op": "mean",
+                              "window_seconds": 600, "baseline_seconds": 6000},
+        StepKind.RATIO: {"inputs": ["a", "b"]},
+        StepKind.DIFFERENCE: {"inputs": ["a", "b"]},
+        StepKind.ZSCORE: {"inputs": ["a"], "window_seconds": 36000,
+                          "sample_every_seconds": 3600, "min_samples": 5},
+        StepKind.RESIDUALISE: {"inputs": ["a"], "controls": ["c"]},
+    }
+    for kind, fields in probe.items():
+        declared = set(STEP_SCHEMA[kind.value]["required"]) - {"name", "kind"}
+        assert declared == set(fields), f"{kind.value}: schema 与模型的必填集合不一致"
+        # 按 schema 声明的字段构造必须成功：模型照着提示词写就不该被拒
+        Step(name="s", kind=kind, **fields)

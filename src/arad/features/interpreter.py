@@ -1,4 +1,4 @@
-"""特征规格解释器（M4 第四块）。
+"""特征规格解释器（M4 第四块；zscore 于 M4.1 补齐）。
 
 把 `FeatureSpec` 在给定决策时点上算成一个数。**PIT 安全由构造保证**：
 每个窗口的右端点是 `decision_time - offset_seconds`，左端点再往前
@@ -8,16 +8,31 @@
 本版只实现 `COMMODITY_BAR` 源（SC 的 1 分钟 bar）。其余源返回
 `SourceNotImplemented`，它和 `UnsupportedMechanism` 一样是应被记录的缺口，
 不是崩溃：提案器据此知道哪些源还不能用。
+
+**求值是惰性递归的**：`zscore` 需要它的输入步骤在若干过去时刻上的取值，
+因此步骤不能只在决策时点上算一次。`_value_of(name, t)` 按需求值并按 `(名字, 时刻)`
+记忆化；记忆表在每次 `evaluate_spec` 内创建并显式传递，不放模块级 —— 序列一旦更换，
+同一个键就对应另一个数。惰性求值的代价是够不到的步骤不再被执行，
+因此 `FeatureSpec` 在语言层拒绝存在不可达步骤的规格。
+
+**覆盖准入**：若 `decision_time - required_lookback_seconds` 早于序列的覆盖起点，
+特征判为无定义。否则声明为"20 日均值"的东西在序列开头几天实际上是"能取到多少算多少"
+的均值 —— 同一份规格在完整序列与其截断副本上会给出不同的数，而没有任何记录能看出
+差别。加了这道准入之后，"可求值"就蕴含"值唯一"。
 """
 
 from __future__ import annotations
 
 import math
 from bisect import bisect_left
-from dataclasses import dataclass
-from datetime import datetime, timedelta
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 
 from .spec import FeatureSpec, Op, Source, Step, StepKind
+
+#: 解释器语义版本。进入 `EvaluationRequest.digest()`：同一规格换一个解释器版本
+#: 可能算出另一个数，证据必须能区分。
+INTERPRETER_VERSION = "0.2.0"
 
 
 class NotInterpretable(RuntimeError):
@@ -48,6 +63,14 @@ class BarSeries:
     field: str
     times: list[datetime]
     values: list[float]
+    #: 该序列的覆盖起点。默认取第一个观测时刻；数据实际开始得更早但本对象只装了
+    #: 一段时，应显式声明，否则准入检查会把可用的决策点误判为无定义。
+    coverage_start: datetime | None = None
+
+    def begins_at(self) -> datetime | None:
+        if self.coverage_start is not None:
+            return self.coverage_start
+        return self.times[0] if self.times else None
 
     def window(self, end: datetime, seconds: int) -> list[float]:
         """取 [end - seconds, end) 内的值。**end 一律不含**，这是 PIT 的关键。"""
@@ -57,15 +80,47 @@ class BarSeries:
         return self.values[lo:hi]
 
 
+@dataclass
+class ZScoreCoverage:
+    """一个 zscore 步骤在一个决策时点上的参考样本统计。
+
+    这三个数必须进证据：参考分布被假日截断时特征照样出数，而截断量既不改变
+    content id 也不进入现有的 coverage，评价机的影响点闸门也看不见它。
+    """
+
+    step: str
+    expected: int
+    defined: int
+    distinct: int
+
+
+@dataclass
+class EvalContext:
+    """一次 `evaluate_spec` 调用的可变状态。不跨调用共享。"""
+
+    series: dict[tuple[Source, str], BarSeries]
+    memo: dict[tuple[str, datetime], float | None] = field(default_factory=dict)
+    zscore_coverage: list[ZScoreCoverage] = field(default_factory=list)
+
+
+def _defined(value: float | None) -> bool:
+    """非有限值一律当作无定义。
+
+    NaN 传下去尤其危险：评价机的闸门都是比较式的，`nan > 上限` 恒为假，
+    于是一个坏值会**全部闸门取假**地通过，而不是被拦下。
+    """
+    return value is not None and math.isfinite(value)
+
+
 def _aggregate(op: Op, values: list[float]) -> float | None:
     if not values:
         return None
     if op is Op.LAST:
         return values[-1]
     if op is Op.MEAN:
-        return sum(values) / len(values)
+        return math.fsum(values) / len(values)
     if op is Op.SUM:
-        return sum(values)
+        return math.fsum(values)
     if op is Op.COUNT:
         return float(len(values))
     if op is Op.MIN:
@@ -75,9 +130,13 @@ def _aggregate(op: Op, values: list[float]) -> float | None:
     if op is Op.STD:
         if len(values) < 2:
             return None
-        m = sum(values) / len(values)
-        return math.sqrt(sum((v - m) ** 2 for v in values) / (len(values) - 1))
+        return _sample_std(values)
     raise ValueError(f"未实现的算子 {op}")
+
+
+def _sample_std(values: list[float]) -> float:
+    mean = math.fsum(values) / len(values)
+    return math.sqrt(math.fsum((v - mean) ** 2 for v in values) / (len(values) - 1))
 
 
 def evaluate_step(
@@ -86,36 +145,63 @@ def evaluate_step(
     series: dict[tuple[Source, str], BarSeries],
     computed: dict[str, float | None],
 ) -> float | None:
-    if step.kind in (StepKind.WINDOW, StepKind.INNOVATION):
-        if step.source is not Source.COMMODITY_BAR:
-            raise SourceNotImplemented(
-                f"解释器尚未接入数据源 {step.source.value!r}；"
-                "这是原语缺口，应记录并驱动扩展，不是失败"
-            )
-        key = (step.source, step.field or "")
-        if key not in series:
-            raise SourceNotImplemented(f"没有为 {key} 提供数据序列")
-        # 窗口右端点严格早于决策时点：offset 只能非负，语言层已保证
-        end = decision_time - timedelta(seconds=step.offset_seconds)
-        near = _aggregate(step.op, series[key].window(end, step.window_seconds or 0))
-        if step.kind is StepKind.WINDOW:
-            return near
-        far = _aggregate(step.op, series[key].window(end, step.baseline_seconds or 0))
-        if near is None or far is None:
-            return None
-        return near - far
-    if step.kind is StepKind.RATIO:
-        a, b = (computed[i] for i in step.inputs)
-        return None if a is None or not b else a / b
-    if step.kind is StepKind.DIFFERENCE:
-        a, b = (computed[i] for i in step.inputs)
-        return None if a is None or b is None else a - b
-    if step.kind is StepKind.ZSCORE:
-        raise StepNotImplemented(
-            "zscore 尚未实现：标准化需要该步骤在过去窗口上的自身分布，"
-            "而解释器目前只持有原始序列。原样返回输入等于让评价机为一个"
-            "并非规格声明的数出具结果，因此拒绝求值"
+    """求值单个**叶子**步骤（window / innovation）。
+
+    派生步骤请走 `evaluate_spec`：它们的语义要求能在过去时刻重新求值输入，
+    而这里拿到的 `computed` 只有当前时刻的结果。
+    """
+    if step.kind not in (StepKind.WINDOW, StepKind.INNOVATION):
+        raise ValueError(
+            f"{step.kind.value} 是派生步骤，必须经 evaluate_spec 求值；"
+            "它需要在过去时刻重新求值输入，单点结果不够"
         )
+    if step.source is not Source.COMMODITY_BAR:
+        raise SourceNotImplemented(
+            f"解释器尚未接入数据源 {step.source.value!r}；"
+            "这是原语缺口，应记录并驱动扩展，不是失败"
+        )
+    key = (step.source, step.field or "")
+    if key not in series:
+        raise SourceNotImplemented(f"没有为 {key} 提供数据序列")
+    # 窗口右端点严格早于决策时点：offset 只能非负，语言层已保证
+    end = decision_time - timedelta(seconds=step.offset_seconds)
+    near = _aggregate(step.op, series[key].window(end, step.window_seconds or 0))
+    if step.kind is StepKind.WINDOW:
+        return near if _defined(near) else None
+    far = _aggregate(step.op, series[key].window(end, step.baseline_seconds or 0))
+    if not _defined(near) or not _defined(far):
+        return None
+    return near - far
+
+
+def _value_of(
+    spec: FeatureSpec, index: dict[str, Step], name: str, at: datetime, ctx: EvalContext
+) -> float | None:
+    key = (name, at)
+    if key in ctx.memo:
+        return ctx.memo[key]
+    ctx.memo[key] = value = _evaluate(spec, index, index[name], at, ctx)
+    return value
+
+
+def _evaluate(
+    spec: FeatureSpec, index: dict[str, Step], step: Step, at: datetime, ctx: EvalContext
+) -> float | None:
+    if step.kind in (StepKind.WINDOW, StepKind.INNOVATION):
+        return evaluate_step(step, at, ctx.series, {})
+    if step.kind is StepKind.RATIO:
+        a = _value_of(spec, index, step.inputs[0], at, ctx)
+        b = _value_of(spec, index, step.inputs[1], at, ctx)
+        if not _defined(a) or not _defined(b) or b == 0:
+            return None
+        out = a / b
+        return out if _defined(out) else None
+    if step.kind is StepKind.DIFFERENCE:
+        a = _value_of(spec, index, step.inputs[0], at, ctx)
+        b = _value_of(spec, index, step.inputs[1], at, ctx)
+        return a - b if _defined(a) and _defined(b) else None
+    if step.kind is StepKind.ZSCORE:
+        return _zscore(spec, index, step, at, ctx)
     if step.kind is StepKind.RESIDUALISE:
         raise StepNotImplemented(
             "residualise 尚未实现：残差化需要控制序列，解释器目前不持有它们。"
@@ -124,16 +210,72 @@ def evaluate_step(
     raise ValueError(f"未实现的步骤类型 {step.kind}")
 
 
+def _zscore(
+    spec: FeatureSpec, index: dict[str, Step], step: Step, at: datetime, ctx: EvalContext
+) -> float | None:
+    """相对输入步骤自身过去分布的标准化。
+
+    参考样本取自 `at - k * sample_every_seconds`，k = 1..window // sample_every。
+    锚点就是 `at` 本身：派生步骤不接受 offset_seconds（语言层已拒绝），
+    因此不存在"当前值取自 t-offset 而样本取自 t 附近"这种参考分布晚于被标准化观测
+    的歧义。
+    """
+    source_name = step.inputs[0]
+    current = _value_of(spec, index, source_name, at, ctx)
+    expected = (step.window_seconds or 0) // (step.sample_every_seconds or 1)
+    samples: list[float] = []
+    for k in range(1, expected + 1):
+        past = at - timedelta(seconds=k * (step.sample_every_seconds or 0))
+        value = _value_of(spec, index, source_name, past, ctx)
+        if _defined(value):
+            samples.append(value)
+    distinct = len(set(samples))
+    ctx.zscore_coverage.append(
+        ZScoreCoverage(step=step.name, expected=expected, defined=len(samples),
+                       distinct=distinct)
+    )
+    if not _defined(current) or distinct < (step.min_samples or 0):
+        return None
+    mean = math.fsum(samples) / len(samples)
+    sd = _sample_std(samples)
+    if not _defined(sd) or sd == 0:
+        return None
+    out = (current - mean) / sd
+    return out if _defined(out) else None
+
+
+def _admits(spec: FeatureSpec, at: datetime, ctx: EvalContext) -> bool:
+    """回看深度必须整段落在序列覆盖范围内，否则无定义。
+
+    否则"20 日均值"在序列开头几天实际上是"能取到多少算多少"的均值：
+    同一份规格在完整序列与其截断副本上给出不同的数，且无从察觉。
+    """
+    earliest = at - timedelta(seconds=spec.required_lookback_seconds)
+    for step in spec.steps:
+        if step.source is None:
+            continue
+        series = ctx.series.get((step.source, step.field or ""))
+        begins = series.begins_at() if series is not None else None
+        if begins is not None and earliest < begins:
+            return False
+    return True
+
+
 def evaluate_spec(
     spec: FeatureSpec,
     decision_time: datetime,
     series: dict[tuple[Source, str], BarSeries],
+    *,
+    context: EvalContext | None = None,
 ) -> float | None:
     """在一个决策时点上求值。无定义时返回 None，绝不返回 0。"""
-    computed: dict[str, float | None] = {}
-    for step in spec.steps:
-        computed[step.name] = evaluate_step(step, decision_time, series, computed)
-    return computed[spec.output_step]
+    at = decision_time.astimezone(UTC) if decision_time.tzinfo else decision_time
+    ctx = context or EvalContext(series=series)
+    ctx.memo.clear()
+    if not _admits(spec, at, ctx):
+        return None
+    index = {s.name: s for s in spec.steps}
+    return _value_of(spec, index, spec.output_step, at, ctx)
 
 
 def evaluate_series(
@@ -142,12 +284,42 @@ def evaluate_series(
     series: dict[tuple[Source, str], BarSeries],
 ) -> tuple[list[float | None], dict]:
     """逐决策时点求值。返回 (值序列, 覆盖统计)。"""
-    values = [evaluate_spec(spec, t, series) for t in decision_times]
+    ctx = EvalContext(series=series)
+    values = [evaluate_spec(spec, t, series, context=ctx) for t in decision_times]
     defined = [v for v in values if v is not None]
-    return values, {
+    coverage = {
         "decision_points": len(decision_times),
         "defined": len(defined),
         "undefined": len(values) - len(defined),
         "coverage": len(defined) / len(values) if values else 0.0,
         "constant": bool(defined) and max(defined) == min(defined),
+        "required_lookback_seconds": spec.required_lookback_seconds,
+        "interpreter_version": INTERPRETER_VERSION,
     }
+    if ctx.zscore_coverage:
+        coverage["zscore_reference_samples"] = _summarise_zscore(ctx.zscore_coverage)
+    return values, coverage
+
+
+def _summarise_zscore(records: list[ZScoreCoverage]) -> dict:
+    """把逐点样本统计聚合进证据。逐点数组太长，聚合量足以审计截断。"""
+    out: dict[str, dict] = {}
+    for step in sorted({r.step for r in records}):
+        rows = [r for r in records if r.step == step]
+        defined = sorted(r.defined for r in rows)
+        distinct = sorted(r.distinct for r in rows)
+        expected = rows[0].expected
+        out[step] = {
+            "expected_per_point": expected,
+            "points": len(rows),
+            "points_truncated": sum(1 for r in rows if r.defined < expected),
+            "defined_min": defined[0],
+            "defined_median": defined[len(defined) // 2],
+            "distinct_min": distinct[0],
+            "distinct_median": distinct[len(distinct) // 2],
+            "note": (
+                "参考分布被假日或停牌截断的点计入 points_truncated；"
+                "门槛计互异取值，重复读数不增加信息量"
+            ),
+        }
+    return out
