@@ -297,3 +297,50 @@ def test_blocked_study_needs_no_outcome_reads(ledger):
     events = ledger.read_events(role=Role.EVALUATOR, study_id=sid)
     snap = require_complete(collect_snapshot(events, ledger.denominators()))
     assert snap["outcome_reads"] == []
+
+
+# ---------------------------------------------------------------- 端到端演示
+
+
+def test_demo_study_replays_from_a_real_ledger_file(tmp_path):
+    """M3 第一块的出口：合成 Study 走完全流程并渲染为自包含快照。"""
+    from arad.memory.demo import FAMILY, run_demo
+
+    out = str(tmp_path / "snap.md")
+    result = run_demo(str(tmp_path / "l.db"), "nonexistent.parquet", out)
+    assert result["events"] == 8
+    assert result["denominators"]["proposal_denominator"] == 2
+    assert result["denominators"]["proposals_screened_out"] == 1
+    assert result["denominators"]["statistical_denominator"] == 0
+    assert result["denominators"]["family"] == FAMILY
+    with open(out, encoding="utf-8") as f:
+        text = f.read()
+    assert "`blocked`" in text and "wait_for_data" in text
+
+
+def test_demo_verdict_cannot_claim_an_effect_before_the_evaluator_exists(tmp_path):
+    """评价机未建成时，任何非 blocked 的判决都没有证据支撑。"""
+    import json as _json
+
+    from arad.memory.demo import run_demo
+
+    out = str(tmp_path / "snap.md")
+    run_demo(str(tmp_path / "l.db"), "nonexistent.parquet", out)
+    with open(out.replace(".md", ".json"), encoding="utf-8") as f:
+        snap = _json.load(f)
+    assert snap["verdict"]["verdict"] == "blocked"
+    assert snap["outcome_reads"] == []
+    assert snap["denominators"]["statistical_denominator"] == 0
+
+
+def test_demo_is_idempotent_and_keeps_the_chain_intact(tmp_path):
+    """重复运行只会追加事件，链必须始终完整。"""
+    from arad.memory.demo import run_demo
+
+    path = str(tmp_path / "l.db")
+    out = str(tmp_path / "snap.md")
+    first = run_demo(path, "nonexistent.parquet", out)
+    second = run_demo(path, "nonexistent.parquet", out)
+    assert second["events"] > first["events"]  # 只追加，从不覆盖
+    with EvidenceLedger(path) as led:
+        assert led.require_intact() == second["events"]

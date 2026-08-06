@@ -1,0 +1,79 @@
+{
+  "proposal": {
+    "direction": 1,
+    "falsifiable_condition": "概率创新与下一 session 已实现波动无关则证伪",
+    "horizon": "next_session",
+    "mechanism": "闭市期间地缘政治概率创新",
+    "proposed_by": "demo",
+    "rationale": "M2.5 词表显示 iran/israel/russia 是数据中最密集的地缘实体",
+    "source": "polymarket",
+    "target": "sc_rv_next_session",
+    "universe": "sc_dominant_t1"
+  },
+  "hypothesis_lock": {
+    "controls": [
+      "sc_own_information",
+      "cls_public_news"
+    ],
+    "experiment_family": "sc_rv_geopolitical_innovation",
+    "locked_at": "2026-08-06T00:51:26.539057+00:00",
+    "proposal_id": "e195877b665a1629e12c4dcf8d8ea54cc36a3600d09db68ba6e25ba0f65c05f1",
+    "sample_segments": [
+      "discovery"
+    ],
+    "stage": "hypothesis"
+  },
+  "confirmatory_lock": {
+    "controls": [
+      "sc_own_information",
+      "cls_public_news"
+    ],
+    "cost_model": "placeholder",
+    "economic_bound": "待人工冻结",
+    "formula": "rv_next_session ~ residualised_probability_innovation + controls",
+    "hypothesis_id": "dc1a686dd1ef692b393a8ad6e039e77d2a80b6f0eea3adefc183c9a33da3a0a6",
+    "locked_at": "2026-08-06T00:51:26.539072+00:00",
+    "preregistered_diagnostics": [
+      "leakage",
+      "pseudo_replication",
+      "influence_points",
+      "classical_factor_proxy",
+      "single_regime",
+      "cost"
+    ],
+    "stage": "confirmatory",
+    "statistics": [
+      "two_way_cluster",
+      "block_bootstrap"
+    ],
+    "test_family": "sc_rv_geopolitical_innovation",
+    "transforms": [
+      "log",
+      "winsorise_none"
+    ]
+  },
+  "outcome_reads": [],
+  "verdict": {
+    "decided_at": "2026-08-06T00:51:26.564183+00:00",
+    "evidence_refs": [
+      "4d7f80c19332b2939efebf66b44ac741493a4a4b1fd0dd116573a0e3e2941bfe"
+    ],
+    "next_action": "wait_for_data",
+    "rationale": "评价机尚未建成，且 Polymarket 侧缺机制分族（Decision Map #12）。本 Study 未读取任何 outcome，statistical denominator 为 0；在这两项就绪之前，任何非 blocked 的判决都不可能有证据支撑。",
+    "study_id": "demo-sc-rv-geopolitical-innovation",
+    "verdict": "blocked"
+  },
+  "denominators": {
+    "family": "sc_rv_geopolitical_innovation",
+    "proposal_denominator": 2,
+    "proposals_screened_out": 1,
+    "statistical_denominator": 0
+  },
+  "visible_data_range": {
+    "forward_data": "not read (per-Study forward eligibility 未到期)",
+    "from": "2022-11-02T02:30:00+08:00",
+    "rows": 1054,
+    "segment": "discovery",
+    "to": "2024-12-31T15:00:00+08:00"
+  }
+}

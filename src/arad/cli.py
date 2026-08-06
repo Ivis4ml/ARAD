@@ -14,6 +14,7 @@ Polymarket 只读、label-blind 普查与 PIT Market Index。
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 
@@ -96,6 +97,13 @@ def main(argv: list[str] | None = None) -> int:
     pmt = pmi_sub.add_parser("text-corpus", help="确定性文本语料与模板归纳（#12 第一层）")
     pmt.add_argument("--config", default="configs/pm_index.yaml")
 
+    study = sub.add_parser("study", help="Study 账本与快照（M3）")
+    study_sub = study.add_subparsers(dest="study_cmd", required=True)
+    sd = study_sub.add_parser("demo", help="用真实 spine 数据走完一次判决并渲染快照")
+    sd.add_argument("--ledger", default="data/ledger/arad.db")
+    sd.add_argument("--target", default="data/spine/sc/target_sc_rv_next_session.parquet")
+    sd.add_argument("--out", default="artifacts/manifests/study_snapshot_demo.md")
+
     args = parser.parse_args(argv)
     if args.cmd == "data-audit":
         return data_audit(args.config, args.out)
@@ -124,6 +132,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.pm_cmd == "text-corpus":
             return pm_text_corpus(args.config)
         return pm_index_build(args.config, force=args.force, workers=args.workers)
+    if args.cmd == "study":
+        from .memory.demo import run_demo
+
+        result = run_demo(args.ledger, args.target, args.out)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
     return 1
 
 
