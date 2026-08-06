@@ -125,8 +125,17 @@
   一阶持续性 slope 0.846、双向 cluster SE 0.0167、置换检验通过、最小提前量 64,740 秒；
   Verdict 为 blocked，理由是单品种样本识别不出横截面相关结构。该结果标注
   `inventory: baseline_control`，**不计入 Alternative Factor Inventory**。
+  **第三块（durable queue）已交付**：SQLite 持久任务队列，四条边界由代码或数据库强制 ——
+  租约带过期时刻（进程被 kill 后到期即可重新认领，任务不丢也不会被两个 worker 同时持有）；
+  副作用带幂等键且 append-only（重复完成只留第一次结果）；空计划、坏 JSON、
+  provider 超时统一走 `fail()`，attempt 加一并按退避重排，达到上限转
+  `HUMAN_REVIEW_REQUIRED` 而不是失败终态；`next_wakeup()` 给出下次唤醒时刻，
+  无可运行任务时休眠而非 busy loop，且 `claim()` 返回 None 而**不返回"研究完成"**。
+  顶层 `ServiceState` 只有 running/paused/shutdown，**没有 completed**，
+  且只接受 human 角色改写 —— 模型的 stop 只能结束 Search Episode。
+  检查点跨重新认领与跨进程重启存活。26 项合同测试预先固定了 M6 的活性出口条件。
   **仍未交付**：多元回归（本版一元，controls 只做完整性检查，残差化由 worker 负责）、
-  durable queue 与租约、block bootstrap、真实成本与容量模型。
+  block bootstrap、真实成本与容量模型、把 queue 接进实际研究循环。
 
 ## #7 — 统计准入与经济边界
 
@@ -147,7 +156,15 @@
 - **Blocked by**: #6, #8
 - **Type**: Prototype
 - **Question**: 如何确保 stop、空计划、坏 JSON、provider 故障、进程重启和空间枯竭都不会丢失研究进度？
-- **Answer**: 部分回答。需要 durable queue、租约、幂等 artifact、checkpoint 和显式状态机；模型无权写顶层终态。具体存储和恢复协议待 tracer bullet 验证。
+- **Answer**: 部分回答（2026-08-05，M3 第三块）。durable queue 已交付：
+  `arad.orchestrator.queue.DurableQueue`，含租约与过期重认领、心跳、检查点、
+  幂等副作用（append-only）、退避重排、`WAITING_FOR_DATA` 与
+  `HUMAN_REVIEW_REQUIRED` 两个可唤醒等待状态、`next_wakeup()` 避免 busy loop。
+  顶层状态没有 completed，且只接受 human 改写。26 项合同测试覆盖
+  kill -9 恢复、空计划/坏 JSON/provider 超时不丢任务、跨进程重启存活。
+  **仍未回答**：把 queue 接进实际研究循环（Episode restart、provider retry/backoff
+  的真实调用、搜索空间扩展写入同一事务队列并立即可调度）属 M6；
+  24 小时 soak test 是 M6 的最终验收。
 
 ## #10 — 因子库存、衰减与替代
 
