@@ -16,9 +16,9 @@ from dataclasses import dataclass, field
 
 from .base import ProviderError, ProviderRequest, ProviderResponse
 
-#: 默认命令模板。`{model}` 与 `{effort}` 由配置填充；prompt 走 stdin，不进命令行，
+#: 默认命令模板。`{model}` 由 `model_id` 填充；prompt 走 stdin，不进命令行，
 #: 避免超长 prompt 触发参数长度限制，也避免 prompt 出现在进程列表里。
-DEFAULT_ARGS: tuple[str, ...] = ("-p",)
+DEFAULT_ARGS: tuple[str, ...] = ("-p", "--model", "{model}")
 
 
 @dataclass
@@ -34,7 +34,7 @@ class ClaudeCliProvider:
     calls: list[ProviderRequest] = field(default_factory=list)
 
     def command(self) -> list[str]:
-        return [self.executable, *self.extra_args]
+        return [self.executable, *(a.format(model=self.model_id) for a in self.extra_args)]
 
     def available(self) -> bool:
         return shutil.which(self.executable) is not None

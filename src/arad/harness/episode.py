@@ -13,8 +13,8 @@
 它作为中止轮次单独入账（Atlas 单列一节），不计入分母。把它算进去等于虚构一个
 从未被提出的假设，会同时污染分母与失败档案。
 
-三种非正常产出都不是失败，而是被记录的证据：
-坏 JSON 降级为 `ParseFailure`、原语缺口降级为 `UnsupportedMechanism`、
+四种非正常产出都不是失败，而是被记录的证据：坏 JSON 降级为 `ParseFailure`、
+原语缺口降级为 `UnsupportedMechanism`、上下文泄漏效果字段降级为 `context_blocked`、
 特征恒定或覆盖不足由评价机拒绝。
 """
 
@@ -27,11 +27,12 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from ..evaluation.kernel import evaluate
-from ..features.interpreter import SourceNotImplemented
+from ..features.interpreter import NotInterpretable
 from ..features.spec import FeatureSpec, UnsupportedMechanism
 from ..memory.ledger import EvidenceLedger
 from ..orchestrator.queue import DurableQueue
 from ..providers.base import (
+    ContextLeak,
     EpisodeBudget,
     EpisodeBudgetExhausted,
     Provider,
@@ -160,15 +161,25 @@ def run_round(
         return None
     task_id = task["task_id"]
 
-    bundle: ContextBundle = assemble(task)
     study_id = task["payload"].get("study_id", task_id)
+    try:
+        bundle: ContextBundle = assemble(task)
+    except ContextLeak as exc:
+        # 菜单来自数据，token 里出现 alpha/beta/return 是迟早的事。
+        # 组装器泄漏效果字段时调用已被拒绝，这一轮必须像其他异常产出一样降级为证据，
+        # 而不是让未捕获的异常打断 Episode 并把任务卡在租约里。
+        ledger.append("context_blocked", {"task_id": task_id, "error": str(exc)[:400]},
+                      study_id=study_id)
+        queue.fail(task_id, owner, "上下文组装泄漏效果字段，调用已拒绝", now=current)
+        return RoundOutcome(task_id=task_id, outcome="context_blocked",
+                            study_id=study_id, detail={"error": str(exc)[:200]})
     record_context(ledger, bundle, study_id)
 
     request = ProviderRequest(
         role=Role.PROPOSER, prompt=bundle.prompt, schema_name="ProposalOutput"
     )
     try:
-        parsed, failure, _ = invoke_structured(
+        parsed, failure, responses = invoke_structured(
             provider, request, ProposalOutput, budget=budget
         )
     except ProviderError as exc:
@@ -176,6 +187,14 @@ def run_round(
         ledger.append("provider_error", {"task_id": task_id, "error": str(exc)[:400]})
         return RoundOutcome(task_id=task_id, outcome="provider_error",
                             detail={"error": str(exc)[:200]})
+
+    if len(responses) > 1:
+        # 模型第一次没产出合规 JSON 是关于**这份提示词**的研究信息，不是噪声。
+        # 不记下来，就无法知道 schema 说明是否够清楚，也无法比较不同提示词的成本。
+        ledger.append("provider_repair", {
+            "task_id": task_id, "attempts": len(responses),
+            "model_id": responses[-1].model_id,
+        }, study_id=study_id)
 
     if failure is not None:
         ledger.append("parse_failure", failure.model_dump(mode="json"), study_id=study_id)
@@ -220,19 +239,19 @@ def run_round(
 
     try:
         request_obj, labels, visible = build_evaluation(parsed.feature_spec, study_id)
-    except SourceNotImplemented as exc:
-        ledger.append("source_gap", {"study_id": study_id, "error": str(exc)[:400]},
+    except NotInterpretable as exc:
+        ledger.append("interpretation_gap", {"study_id": study_id, "error": str(exc)[:400]},
                       study_id=study_id)
         verdict = StudyVerdict(
             study_id=study_id, verdict=Verdict.BLOCKED,
             next_action=NextAction.REQUEST_HUMAN_REVIEW,
-            rationale=f"特征所需数据源尚未接入解释器：{exc}",
+            rationale=f"解释器尚不能求值该规格：{exc}",
         )
         ledger.append("visible_data_range", {"note": "未取数"}, study_id=study_id)
         ledger.append("verdict_recorded", verdict.payload(), study_id=study_id)
         queue.complete(task_id, owner, {"verdict": verdict.verdict.value},
                        idempotency_key=f"{task_id}:verdict", now=current)
-        return RoundOutcome(task_id=task_id, outcome="source_gap",
+        return RoundOutcome(task_id=task_id, outcome="interpretation_gap",
                             proposal_id=proposal.content_id, study_id=study_id,
                             verdict=verdict.verdict.value)
 

@@ -120,6 +120,9 @@ def main(argv: list[str] | None = None) -> int:
     ed.add_argument("--target", default="data/spine/sc/target_sc_rv_next_session.parquet")
     ed.add_argument("--atlas", default="artifacts/atlas")
     ed.add_argument("--manifests", default="artifacts/manifests")
+    ed.add_argument("--provider", default="mock", choices=("mock", "claude"),
+                    help="mock 走脚本；claude 真实调用 `claude -p`（花钱）")
+    ed.add_argument("--model", default="claude-opus-5")
 
     atlas = sub.add_parser("atlas", help="Research Atlas 只读投影（M9）")
     atlas_sub = atlas.add_subparsers(dest="atlas_cmd", required=True)
@@ -188,6 +191,7 @@ def main(argv: list[str] | None = None) -> int:
         result = run_episode_demo(
             ledger_path=args.ledger, queue_path=args.queue, target_path=args.target,
             atlas_dir=args.atlas, manifest_dir=args.manifests,
+            provider_kind=args.provider, model=args.model,
         )
         print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
         return 0

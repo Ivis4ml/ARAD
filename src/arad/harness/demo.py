@@ -4,8 +4,8 @@
 无人干预下走完「提案 → 冻结 → 特征 → 评价 → 判决 → 入账」，且全过程可从账本
 回放为自包含快照并被 Atlas 讲清楚。
 
-provider 用 `MockProvider` 而非 `claude -p`：演示要可重复、零调用成本，且不因网络
-波动而失败。脚本刻意覆盖四种结局，因为它们都是第一版预期会大量出现的状态：
+provider 可选。默认 `MockProvider`：演示要可重复、零调用成本，且不因网络波动而失败；
+脚本刻意覆盖四种结局，因为它们都是第一版预期会大量出现的状态：
 
 1. 一个用商品量价原语表达的提案 —— 走完整评价，判决由评价机出具；
 2. 一条原语缺口声明 —— 现有语言表达不了某机制，这是有价值的产出；
@@ -16,6 +16,10 @@ provider 用 `MockProvider` 而非 `claude -p`：演示要可重复、零调用�
 第一个提案是**量价**特征，属 Baseline Control，不计入 Alternative Factor Inventory
 （Merge-Plan-2 §3.1）。之所以用它，是因为解释器目前只接了 `commodity_bar`；
 用它演示环路，同时用第三个提案把真实缺口暴露出来。
+
+`--provider claude` 走真实 `claude -p`。脚本可以让环转起来，但**它证明不了真实模型的
+产出能通过本系统的合同** —— 盲化检查、`extra="forbid"` 的 schema、PIT 原语约束都只有
+真实产出能检验。真实调用只跑一轮：它花的是真钱与真时间，而要回答的问题只有一个。
 """
 
 from __future__ import annotations
@@ -39,7 +43,8 @@ from ..harness.context import DeclaredBias, assemble_proposer_context
 from ..harness.episode import run_episode
 from ..memory.ledger import EvidenceLedger
 from ..orchestrator.queue import DurableQueue
-from ..providers.base import EpisodeBudget
+from ..providers.base import EpisodeBudget, Provider
+from ..providers.claude_cli import ClaudeCliProvider
 from ..providers.mock import MockProvider
 
 FAMILY = "demo_sc_price_volume"
@@ -234,7 +239,14 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict):
         return assemble_proposer_context(
             ledger=ledger,
             family=FAMILY,
-            data_facts={"sources": data_freshness(manifest_dir), "visible": visible},
+            data_facts={
+                "sources": data_freshness(manifest_dir),
+                "visible": visible,
+                "available_series": {
+                    "commodity_bar": ["realised_volatility"],
+                    "note": "解释器当前只提供这些序列；引用其他 field 会判 blocked",
+                },
+            },
             targets=[{"target": "sc_rv_next_session", "horizon": "next_session",
                       "universe": "sc_dominant_t1", "segment": SEGMENT}],
             menu=menu,
@@ -263,6 +275,22 @@ def _menu(manifest_dir: str, limit: int = 8) -> list[dict]:
     ]
 
 
+def make_provider(kind: str, model: str = "claude-opus-5") -> tuple[Provider, int]:
+    """选 provider。mock 走脚本，claude 走真实 `claude -p`。
+
+    返回 (provider, 任务数)：真实调用只跑一轮，因为它花的是真钱与真时间，
+    而这一轮要回答的问题只有一个 —— 真实模型的产出能否通过本系统的合同。
+    """
+    if kind == "mock":
+        return MockProvider(scripts={"proposer": [
+            _proposal_json(), _gap_json(), _pm_proposal_json(),
+            "这不是 JSON", "还是不是 JSON", "仍然不是 JSON",
+        ]}), 4
+    if kind == "claude":
+        return ClaudeCliProvider(model_id=model), 1
+    raise ValueError(f"未知的 provider {kind!r}")
+
+
 def run_episode_demo(
     *,
     ledger_path: str,
@@ -270,6 +298,8 @@ def run_episode_demo(
     target_path: str,
     atlas_dir: str,
     manifest_dir: str = "artifacts/manifests",
+    provider_kind: str = "mock",
+    model: str = "claude-opus-5",
 ) -> dict:
     if not os.path.exists(target_path):
         raise FileNotFoundError(f"缺少 SC 目标表 {target_path}；请先运行 spine build")
@@ -278,19 +308,16 @@ def run_episode_demo(
 
     rows, sc, visible = _load_sc(target_path)
     now = datetime.now(UTC)
-    scripts = [
-        _proposal_json(), _gap_json(), _pm_proposal_json(),
-        "这不是 JSON", "还是不是 JSON", "仍然不是 JSON",
-    ]
+    provider, tasks = make_provider(provider_kind, model)
     with EvidenceLedger(ledger_path) as ledger, DurableQueue(queue_path) as queue:
-        for i in range(4):
+        for i in range(tasks):
             queue.enqueue(f"demo-task-{i}", "study",
                           {"study_id": f"demo-study-{i}"}, now=now)
         result = run_episode(
             episode_id="demo-episode-1",
             queue=queue,
             ledger=ledger,
-            provider=MockProvider(scripts={"proposer": scripts}),
+            provider=provider,
             budget=EpisodeBudget(max_calls=12),
             family=FAMILY,
             owner="demo-worker",
@@ -308,6 +335,7 @@ def run_episode_demo(
                 {"task": r.task_id, "outcome": r.outcome, "verdict": r.verdict}
                 for r in result.rounds
             ],
+            "provider": {"kind": provider_kind, "model": getattr(provider, "model_id", "")},
             "denominators": ledger.denominators(FAMILY),
             "ledger_events": ledger.require_intact(),
             "atlas": paths,

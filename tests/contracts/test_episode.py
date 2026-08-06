@@ -185,7 +185,7 @@ def test_an_unimplemented_source_yields_blocked_not_a_crash(rig):
         raise SourceNotImplemented("解释器尚未接入数据源 'pm_market'")
 
     outcome, _ = run_one(rig, [a_proposal_json()], builder=build)
-    assert outcome.outcome == "source_gap"
+    assert outcome.outcome == "interpretation_gap"
     assert outcome.verdict == "blocked"
 
 
@@ -288,3 +288,28 @@ def test_proposal_output_accepts_either_a_proposal_or_a_gap():
     assert full.is_gap() is False
     gap = ProposalOutput.model_validate(json.loads(GAP_JSON))
     assert gap.is_gap() is True
+
+
+def test_a_leaking_context_degrades_to_evidence_instead_of_killing_the_episode(rig):
+    """菜单来自数据，token 里出现 alpha/beta/return 是迟早的事。"""
+    ledger, queue = rig
+    queue.enqueue("t0", "study", {"study_id": "s0"}, now=T0)
+
+    def leaking_assemble(task):
+        return assemble_proposer_context(
+            ledger=ledger, family=FAMILY, data_facts={},
+            targets=[], menu=[{"family_id": "cand:alpha"}], menu_biases=BIASES,
+            budget_facts={}, blockers=[],
+        )
+
+    result = run_episode(
+        episode_id="e-leak", queue=queue, ledger=ledger,
+        provider=MockProvider(scripts={"proposer": [a_proposal_json()]}),
+        budget=EpisodeBudget(max_calls=5), family=FAMILY, owner="w1",
+        assemble=leaking_assemble, build_evaluation=evaluator_builder(), now=T0,
+    )
+    assert [r.outcome for r in result.rounds] == ["context_blocked"]
+    kinds = [e["event_type"] for e in ledger.read_events(
+        role=LedgerRole.EVALUATOR, study_id="s0")]
+    assert kinds == ["context_blocked"]
+    assert queue.service_state()["state"] == "running"

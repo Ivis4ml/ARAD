@@ -206,11 +206,10 @@ class FeatureSpec(BaseModel):
             "content_id": self.content_id,
             "mechanism": self.mechanism,
             "sources": sorted(s.value for s in self.sources),
-            "steps": [
-                {"name": s.name, "kind": s.kind.value, "op": s.op.value if s.op else None,
-                 "window_seconds": s.window_seconds, "offset_seconds": s.offset_seconds}
-                for s in self.steps
-            ],
+            # 步骤必须无损：账本里存的就是这份摘要，规格若不能从证据里重建，
+            # 快照就不是自包含的（决定 0003）。省略 source/field/inputs 曾使
+            # 快照里的 ratio 步骤看不出它引用了哪两步。
+            "steps": [s.model_dump(mode="json") for s in self.steps],
             "output_step": self.output_step,
             "required_lookback_seconds": self.required_lookback_seconds,
             "failure_condition": self.failure_condition,

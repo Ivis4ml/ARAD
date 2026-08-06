@@ -344,3 +344,36 @@ def test_demo_is_idempotent_and_keeps_the_chain_intact(tmp_path):
     assert second["events"] > first["events"]  # 只追加，从不覆盖
     with EvidenceLedger(path) as led:
         assert led.require_intact() == second["events"]
+
+
+def test_effect_leakage_is_blocked_by_prefix_not_only_by_exact_name(tmp_path):
+    """名单只挡教科书叫法是不够的：标准误与最小可检测效应同样泄漏量级。"""
+    with EvidenceLedger(str(tmp_path / "l.db")) as ledger:
+        ledger.append("evaluation_result", {
+            "se_two_way_cluster": 0.0729,
+            "mde_at_2p8_se": 0.2042,
+            "coverage": {"rows_submitted": 1027},
+        }, study_id="s0")
+        payload = ledger.read_events(role=Role.PROPOSER, study_id="s0")[0]["payload"]
+    assert payload["se_two_way_cluster"] == "<redacted:effect-field>"
+    assert payload["mde_at_2p8_se"] == "<redacted:effect-field>"
+    assert payload["coverage"]["rows_submitted"] == 1027
+
+
+def test_the_whole_effects_container_is_redacted(tmp_path):
+    """逐字段挡只能挡住已经想到的名字；评价机每加一个统计量就开一个新口子。"""
+    with EvidenceLedger(str(tmp_path / "l.db")) as ledger:
+        ledger.append("evaluation_result", {
+            "effects": {"a_statistic_nobody_listed_yet": 3.14},
+        }, study_id="s0")
+        payload = ledger.read_events(role=Role.PROPOSER, study_id="s0")[0]["payload"]
+    assert payload["effects"] == "<redacted:effect-container>"
+
+
+def test_slope_is_an_effect_field(tmp_path):
+    """一元回归斜率就是效应量，换个名字不改变这一点（M9 发现的原名单缺口）。"""
+    with EvidenceLedger(str(tmp_path / "l.db")) as ledger:
+        ledger.append("evaluation_result", {"slope": 0.4116, "intercept": -4.77},
+                      study_id="s0")
+        payload = ledger.read_events(role=Role.PROPOSER, study_id="s0")[0]["payload"]
+    assert set(payload.values()) == {"<redacted:effect-field>"}

@@ -248,4 +248,16 @@ def test_prompt_goes_through_stdin_not_the_command_line():
     provider = ClaudeCliProvider(dry_run=True)
     command = provider.command()
     assert not any("请提出" in part for part in command)
-    assert len(command) <= 3
+    assert all(len(part) < 64 for part in command)
+    assert "claude-opus-5" in command
+
+
+def test_a_prompt_leaking_a_prefixed_effect_field_is_refused():
+    """`mde_at_2p8_se` 不在名单里，但它泄漏量级。前缀规则必须拦住它。"""
+    with pytest.raises(ContextLeak, match="mde_at_2p8_se"):
+        assert_blinded("上一轮的 mde_at_2p8_se 是 0.204", Role.PROPOSER)
+
+
+def test_prefix_rule_does_not_fire_on_ordinary_words():
+    """sc_rv_next_session 里没有独立的 se_ 前缀词，不能误伤正常上下文。"""
+    assert_blinded("目标是 sc_rv_next_session，样本段 discovery", Role.PROPOSER)

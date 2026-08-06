@@ -242,3 +242,48 @@ def test_a_leaking_guidance_would_be_caught():
 def test_format_feedback_refuses_to_emit_effect_words():
     with pytest.raises(ContextLeak):
         format_feedback({"study_id": "sharpe 很高", "blocked_reasons": []}, "blocked")
+
+
+def test_zscore_refuses_to_pretend_it_standardised_anything():
+    """原样返回输入会让评价机为一个并非规格声明的数出具结果。宁可判 blocked。"""
+    from arad.features.interpreter import StepNotImplemented
+
+    spec = FeatureSpec(
+        feature_id="f", mechanism="m", output_step="z",
+        failure_condition="窗口内无数据", authored_by="t",
+        steps=[
+            Step(name="w", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                 field="close", op=Op.MEAN, window_seconds=600),
+            Step(name="z", kind=StepKind.ZSCORE, inputs=["w"], window_seconds=86400),
+        ],
+    )
+    series = {(Source.COMMODITY_BAR, "close"): BarSeries(
+        field="close",
+        times=[datetime(2026, 1, 1, 9, 0, tzinfo=UTC)],
+        values=[1.0],
+    )}
+    with pytest.raises(StepNotImplemented, match="zscore"):
+        evaluate_spec(spec, datetime(2026, 1, 1, 10, 0, tzinfo=UTC), series)
+
+
+def test_describe_is_lossless_so_the_spec_can_be_rebuilt_from_the_ledger():
+    """账本里存的是 describe()。规格若不能从证据里重建，快照就不自包含。"""
+    spec = FeatureSpec(
+        feature_id="f", mechanism="m", output_step="r",
+        failure_condition="分母退化", authored_by="t",
+        steps=[
+            Step(name="a", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                 field="realised_volatility", op=Op.STD, window_seconds=432000),
+            Step(name="b", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                 field="realised_volatility", op=Op.MEAN, window_seconds=432000),
+            Step(name="r", kind=StepKind.RATIO, inputs=["a", "b"]),
+        ],
+    )
+    described = spec.describe()
+    rebuilt = FeatureSpec(
+        feature_id=described["feature_id"], mechanism=described["mechanism"],
+        steps=[Step(**s) for s in described["steps"]],
+        output_step=described["output_step"],
+        failure_condition=described["failure_condition"], authored_by="t",
+    )
+    assert rebuilt.content_id == spec.content_id

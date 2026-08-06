@@ -48,10 +48,12 @@ TIMELINE_LABELS = {
     "evaluation_result": "评价机出具结构化结果",
     "verdict_recorded": "判决入账",
     "parse_failure": "输出无法解析为结构化提案",
-    "source_gap": "所需数据源尚未接入解释器",
+    "interpretation_gap": "解释器尚不能求值该规格（数据源或步骤类型缺口）",
     "primitive_gap_declared": "声明原语缺口",
     "provider_error": "provider 调用故障",
     "invalid_proposal": "提案缺必填字段",
+    "context_blocked": "上下文组装泄漏效果字段，调用被拒绝",
+    "provider_repair": "模型首次输出不合规，按修复提示重试后通过",
 }
 
 

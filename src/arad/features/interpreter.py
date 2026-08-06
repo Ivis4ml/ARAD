@@ -20,8 +20,21 @@ from datetime import datetime, timedelta
 from .spec import FeatureSpec, Op, Source, Step, StepKind
 
 
-class SourceNotImplemented(RuntimeError):
-    """该数据源尚未接入解释器。这是缺口，应被记录并驱动扩展。"""
+class NotInterpretable(RuntimeError):
+    """解释器尚不能求值这条规格。这是缺口，应被记录并驱动扩展。"""
+
+
+class SourceNotImplemented(NotInterpretable):
+    """该数据源尚未接入解释器。"""
+
+
+class StepNotImplemented(NotInterpretable):
+    """该步骤类型在语言里可表达，但解释器还没实现它的语义。
+
+    **绝不能退化为恒等映射。**把 zscore 当成"原样返回"会让评价机拿到的数不是规格
+    声明的那个数，而结果照样被记成该规格的证据 —— 这正是评价机被建出来要拦的
+    单位错误形态，只不过发生在解释器内部，没有任何检查能看见。宁可判 blocked。
+    """
 
 
 class FeatureUndefined(RuntimeError):
@@ -98,11 +111,16 @@ def evaluate_step(
         a, b = (computed[i] for i in step.inputs)
         return None if a is None or b is None else a - b
     if step.kind is StepKind.ZSCORE:
-        # 标准化所需的历史分布由调用方以同名 baseline 序列提供；
-        # 缺失时返回 None 而不是伪装成 0
-        return computed[step.inputs[0]]
+        raise StepNotImplemented(
+            "zscore 尚未实现：标准化需要该步骤在过去窗口上的自身分布，"
+            "而解释器目前只持有原始序列。原样返回输入等于让评价机为一个"
+            "并非规格声明的数出具结果，因此拒绝求值"
+        )
     if step.kind is StepKind.RESIDUALISE:
-        return computed[step.inputs[0]]
+        raise StepNotImplemented(
+            "residualise 尚未实现：残差化需要控制序列，解释器目前不持有它们。"
+            "原样返回输入等于把未残差化的值当成已残差化的证据"
+        )
     raise ValueError(f"未实现的步骤类型 {step.kind}")
 
 

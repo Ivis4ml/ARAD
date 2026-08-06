@@ -73,13 +73,44 @@ class ContextBundle:
         }
 
 
+#: 每种步骤的必填与可选字段。**必须告诉模型确切的字段名** ——
+#: `Step` 与 `FeatureSpec` 都是 `extra="forbid"`，模型多写一个 `description`
+#: 就整条规格被拒。schema 是合同，把合同藏起来再指责对方违约是不讲理的。
+STEP_SCHEMA: dict[str, dict] = {
+    "window": {"required": ["name", "kind", "source", "field", "op", "window_seconds"],
+               "optional": ["offset_seconds"]},
+    "innovation": {"required": ["name", "kind", "source", "field", "op",
+                                "window_seconds", "baseline_seconds"],
+                   "optional": ["offset_seconds"],
+                   "note": "baseline_seconds 必须长于 window_seconds"},
+    "ratio": {"required": ["name", "kind", "inputs"], "note": "inputs 恰好两个已定义步骤名"},
+    "difference": {"required": ["name", "kind", "inputs"], "note": "inputs 恰好两个"},
+    "zscore": {"required": ["name", "kind", "inputs", "window_seconds"],
+               "note": "inputs 恰好一个"},
+    "residualise": {"required": ["name", "kind", "inputs", "controls"],
+                    "note": "inputs 恰好一个；controls 至少一个已登记的 Baseline Control"},
+}
+
+#: FeatureSpec 自身的字段。同样是 extra="forbid"。
+FEATURE_SPEC_SCHEMA = {
+    "required": ["feature_id", "mechanism", "steps", "output_step",
+                 "failure_condition", "authored_by"],
+    "optional": ["code_artifact_id"],
+    "note": "output_step 必须是 steps 里某个步骤的 name；步骤按依赖顺序排列",
+}
+
+
 def primitive_catalogue() -> dict:
     """提案器能用的全部原语。窄是刻意的，缺口应被声明而不是绕过。"""
     return {
         "sources": sorted(s.value for s in Source),
         "step_kinds": sorted(k.value for k in StepKind),
         "aggregations": sorted(o.value for o in Op),
+        "step_schema": STEP_SCHEMA,
+        "feature_spec_schema": FEATURE_SPEC_SCHEMA,
         "hard_rules": [
+            ("字段名以 step_schema 与 feature_spec_schema 为准；"
+             "**多写任何字段都会使整条规格被拒**"),
             "所有窗口结束于决策时点之前；offset_seconds 只能非负",
             "特征必须声明经济含义（mechanism）与失败条件（failure_condition）",
             "步骤按依赖顺序排列，不允许环",
@@ -192,7 +223,13 @@ def render_proposer_prompt(facts: dict, biases: list[DeclaredBias]) -> str:
         "## 输出",
         "",
         (
-            "只输出一个 JSON 对象，字段见 output_contract。特征必须用 primitives 里列出的"
+            "只输出一个 JSON 对象，不要有任何解释文字或围栏之外的内容。"
+            "字段名严格以 primitives.step_schema 与 primitives.feature_spec_schema 为准："
+            "**多写一个字段整条规格就会被拒绝**。"
+        ),
+        "",
+        (
+            "字段见 output_contract。特征必须用 primitives 里列出的"
             "原语表达；若现有原语无法表达你想要的机制，改为输出 "
             '`{"unsupported_mechanism": {...}}`，说明缺哪个原语以及为什么现有的不够用。'
             "声明缺口是有价值的产出，不是失败。"
