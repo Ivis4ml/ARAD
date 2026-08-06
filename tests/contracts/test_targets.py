@@ -386,3 +386,57 @@ def test_a_return_label_must_declare_a_tradable_claim():
         TargetSpec(name="x", kind="primary", description="d", execution_lag_seconds=60,
                    tradable_claim=False, params={"entry_offset_minutes": 1},
                    label_rule="entry_to_close")
+
+
+# ---------------------------------------------------------------- 实测钉子（需 spine）
+
+import os
+
+_SPINE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "data", "spine", "sc",
+)
+_RV = os.path.join(_SPINE, "target_sc_rv_next_session.parquet")
+_RET = os.path.join(_SPINE, "target_sc_ret_next_session.parquet")
+
+
+@pytest.mark.skipif(not os.path.exists(_RV), reason="需要先运行 spine build")
+def test_the_float_gap_session_is_recorded_as_no_trade_not_as_a_real_zero():
+    """钉住修复：全库扫描出的浮点缝隙只有两个 session，其中这一个进了主力视图。
+
+    修复前它是 `value=0.0, no_trade=False` —— 一手都买不到的 session 记成真实的零。
+    `spine verify` 抓不到这一类：它重建目标再与同一次运行写下的指纹比对，
+    自洽但不校验语义。
+    """
+    import pyarrow.parquet as pq
+
+    rows = pq.read_table(_RV).to_pylist()
+    locked = [r for r in rows if r["no_trade_reason"] == "limit_locked"]
+    assert len(locked) == 4
+    hit = next(
+        r for r in rows
+        if (r["contract"], r["trading_day"], r["session_name"]) == ("sc2604", 20260303, "day")
+    )
+    assert hit["no_trade"] is True
+    assert hit["no_trade_reason"] == "limit_locked"
+    assert hit["value"] is None
+
+
+@pytest.mark.skipif(not os.path.exists(_RET), reason="需要先运行 spine build")
+def test_the_return_target_matches_its_measured_coverage():
+    import pyarrow.parquet as pq
+
+    rows = pq.read_table(_RET).to_pylist()
+    reasons = {}
+    for r in rows:
+        if r["no_trade"]:
+            reasons[r["no_trade_reason"]] = reasons.get(r["no_trade_reason"], 0) + 1
+    assert len(rows) == 1816
+    assert sum(1 for r in rows if not r["no_trade"]) == 1782
+    assert reasons == {"no_ticks": 24, "entry_at_price_limit": 6, "exit_at_price_limit": 4}
+    # 有取值就必须两个价都在，且取值确实是它们的对数比
+    for r in rows:
+        if not r["no_trade"]:
+            assert r["entry_price"] > 0 and r["exit_price"] > 0
+            assert abs(r["value"] - math.log(r["exit_price"] / r["entry_price"])) < 1e-12
+            assert r["label_start"] == r["execution_time"]

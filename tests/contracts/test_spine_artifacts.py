@@ -16,7 +16,10 @@ from datetime import datetime
 import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CHECKLIST = os.path.join(REPO, "artifacts", "manifests", "sc_replay_checklist.json")
+#: 人工回放清单现在按 target 各出一份，只有承载可交易主张的 target 才有
+CHECKLIST = os.path.join(
+    REPO, "artifacts", "manifests", "sc_replay_checklist_sc_ret_next_session.json"
+)
 SPINE_MANIFEST = os.path.join(REPO, "artifacts", "manifests", "sc_temporal_spine.json")
 COMMODITY_MANIFEST = os.path.join(REPO, "artifacts", "manifests", "commodity_tick.json")
 BARS_DAILY = os.path.join(REPO, "data", "spine", "sc", "bars_daily")
@@ -37,7 +40,7 @@ def parse(value: str) -> datetime:
 @pytest.fixture(scope="module")
 def checklist():
     assert os.path.exists(CHECKLIST), (
-        "缺少 artifacts/manifests/sc_replay_checklist.json；"
+        f"缺少 {CHECKLIST}；"
         "请运行 python -m arad.cli spine replay"
     )
     return load(CHECKLIST)

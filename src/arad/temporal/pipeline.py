@@ -456,9 +456,10 @@ def spine_replay(
     product = PRODUCTS[cfg["product"]]
     data_dir = cfg["output"]["data_dir"]
     manifest_dir = cfg["output"]["manifest_dir"]
-    spec = TARGET_SPECS[0]
-    target_path = os.path.join(data_dir, f"target_{spec.name}.parquet")
-    rows = pq.read_table(target_path).to_pylist()
+    # 人工回放清单是 M2 的人工核验产物。**承载可交易主张的 target 必须各有一份** ——
+    # 只给第一个 spec 出清单，等于让唯一带 tradable_claim 的目标没有可手工核对的样本，
+    # 而后置条件只验 value == log(exit/entry)，验不出 entry 取的是不是该取的那一笔。
+    specs = [s for s in TARGET_SPECS if s.tradable_claim] or [TARGET_SPECS[0]]
 
     if manifest_fingerprint is None:
         with open(
@@ -562,24 +563,28 @@ def spine_replay(
 
     seed = int(cfg["replay"]["seed"])
     size = int(cfg["replay"]["sample_size"])
-    sampled = stratified_sample(rows, seed=seed, size=size)
-    checklist = build_checklist(
-        sampled,
-        probes,
-        seed=seed,
-        size=size,
-        spine_fingerprint=manifest_fingerprint,
-        target_name=spec.name,
-        product=product.product,
-    )
-    json_path = os.path.join(manifest_dir, f"{product.product}_replay_checklist.json")
-    md_path = os.path.join(manifest_dir, f"{product.product}_replay_checklist.md")
-    with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(checklist, f, ensure_ascii=False, indent=2)
-        f.write("\n")
-    with open(md_path, "w", encoding="utf-8") as f:
-        f.write(render_markdown(checklist))
-    print(f"wrote {json_path} and {md_path}")
+    for spec in specs:
+        rows = pq.read_table(
+            os.path.join(data_dir, f"target_{spec.name}.parquet")
+        ).to_pylist()
+        checklist = build_checklist(
+            stratified_sample(rows, seed=seed, size=size),
+            probes,
+            seed=seed,
+            size=size,
+            spine_fingerprint=manifest_fingerprint,
+            target_name=spec.name,
+            product=product.product,
+        )
+        stem = f"{product.product}_replay_checklist_{spec.name}"
+        json_path = os.path.join(manifest_dir, f"{stem}.json")
+        md_path = os.path.join(manifest_dir, f"{stem}.md")
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(checklist, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        with open(md_path, "w", encoding="utf-8") as f:
+            f.write(render_markdown(checklist))
+        print(f"wrote {json_path} and {md_path}")
     return 0
 
 

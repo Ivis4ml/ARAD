@@ -106,6 +106,8 @@ def build_checklist(
                 "no_trade": bool(row["no_trade"]),
                 "no_trade_reason": row["no_trade_reason"],
                 "n_returns": row["n_returns"],
+                "entry_price": row.get("entry_price"),
+                "exit_price": row.get("exit_price"),
                 "features": features,
                 "unavailable_sources": unavailable,
             }
@@ -144,6 +146,15 @@ def render_markdown(checklist: dict) -> str:
         lines.append(f"- label 窗口：`{e['label_start']}` → `{e['label_end']}`")
         if e["no_trade"]:
             lines.append(f"- 目标值：NULL（no-trade：{e['no_trade_reason']}）")
+        elif e.get("entry_price") is not None:
+            lines.append(
+                f"- 目标值：{e['target_value']:.8g}"
+                f" = ln({e['exit_price']:.8g} / {e['entry_price']:.8g})"
+            )
+            lines.append(
+                "  - 请人工核对：入场价是否为**执行时点那一分钟最后一笔**的收盘，"
+                "出场价是否为 session 最后一根 bar 的收盘，两者是否都不在涨跌停上"
+            )
         else:
             lines.append(f"- 目标值：{e['target_value']:.8g}（{e['n_returns']} 个 1 分钟收益）")
         lines.append("")
