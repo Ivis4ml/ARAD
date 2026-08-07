@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ..features.spec import FeatureSpec, Op, StepKind
+from ..features.spec import FeatureSpec, Op, Step, StepKind
 
-AUDIT_VERSION = "0.1.0"
+AUDIT_VERSION = "0.2.0"
 
 #: 封闭的错配词表。审计员只能从这里挑，不能自由写 —— 自由文本会成为一条把效应
 #: 走私给下一版提案器的通道，而这正是本模块存在的理由。
@@ -73,14 +73,41 @@ class AuditInput:
     visible_span_seconds: int | None = None
 
 
-def _measures_magnitude(feature: FeatureSpec) -> bool:
-    if any(s.op in _MAGNITUDE_OPS for s in feature.steps):
+def _leaf_is_magnitude(step: Step) -> bool:
+    """叶子步骤的取值是不是**无方向的量级**。只看字段名与算子，不看散文。"""
+    if step.op in _MAGNITUDE_OPS:
         return True
-    haystack = " ".join(
-        [feature.mechanism.lower(), feature.feature_id.lower()]
-        + [(s.field or "").lower() for s in feature.steps]
-    )
-    return any(hint in haystack for hint in _MAGNITUDE_HINTS)
+    field = (step.field or "").lower()
+    return any(hint in field for hint in _MAGNITUDE_HINTS)
+
+
+def _measures_magnitude(feature: FeatureSpec) -> bool:
+    """特征的**输出**是不是无方向的量级。沿 DAG 从输出步骤反推。
+
+    原实现对 `mechanism` 与 `feature_id` 做子串匹配，因此任何用波动率做分母的
+    有符号特征都被判为幅度。实测：模型连续七轮提出
+    `sum(log_return) / mean(realised_volatility)`（波动率归一的有符号收益，
+    分子带符号），七轮全被拦下 —— 而这恰恰是对「幅度对方向」的正确回应。
+    它无法逃出这个判定：要表达「按波动率归一」就必须提到波动率。
+
+    结构判据：叶子步骤按字段与算子判定；派生步骤**当且仅当其全部输入都是量级时**
+    才是量级。因此 `有符号 ÷ 量级` 仍然有方向，而 `量级 ÷ 量级` 是量级。
+    """
+    index = {s.name: s for s in feature.steps}
+    memo: dict[str, bool] = {}
+
+    def resolve(name: str) -> bool:
+        if name in memo:
+            return memo[name]
+        step = index[name]
+        if not step.inputs:
+            memo[name] = _leaf_is_magnitude(step)
+        else:
+            # 全部输入都是量级才是量级：一个带方向的输入就足以让输出带方向
+            memo[name] = all(resolve(i) for i in step.inputs)
+        return memo[name]
+
+    return resolve(feature.output_step)
 
 
 def audit(spec: AuditInput) -> list[SemanticMismatch]:
@@ -133,7 +160,13 @@ def unsupported_step_kinds(feature: FeatureSpec, implemented: frozenset[str]) ->
     return sorted({s.kind.value for s in feature.steps} - set(implemented))
 
 
+#: 解释器已实现的步骤类型。**当前全仓没有调用方** —— 它与
+#: `unsupported_step_kinds` 一起是留给「规格用了语言里有但解释器没实现的步骤」
+#: 那条路的，而该路径目前由解释器直接抛 `StepNotImplemented` 承担。
+#: 保留但明记未被调用，比让一份会漂的清单假装在生效好：M4.2 新增 rank_pct 时
+#: 这份清单没同步，它却一声不响，正因为没人读它。
+#: 有合同测试钉住它等于「除 residualise 之外的全部步骤类型」。
 IMPLEMENTED_STEP_KINDS = frozenset(
     {StepKind.WINDOW.value, StepKind.INNOVATION.value, StepKind.RATIO.value,
-     StepKind.DIFFERENCE.value, StepKind.ZSCORE.value}
+     StepKind.DIFFERENCE.value, StepKind.ZSCORE.value, StepKind.RANK_PCT.value}
 )

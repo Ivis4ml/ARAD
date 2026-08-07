@@ -586,3 +586,17 @@ M7.2 补充两处同类问题：（一）`--run-id` 缺省时时间戳兜底原�
 改为入队前检查标识存在即抛 `TaskIdentifierCollision`。同时把解释器的
 `ZScoreCoverage` / `zscore_reference_samples` 改名为 `ReferenceSampleCoverage` /
 `reference_samples`：rank_pct 的证据此前被记在 zscore 名下。
+
+M7.3（幅度判据改成结构的）：M7.1 把错配码送进提示词之后，模型收到了也照做了 —— 它立刻
+用上刚加的 rank_pct，把特征改成 `sum(log_return) ÷ mean(realised_volatility)` 再取分位排名，
+即波动率归一的**有符号**收益。七轮全部仍被 `magnitude_vs_signed_label` 拦下，因为判据对
+**机制散文**做子串匹配，而要表达「按波动率归一」就必须提到波动率，模型无法逃出该判定。
+
+判据改为沿 DAG 从输出步骤反推，只看字段名与算子：叶子按算子（std）与字段名判定，派生步骤
+**当且仅当全部输入都是量级时**才是量级。因此 `有符号 ÷ 量级` 仍有方向，`量级 ÷ 量级` 是量级。
+用全部 16 条历史规格回测：四条真阳性（rv 均值、`std(p)`、rv÷rv、`std(rv)÷mean(rv)`）
+**全部保留**，放行的都是分子带 log_return 的构造。`AUDIT_VERSION` 升至 0.2.0。
+
+顺带：`IMPLEMENTED_STEP_KINDS` 在 M4.2 新增 rank_pct 时没同步却一声不响，因为它与
+`unsupported_step_kinds` 全仓没有调用方 —— 正是 M6 票开头点名过的「声明了却没人读」形态。
+已补上并加合同测试钉住它等于「除 residualise 之外的全部步骤类型」，注释里明记它当前无调用方。

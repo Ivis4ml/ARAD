@@ -431,3 +431,85 @@ def test_the_service_demo_never_passes_a_constant_run_id():
     fallback = src.index('run_id = run_id or datetime.now(UTC).strftime')
     call = src.index("result = run_service(")
     assert fallback < call, "运行标识必须在 run_service 之前定下来"
+
+
+# ------------------------------------------- 幅度判据必须是结构的，不是散文匹配
+
+
+def _vol_scaled_signed_return() -> FeatureSpec:
+    """波动率归一的有符号收益：分子带符号，分母是量级。
+
+    这是真实模型在被告知「幅度对方向」之后连续七轮给出的构造，
+    也正是对该诊断的**正确**回应。
+    """
+    return FeatureSpec(
+        feature_id="sc_vol_scaled_session_return", output_step="r",
+        mechanism="本 session 的对数收益，按同期已实现波动率归一后取分位排名",
+        failure_condition="参考样本不足时无定义", authored_by="t",
+        steps=[
+            Step(name="ret", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                 field="log_return", op=Op.SUM, window_seconds=86400),
+            Step(name="vol", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                 field="realised_volatility", op=Op.MEAN, window_seconds=864000),
+            Step(name="scaled", kind=StepKind.RATIO, inputs=["ret", "vol"]),
+            Step(name="r", kind=StepKind.RANK_PCT, inputs=["scaled"],
+                 window_seconds=86400 * 40, sample_every_seconds=86400, min_samples=10),
+        ],
+    )
+
+
+def _dispersion_ratio() -> FeatureSpec:
+    """量级 ÷ 量级：仍然没有方向。"""
+    return FeatureSpec(
+        feature_id="rv_dispersion_ratio", output_step="q",
+        mechanism="已实现波动率的离散度相对其自身均值",
+        failure_condition="窗口内无数据", authored_by="t",
+        steps=[
+            Step(name="sd", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                 field="realised_volatility", op=Op.STD, window_seconds=864000),
+            Step(name="mu", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                 field="realised_volatility", op=Op.MEAN, window_seconds=864000),
+            Step(name="q", kind=StepKind.RATIO, inputs=["sd", "mu"]),
+        ],
+    )
+
+
+def test_a_signed_quantity_scaled_by_a_magnitude_is_still_signed():
+    """实测事故：审计对 `mechanism` 与 `feature_id` 做子串匹配，
+    因此任何用波动率做分母的有符号特征都被判为幅度。
+
+    真实模型连续**七轮**提出 `sum(log_return) / mean(realised_volatility)`，
+    七轮全被拦下。它无法逃出这个判定：要表达「按波动率归一」就必须提到波动率。
+    判据必须是结构的 —— 一个带方向的输入就足以让输出带方向。
+    """
+    found = audit(an_input(_vol_scaled_signed_return(), RETURN_TARGET))
+    assert [m.code for m in found] == []
+
+
+def test_a_magnitude_over_a_magnitude_is_still_caught():
+    """真阳性必须原样保留，否则这不是修判据，是把闸门拆了。"""
+    found = audit(an_input(_dispersion_ratio(), RETURN_TARGET))
+    assert [m.code for m in found] == ["magnitude_vs_signed_label"]
+
+
+def test_prose_alone_no_longer_decides():
+    """机制文字提到波动率，而特征取的是对数收益：结构说了算。"""
+    spec = FeatureSpec(
+        feature_id="plain_momentum", output_step="w",
+        mechanism="在高 volatility 环境下，动量的持续性更强",
+        failure_condition="窗口内无数据", authored_by="t",
+        steps=[Step(name="w", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                    field="log_return", op=Op.SUM, window_seconds=86400)],
+    )
+    assert audit(an_input(spec, RETURN_TARGET)) == []
+
+
+def test_the_implemented_kinds_list_matches_the_interpreter():
+    """M4.2 新增 rank_pct 时这份清单没同步，而它一声不响 —— 因为全仓没有调用方。
+
+    residualise 是唯一一个语言里可表达、解释器却抛 StepNotImplemented 的类型。
+    """
+    from arad.features.spec import StepKind as SK
+    from arad.harness.audit import IMPLEMENTED_STEP_KINDS
+
+    assert IMPLEMENTED_STEP_KINDS == {k.value for k in SK} - {SK.RESIDUALISE.value}
