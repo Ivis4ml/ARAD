@@ -232,3 +232,7 @@ pre.code { background: #131a22; color: #d7e0ea; font-family: var(--mono);
 .live-facts { display: flex; gap: 26px; flex-wrap: wrap; margin: 4px 0 10px; }
 .live-facts div { display: flex; flex-direction: column; gap: 2px; }
 .live-facts b { font-variant-numeric: tabular-nums; font-size: 1.15rem; }
+
+/* 没有取值的版本：画在轴上，空心。它存在，但它没有数 —— 两件事都要看得见。 */
+svg.curve .point.novalue { transition: opacity .3s ease; }
+svg.curve .point.novalue:hover circle { r: 5.5; }

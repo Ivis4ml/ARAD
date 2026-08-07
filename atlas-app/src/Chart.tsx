@@ -123,6 +123,28 @@ export function Chart({
         </g>
       )}
 
+      {/* 已落下但没有取值的版本。不画它，用户只会以为图坏了；画成实心点，
+          又等于伪造一个不存在的取值。因此画在轴上，空心，明说它没有取值。
+          实测：run3-study-0 那条 14 点的链前 6 点全部如此 —— 它们被语义审计拦下，
+          根本没读 outcome，因此地板不因它们抬高。那是审计在替我们省预算的证据，
+          此前在图上完全看不见。 */}
+      {points.slice(0, shown).map((p, i) =>
+        p.value !== null && Number.isFinite(p.value) ? null : (
+          <g key={`novalue-${p.study_id}`} onClick={() => onSelect(p.study_id)}
+             style={{ cursor: 'pointer' }} className="point novalue">
+            <line x1={x(i)} y1={pad.top + innerH - 7} x2={x(i)} y2={pad.top + innerH + 7}
+                  stroke={VERDICT_FILL[p.verdict] ?? '#8a8f98'} strokeWidth={2}
+                  opacity={0.75} />
+            <circle cx={x(i)} cy={pad.top + innerH} r={4} fill="none"
+                    stroke={VERDICT_FILL[p.verdict] ?? '#8a8f98'} strokeWidth={1.5} />
+            <title>
+              {`${p.study_id}\n${p.verdict}\n这一版没有取值：未读 outcome，`
+                + `因此不计入统计分母，零假设带不因它抬高`}
+            </title>
+          </g>
+        ),
+      )}
+
       {points.slice(0, shown).map((p, i) =>
         p.value === null || !Number.isFinite(p.value) ? null : (
           <g key={p.study_id} onClick={() => onSelect(p.study_id)}
