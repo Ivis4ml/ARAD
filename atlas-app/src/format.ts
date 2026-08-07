@@ -35,3 +35,15 @@ export const METRIC_HAS_NULL_BAND: Record<string, boolean> = {
   ic_spearman: false,
   sharpe: true,
 }
+
+/** 秒 → 人类单位。**整除才升单位，除不尽就退回原始秒数。**
+ *  出现「1.4 日」就等于把规格改写过了，而规格是被审计的对象。 */
+export function dur(seconds: number | null | undefined): string {
+  if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) return '—'
+  if (seconds === 0) return '0'
+  const ladder: Array<[string, number]> = [['日', 86400], ['时', 3600], ['分', 60]]
+  for (const [unit, size] of ladder) {
+    if (seconds >= size && seconds % size === 0) return `${seconds / size} ${unit}`
+  }
+  return `${seconds} 秒`
+}

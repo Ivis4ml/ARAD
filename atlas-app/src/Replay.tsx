@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Beat, Chain, Projection, Study } from './types'
 import { Chart } from './Chart'
 import { SPEEDS, useReplay } from './useReplay'
+import { makeDraw, pin, redraw, seedHex } from './draw'
 import { METRIC_HAS_NULL_BAND, METRIC_LABELS, num, when } from './format'
 import { Value, VerdictChip } from './Value'
 import { StudyPanel } from './StudyPanel'
@@ -29,8 +30,11 @@ export function Replay({ p }: { p: Projection }) {
   const chain: Chain | null =
     p.lineage.find((c) => c.chain_id === chainId) ?? p.lineage[0] ?? null
   const beats = p.replay
-  // 起始点停在「第一次读 outcome」：前面十几拍是组装与冻结，看不出这个页面要讲的事
-  const start = p.key_moments.find((m) => m.label.includes('读 outcome'))?.beat ?? 0
+  // 开场抽签：随机只决定**从哪一拍走进这个过程**。判决区在它上面，抽签够不到结论。
+  const [draw] = useState(() => makeDraw(p.key_moments))
+  const [pinned, setPinned] = useState(draw.pinned)
+  const start = draw.entry?.beat
+    ?? p.key_moments.find((m) => m.label.includes('读 outcome'))?.beat ?? 0
   const r = useReplay(beats, start)
   const byId = useMemo(
     () => Object.fromEntries(p.studies.map((s) => [s.study_id, s])) as Record<string, Study>,
@@ -134,8 +138,22 @@ export function Replay({ p }: { p: Projection }) {
             </span>
           </div>
 
+          <div className="ribbon">
+            <span className="drew">开场抽签 {seedHex(draw.seed)}</span>
+            {draw.entry && (
+              <span>从第 <b>{draw.entry.beat + 1}</b> 拍进入：{draw.entry.label}</span>
+            )}
+            <button onClick={redraw}>再抽一次</button>
+            <button onClick={() => setPinned(pin(draw.seed))}>
+              {pinned ? '已固定这一抽' : '固定这一抽'}
+            </button>
+            {draw.entry && <span className="why">{draw.entry.why}</span>}
+          </div>
+
           <div className="moments">
             <span className="muted small">跳到：</span>
+            <button className={r.cursor === 0 ? 'moment on' : 'moment'}
+                    title="从头看整个过程" onClick={() => r.step(-r.cursor)}>第 1 拍</button>
             {p.key_moments.map((m) => (
               <button key={m.beat} title={m.why}
                       className={r.cursor === m.beat ? 'moment on' : 'moment'}

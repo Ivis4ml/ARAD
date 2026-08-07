@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Projection } from './types'
 import { Overview } from './Overview'
 import { Evolution } from './Evolution'
 import { Replay } from './Replay'
 import { Process } from './Process'
 import { StudyPanel } from './StudyPanel'
+import { Slab } from './Slab'
 import { VerdictChip } from './Value'
 
 const TABS = [
@@ -17,49 +18,33 @@ const TABS = [
 
 export function App({ p }: { p: Projection }) {
   const [tab, setTab] = useState<(typeof TABS)[number]['id']>('replay')
+  // 判决区滚出视野后，把它压缩成 tabs 里的一行 —— 结论不该只在第一屏存在
+  const [condensed, setCondensed] = useState(false)
+  const sentinel = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const node = sentinel.current
+    if (!node || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(([e]) => setCondensed(!e.isIntersecting))
+    io.observe(node)
+    return () => io.disconnect()
+  }, [])
   return (
     <>
-      <header className="hero">
-        <div className="col">
-          <span className="eyebrow">ARAD · Research Atlas</span>
-          <h1 style={{ marginTop: 12 }}>研究过程的只读投影</h1>
-          <p className="lede">
-            Atlas 读账本，不写账本，不重算任何统计量。每个数字都来自评价机存下的记录；
-            forward 段的数据与标签在这里同样不可见，只显示预约状态。
-          </p>
-          <div className="chips">
-            <div className={`chip ${p.chain.intact ? 'ok' : 'bad'}`}>
-              <span className="k">哈希链</span>
-              <span className="v">{p.chain.intact ? '完整' : '断裂'}</span>
-            </div>
-            <div className="chip">
-              <span className="k">账本事件</span><span className="v">{p.chain.events}</span>
-            </div>
-            <div className="chip">
-              <span className="k">Study</span><span className="v">{p.studies.length}</span>
-            </div>
-            <div className="chip">
-              <span className="k">提案分母</span>
-              <span className="v">{p.denominators.proposal_denominator}</span>
-            </div>
-            <div className="chip">
-              <span className="k">统计分母</span>
-              <span className="v">{p.denominators.statistical_denominator}</span>
-            </div>
-            <div className="chip">
-              <span className="k">演化链</span><span className="v">{p.lineage.length}</span>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Slab p={p} />
+      <div ref={sentinel} aria-hidden="true" />
 
-      <nav className="tabs">
+      <nav className="tabs" data-condensed={condensed ? 'true' : 'false'}>
         <div className="col">
           {TABS.map((t) => (
             <button key={t.id} aria-selected={tab === t.id} onClick={() => setTab(t.id)}>
               {t.label}
             </button>
           ))}
+          <span className="verdict-mini">
+            CANDIDATE <b>{p.verdicts.candidate ?? 0}</b>　·　
+            <b>{p.denominators.statistical_denominator}</b> 次检验　·　
+            链<b>{p.chain.intact ? '完整' : '断裂'}</b>
+          </span>
         </div>
       </nav>
 

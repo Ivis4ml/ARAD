@@ -447,7 +447,8 @@ def _key_moments(beats: list[dict], chains: list[dict], metric: str = "abs_t") -
 
 
 def _search_verdict(
-    lineage: list[dict], denominators: dict, notes: list[dict], metric: str = "abs_t"
+    lineage: list[dict], denominators: dict, notes: list[dict], verdicts: dict,
+    metric: str = "abs_t",
 ) -> dict | None:
     """整轮搜索的结论。**app 不算任何东西，这里把该比的都比好。**
 
@@ -473,7 +474,18 @@ def _search_verdict(
         (n["payload"].get("stopped_because") for n in notes
          if n["event_type"] == "service_stopped"), None,
     )
+    review = any(n["event_type"] == "human_review_required" for n in notes)
+    candidates = verdicts.get("candidate", 0)
+    # 判决句由投影层撰写，不由 app 里的分支逻辑拼：它与账本同源、可审计，
+    # 也保证同一份产物在任何人打开时说的是同一句话。
+    if candidates:
+        headline = f"这一轮留下了 {candidates} 个待确认的候选。"
+    elif review:
+        headline = "这一轮没有留下可用的发现，是否继续搜索已交回人工判断。"
+    else:
+        headline = "这一轮没有留下可用的发现。"
     return {
+        "headline": headline,
         "metric": metric,
         "family": denominators.get("family"),
         "best_value": best_value,
@@ -483,9 +495,7 @@ def _search_verdict(
         "statistical_denominator": denominators.get("statistical_denominator"),
         "proposal_denominator": denominators.get("proposal_denominator"),
         "stopped_because": stopped,
-        "human_review_required": any(
-            n["event_type"] == "human_review_required" for n in notes
-        ),
+        "human_review_required": review,
         "caveat": (
             "零假设带按检验独立计算，而同族变体高度相关，因此它偏严："
             "没越过带不等于确定无效，越过了也还要过成本与容量这一关"
@@ -616,7 +626,7 @@ def project(
     replay = _replay(events)
     notes = _service_notes(events)
     return AtlasProjection(
-        search_verdict=_search_verdict(lineage, denominators, notes),
+        search_verdict=_search_verdict(lineage, denominators, notes, verdicts),
         chain=chain,
         lineage=lineage,
         replay=replay,

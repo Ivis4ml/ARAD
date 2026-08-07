@@ -137,6 +137,20 @@ export type Projection = {
   lineage: Chain[]
   replay: Beat[]
   key_moments: Array<{ label: string; beat: number; why: string }>
+  search_verdict: {
+    headline: string
+    metric: string
+    family: string | null
+    best_value: number
+    best_study_id: string
+    null_threshold: number | null
+    exceeded_band: boolean
+    statistical_denominator: number
+    proposal_denominator: number
+    stopped_because: string | null
+    human_review_required: boolean
+    caveat: string
+  } | null
   service_notes: Array<{ event_type: string; at: string; payload: Record<string, unknown> }>
   curve_metrics: string[]
   data_freshness: Freshness[]

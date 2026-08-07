@@ -1,3 +1,5 @@
+@import './tokens.css';
+
 /* 取自 Alpha-Data/docs 的报告版式：浅底、白面板、等宽标签、表格数字对齐。
    目的不是好看，是让读的人一眼分得清「证据」与「说明」。 */
 :root {
@@ -32,7 +34,7 @@ header.hero { padding: 54px 0 22px; border-bottom: 1px solid var(--line); backgr
         background: var(--panel); border-radius: 10px; padding: 10px 14px; min-width: 128px; }
 .chip .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
            text-transform: uppercase; color: var(--muted); }
-.chip .v { font-size: 19px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.chip .v { font-size: 17px; font-weight: 750; font-variant-numeric: tabular-nums; }
 .chip.bad { border-color: var(--error); }
 .chip.bad .v { color: var(--error); }
 .chip.ok .v { color: var(--candidate); }
@@ -44,15 +46,15 @@ nav.tabs button { appearance: none; border: 0; background: none; font: inherit;
                   padding: 13px 16px; cursor: pointer; color: var(--muted);
                   border-bottom: 2px solid transparent; }
 nav.tabs button[aria-selected="true"] { color: var(--ink); font-weight: 700;
-                                        border-bottom-color: var(--accent); }
+                                        border-bottom-color: var(--mark); }
 main { padding: 30px 0 80px; }
-section { margin-bottom: 34px; }
+section { margin-bottom: var(--s7); }
 .section-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
 .section-head .idx { font-family: var(--mono); font-size: 12px; font-weight: 700;
-                     color: var(--accent); letter-spacing: 0.05em; }
+                     color: var(--muted); letter-spacing: 0.05em; }
 
 .panel { border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
-         padding: 18px 20px; }
+         padding: var(--s4) var(--s5); }
 .grid2 { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr); gap: 18px; }
 @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
 
@@ -77,7 +79,7 @@ tbody tr.clickable:hover { background: var(--line-soft); }
 
 .notice { border-left: 3px solid var(--underpowered); background: var(--panel);
           padding: 10px 14px; margin: 12px 0; font-size: 13.5px; }
-.notice.strong { border-left-color: var(--accent); }
+.notice.strong { border-left-color: var(--rule); }
 .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12.5px; color: var(--muted);
           margin-top: 10px; }
 .legend span { display: flex; align-items: center; gap: 6px; }
@@ -119,9 +121,9 @@ footer { border-top: 1px solid var(--line); padding: 18px 0 40px; color: var(--m
 
 .counters { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 6px; }
 .chip.counter { min-width: 104px; padding: 8px 12px; }
-.chip.counter .v { font-size: 22px; }
-.chip.counter.accent { border-color: var(--accent); }
-.chip.counter.accent .v { color: var(--accent); }
+.chip.counter .v { font-size: var(--n-stat); }
+.chip.counter.accent { border-color: var(--mark); }
+.chip.counter.accent .v { color: var(--mark); }
 /* 计数跳动：数字变了就重挂一次，让「又看了一次」这件事被看见 */
 .chip.counter .v { animation: tick .45s cubic-bezier(.2,.9,.3,1); }
 @keyframes tick {
@@ -147,7 +149,8 @@ svg.curve .pending { animation: breathe 1.8s ease-in-out infinite; }
   border-radius: 8px; background: var(--ground); padding: 11px 14px; margin: 12px 0 4px;
   animation: fadein .4s ease; }
 @keyframes fadein { from { opacity: 0; transform: translateY(6px) } to { opacity: 1 } }
-.beatcard.stage-look { border-left-color: var(--accent); background: #fdf3f1; }
+/* 读 outcome 是一次花费，不是一个错误：中性底 */
+.beatcard.stage-look { border-left-color: var(--band); background: #f4f5f7; }
 .beatcard.stage-verdict { border-left-color: var(--candidate); }
 .beatcard.stage-failure, .beatcard.stage-gap { border-left-color: var(--underpowered); }
 .beathead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
@@ -171,7 +174,7 @@ ol.beats li.current button { opacity: 1; font-weight: 650; }
 ol.beats .seq { color: var(--muted); }
 ol.beats .stage { font-family: var(--mono); font-size: 10.5px; color: var(--teal);
   letter-spacing: .06em; }
-ol.beats li.stage-look .stage { color: var(--accent); font-weight: 700; }
+ol.beats li.stage-look .stage { color: var(--band); font-weight: 700; }
 ol.beats .who { color: var(--muted); font-size: 11px; }
 ol.beats .what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -180,5 +183,13 @@ ol.beats .what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   border: 1px dashed var(--line); border-radius: 999px; background: var(--panel);
   color: var(--muted); cursor: pointer; }
 .moments button.moment:hover { border-color: var(--teal); color: var(--teal); }
-.moments button.moment.on { border-style: solid; border-color: var(--accent);
-  color: var(--accent); font-weight: 650; }
+.moments button.moment.on { border-style: solid; border-color: var(--mark);
+  color: var(--mark); font-weight: 650; }
+
+.mechanism { margin: 0; border: 1px solid var(--line); border-radius: 12px;
+             background: var(--panel); padding: var(--s3) var(--s4) var(--s4); }
+.mechanism figcaption { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3);
+                        align-items: baseline; margin-bottom: var(--s2); }
+.mechanism figcaption code { font-size: var(--t-small); font-weight: 600;
+                             overflow-wrap: anywhere; }
+.mechanism .foot-note { margin-top: var(--s2); }

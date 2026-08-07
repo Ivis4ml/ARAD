@@ -1,0 +1,106 @@
+/* 设计令牌。三条规则决定了这里的每一个值：
+ *
+ * 一、色相只花在两处：可以点的地方（--mark），与判决身份（verdict 五色）。
+ *     **红色退役为完整性专用色。**用红色画一条「没有发现」的搜索，等于在版式上判它
+ *     失败 —— 而这一轮里语义审计、预注册闸门、停滞检测全都正常工作了。零假设带因此
+ *     改为中性斜纹：它是参照物，不是警报。
+ * 二、页面上最大的数字只能属于判决区。计数器是机制，不是结论。
+ * 三、唯一不是卡片的东西就是结论。
+ */
+:root {
+  --sans: -apple-system, "Segoe UI", system-ui, "PingFang SC", "Hiragino Sans GB",
+          "Microsoft YaHei", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --t-display: clamp(30px, 4.6vw, 44px);
+  --t-deck: clamp(17px, 2.1vw, 21px);
+  --t-h2: 19px; --t-h3: 15.5px; --t-body: 15px;
+  --t-small: 13.25px; --t-micro: 11.5px; --t-nano: 10.5px;
+  --n-hero: clamp(28px, 3.6vw, 34px);
+  --n-stat: 20px;
+
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
+  --s5: 24px; --s6: 32px; --s7: 48px; --s8: 72px;
+
+  --paper: #fbfbf9;
+  --ink-2: #3a4551;
+  --rule: #cfd6de;
+  --band: #737d8c;
+  --band-fill: rgba(115, 125, 140, .14);
+  --mark: #0f5f77;
+  --integrity-bad: #8a2f2f;
+}
+
+/* 中文排印：负字距对汉字有害；750 在 PingFang SC 上没有对应字重，会触发合成加粗 */
+h1, h2, h3, h4 { font-weight: 700; letter-spacing: 0; margin: 0; }
+h2 { font-size: var(--t-h2); font-weight: 600; line-height: 1.35; }
+h3 { font-size: var(--t-h3); font-weight: 600; }
+body { font-size: var(--t-body); line-height: 1.75; }
+.mono, code, table { font-variant-numeric: tabular-nums; }
+
+/* ---- 判决区：全页唯一不是卡片的元素 ---- */
+.slab { background: var(--paper); border-bottom: 1px solid var(--rule);
+        padding: var(--s7) 0 var(--s6); }
+.slab .col { display: grid; gap: var(--s4); }
+.slab .eyebrow { display: flex; gap: var(--s4); flex-wrap: wrap; color: var(--muted); }
+.verdict-line { font-size: var(--t-display); font-weight: 700; line-height: 1.28;
+                max-width: 34ch; text-wrap: balance; }
+.verdict-deck { font-size: var(--t-deck); line-height: 1.6; color: var(--ink-2);
+                max-width: 58ch; font-variant-numeric: tabular-nums; }
+.verdict-deck b { font-weight: 600; color: var(--ink); }
+.foot-note { font-size: var(--t-small); color: var(--muted); max-width: 70ch;
+             line-height: 1.7; }
+
+.tally { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5);
+         font-family: var(--mono); font-size: var(--t-micro); letter-spacing: .1em;
+         text-transform: uppercase; color: var(--muted); }
+.tally b { font-size: var(--t-small); font-weight: 600; color: var(--ink);
+           margin-left: 6px; font-variant-numeric: tabular-nums; }
+.tally .zero b { color: var(--ink-2); }
+
+.floor { margin: 0; max-width: 560px; }
+.floor .k { font-family: var(--mono); font-size: var(--t-micro); letter-spacing: .1em;
+            text-transform: uppercase; color: var(--muted); margin-bottom: var(--s2); }
+
+.settled { border-left: 2px solid var(--rule); padding: var(--s2) 0 var(--s2) var(--s4);
+           color: var(--ink-2); font-size: var(--t-small); max-width: 70ch; }
+.settled b { color: var(--ink); font-weight: 600; }
+
+.trust { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5);
+         font-family: var(--mono); font-size: var(--t-micro); color: var(--muted); }
+.trust .bad { color: var(--integrity-bad); font-weight: 700; }
+
+.verdict-mini { display: none; margin-left: auto; align-self: center;
+                font-family: var(--mono); font-size: var(--t-micro); letter-spacing: .06em;
+                color: var(--muted); white-space: nowrap; }
+nav.tabs[data-condensed="true"] .verdict-mini { display: block; }
+.verdict-mini b { color: var(--ink); font-weight: 600; }
+
+/* ---- 开场抽签的披露条 ---- */
+.ribbon { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); align-items: baseline;
+          border: 1px dashed var(--line); border-radius: 10px; background: var(--panel);
+          padding: var(--s3) var(--s4); margin: var(--s3) 0 0; font-size: var(--t-small); }
+.ribbon .drew { font-family: var(--mono); font-size: var(--t-micro); letter-spacing: .1em;
+                text-transform: uppercase; color: var(--muted); }
+.ribbon .why { color: var(--ink-2); flex-basis: 100%; }
+.ribbon button { appearance: none; font: inherit; font-size: var(--t-micro);
+                 padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px;
+                 background: none; color: var(--muted); cursor: pointer; }
+.ribbon button:hover { border-color: var(--mark); color: var(--mark); }
+
+@media (max-width: 720px) {
+  .slab { padding: var(--s6) 0 var(--s5); }
+  .slab .col { gap: var(--s3); }
+  .verdict-mini { display: none !important; }
+}
+
+/* ---- 可及性：本仓库实测过 rAF 在某些上下文里根本不触发，
+       动效一律不得承担功能，只做修饰 ---- */
+@media (prefers-reduced-motion: reduce) {
+  .intro-el { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .chip.counter .v { animation: none; }
+  svg.curve .point.landed circle { animation: none; }
+  svg.curve .pending { animation: none; opacity: .85; }
+  svg.curve path { transition: none; }
+  .beatcard { animation: none; }
+}

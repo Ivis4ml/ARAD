@@ -1,4 +1,5 @@
 import type { Study } from './types'
+import { Mechanism } from './Mechanism'
 import { Value, VerdictChip } from './Value'
 import { num, when } from './format'
 
@@ -8,6 +9,12 @@ export function StudyPanel({ study }: { study: Study }) {
   const evaluation = (snap.evaluation ?? null) as Record<string, unknown> | null
   const effects = (evaluation?.effects ?? null) as Record<string, unknown> | null
   return (
+    <>
+      {snap.feature_spec ? (
+        <section style={{ marginBottom: 'var(--s5)' }}>
+          <Mechanism spec={snap.feature_spec as never} />
+        </section>
+      ) : null}
     <div className="grid2">
       <div>
         <div className="panel">
@@ -82,11 +89,12 @@ export function StudyPanel({ study }: { study: Study }) {
           <div><Value node={snap.hypothesis_lock} /></div></details>
         <details><summary>Confirmatory Lock</summary>
           <div><Value node={snap.confirmatory_lock} /></div></details>
-        <details><summary>特征规格与工件哈希</summary>
+        <details><summary>规格原文与工件哈希</summary>
           <div><Value node={snap.feature_spec} /></div></details>
         <details><summary>判决当时可见的数据范围</summary>
           <div><Value node={snap.visible_data_range} /></div></details>
       </div>
     </div>
+    </>
   )
 }

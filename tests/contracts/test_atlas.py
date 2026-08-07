@@ -470,3 +470,17 @@ def test_a_search_that_cleared_the_band_says_so(ledger):
 def test_no_verdict_when_nothing_was_ever_evaluated(ledger):
     a_study(ledger, "s0")
     assert project(ledger, family=FAMILY).search_verdict is None
+
+
+def test_the_verdict_sentence_is_written_by_the_projection_not_the_app(ledger):
+    """同一份产物在任何人打开时必须说同一句话，因此判决句不能由前端分支拼。"""
+    a_chain(ledger, ["s0"], t_stats=[1.0])
+    ledger.append("human_review_required", {"reason": "问不出新东西"})
+    v = project(ledger, family=FAMILY).search_verdict
+    assert v["headline"] == "这一轮没有留下可用的发现，是否继续搜索已交回人工判断。"
+
+
+def test_a_run_that_stopped_without_asking_for_review_says_so_more_plainly(ledger):
+    a_chain(ledger, ["s0"], t_stats=[1.0])
+    v = project(ledger, family=FAMILY).search_verdict
+    assert v["headline"] == "这一轮没有留下可用的发现。"
