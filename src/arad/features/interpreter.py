@@ -211,6 +211,8 @@ def _evaluate(
         return a - b if _defined(a) and _defined(b) else None
     if step.kind is StepKind.ZSCORE:
         return _zscore(spec, index, step, at, ctx)
+    if step.kind is StepKind.RANK_PCT:
+        return _rank_pct(spec, index, step, at, ctx)
     if step.kind is StepKind.RESIDUALISE:
         raise StepNotImplemented(
             "residualise 尚未实现：残差化需要控制序列，解释器目前不持有它们。"
@@ -219,15 +221,18 @@ def _evaluate(
     raise ValueError(f"未实现的步骤类型 {step.kind}")
 
 
-def _zscore(
+def _reference_samples(
     spec: FeatureSpec, index: dict[str, Step], step: Step, at: datetime, ctx: EvalContext
-) -> float | None:
-    """相对输入步骤自身过去分布的标准化。
+) -> tuple[float | None, list[float], int]:
+    """取当前值与参考样本。zscore 与 rank_pct 共用，两者只在归一方式上不同。
 
     参考样本取自 `at - k * sample_every_seconds`，k = 1..window // sample_every。
     锚点就是 `at` 本身：派生步骤不接受 offset_seconds（语言层已拒绝），
     因此不存在"当前值取自 t-offset 而样本取自 t 附近"这种参考分布晚于被标准化观测
     的歧义。
+
+    互异样本数单独返回：采样步长小于数据节奏时会反复读到同一批数据，
+    重复样本既压低标准差也压缩分位排名的取值范围。
     """
     source_name = step.inputs[0]
     current = _value_of(spec, index, source_name, at, ctx)
@@ -243,6 +248,35 @@ def _zscore(
         ZScoreCoverage(step=step.name, expected=expected, defined=len(samples),
                        distinct=distinct)
     )
+    return current, samples, distinct
+
+
+def _rank_pct(
+    spec: FeatureSpec, index: dict[str, Step], step: Step, at: datetime, ctx: EvalContext
+) -> float | None:
+    """当前值在其自身过去分布中的分位排名，取值 [0,1]。
+
+    用中位秩的经验分布函数：`(#{s < x} + 0.5 * #{s == x}) / n`。平局各算一半，
+    因此常量段不会被系统性地推向 0 或 1。
+
+    存在的理由是实测的：一条真实特征的最大杠杆是 0.607，即单个观测占了回归元
+    全部变异的六成，斜率因此由那一个点决定。分位排名有界于 [0,1]，
+    无论输入的尾多重，任何单点的杠杆都受这个界约束。它换来的代价是丢掉幅度信息，
+    因此它不是 zscore 的替代，是另一个假设。
+    """
+    current, samples, distinct = _reference_samples(spec, index, step, at, ctx)
+    if not _defined(current) or distinct < (step.min_samples or 0):
+        return None
+    below = sum(1 for s in samples if s < current)
+    tied = sum(1 for s in samples if s == current)
+    return (below + 0.5 * tied) / len(samples)
+
+
+def _zscore(
+    spec: FeatureSpec, index: dict[str, Step], step: Step, at: datetime, ctx: EvalContext
+) -> float | None:
+    """相对输入步骤自身过去分布的标准化。参考样本的取法见 `_reference_samples`。"""
+    current, samples, distinct = _reference_samples(spec, index, step, at, ctx)
     if not _defined(current) or distinct < (step.min_samples or 0):
         return None
     mean = math.fsum(samples) / len(samples)

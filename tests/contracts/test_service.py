@@ -379,3 +379,24 @@ def test_the_diagnosis_is_rendered_into_the_prompt_with_its_explanation(rig):
         learned_mismatches=("斜率为负且 t 值 -2.66",),
     )
     assert "2.66" not in other.prompt
+
+
+def test_two_runs_on_the_same_queue_both_do_work(rig):
+    """队列与账本跨运行持久，因此标识必须带上运行 id。
+
+    实测：第二次运行只跑了一轮就以 `no_runnable_work` 停止 —— `auto-task-1`
+    在上一次运行里已经是 `done`，入队成了空操作。同一个缺陷更糟的一面是
+    `auto-study-N` 也会撞上，两次运行的证据被写进同一个 Study 标识下，
+    快照因此混成一份。
+    """
+    ledger, queue = rig
+    ids = []
+    for run_id in ("runA", "runB"):
+        result = _run(rig, NeverParses(), max_rounds=2, run_id=run_id)
+        assert result.stopped_because != "no_runnable_work", run_id
+        assert result.rounds == 2, run_id
+        ids += [queue.get(f"{run_id}-task-{i}")["task_id"] for i in range(2)]
+    assert len(set(ids)) == 4, "四个任务标识必须互不相同"
+    studies = {e["study_id"] for e in ledger.read_events(role=LedgerRole.HUMAN)
+               if e.get("study_id")}
+    assert {"runA-study-0", "runB-study-0"} <= studies

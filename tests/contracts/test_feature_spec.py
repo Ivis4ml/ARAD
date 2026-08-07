@@ -249,7 +249,7 @@ def test_unreachable_steps_are_rejected():
 
 
 def test_nested_zscore_is_rejected():
-    with pytest.raises(ValidationError, match="输入链上还有 zscore"):
+    with pytest.raises(ValidationError, match="输入链上还有采样类步骤"):
         a_spec(
             steps=[window("w"), a_zscore(name="z1"),
                    a_zscore(name="z2", inputs=["z1"])],

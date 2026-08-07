@@ -813,6 +813,9 @@ def run_service_demo(
             audit_input=_audit_input(sc, visible, record),
             contamination=_contamination(visible, FAMILIES_MANIFEST),
             seed_task={}, max_rounds=max_rounds, now=now,
+            # 队列与账本跨运行持久，标识必须带上运行 id：否则第二次运行的
+            # `auto-task-1` 在上一次里已经是 done，入队成空操作，服务一轮就停
+            run_id=run_id,
         )
         # 相关矩阵：只比信号之间，不读 outcome
         correlations = signal_correlations(ledger, sc, rows)

@@ -11,7 +11,7 @@ M4 票的裁决是「结构化规格为主，可执行代码为辅，但代码�
 
 from __future__ import annotations
 
-from .spec import FeatureSpec, Step, StepKind
+from .spec import SAMPLED_KINDS, FeatureSpec, Step, StepKind
 
 CODEGEN_VERSION = "0.1.0"
 
@@ -57,6 +57,13 @@ def to_formula(spec: FeatureSpec) -> list[str]:
                 f"其中 μ、σ 取自 {step.inputs[0]} 在 "
                 f"t−k×{_dur(step.sample_every_seconds)}（k=1..{(step.window_seconds or 0) // (step.sample_every_seconds or 1)}）"
                 f"上的取值，互异取值不足 {step.min_samples} 个则无定义"
+            )
+        elif step.kind is StepKind.RANK_PCT:
+            lines.append(
+                f"{step.name} = ( #{{s < {step.inputs[0]}(t)}} + ½·#{{s = {step.inputs[0]}(t)}} ) / n，"
+                f"其中 s 取自 {step.inputs[0]} 在 "
+                f"t−k×{_dur(step.sample_every_seconds)}（k=1..{(step.window_seconds or 0) // (step.sample_every_seconds or 1)}）"
+                f"上的取值，互异取值不足 {step.min_samples} 个则无定义；取值域 [0,1]"
             )
         elif step.kind is StepKind.RESIDUALISE:
             lines.append(f"{step.name} = {step.inputs[0]} 对 {', '.join(step.controls)} 残差化")
@@ -204,6 +211,34 @@ def to_python(spec: FeatureSpec) -> str:
             body.append(
                 f"        {name} = ((v_{src} - mu) / sd) if sd > 0 else None"
             )
+        elif step.kind is StepKind.RANK_PCT:
+            src = step.inputs[0]
+            k = (step.window_seconds or 0) // (step.sample_every_seconds or 1)
+            body.append("    # rank_pct：与 zscore 同一张采样网格，只是归一方式不同")
+            body.append(f"    samples_{step.name} = []")
+            body.append(f"    for k in range(1, {k} + 1):")
+            body.append(
+                f"        past = decision_time - timedelta("
+                f"seconds=k * {step.sample_every_seconds})"
+            )
+            body.append(f"        s = _at_{src}(past, series)")
+            body.append("        if _ok(s):")
+            body.append(f"            samples_{step.name}.append(s)")
+            body.append(f"    distinct_{step.name} = len(set(samples_{step.name}))")
+            body.append(
+                f"    if not _ok(v_{src}) or distinct_{step.name} < {step.min_samples}:"
+            )
+            body.append(f"        {name} = None")
+            body.append("    else:")
+            body.append(
+                f"        below = sum(1 for s in samples_{step.name} if s < v_{src})"
+            )
+            body.append(
+                f"        tied = sum(1 for s in samples_{step.name} if s == v_{src})"
+            )
+            body.append(
+                f"        {name} = (below + 0.5 * tied) / len(samples_{step.name})"
+            )
         elif step.kind is StepKind.RESIDUALISE:
             body.append(
                 "    raise NotImplementedError('residualise 需要控制序列，"
@@ -231,11 +266,11 @@ def _zscore_helpers(spec: FeatureSpec) -> str:
     index = {s.name: s for s in spec.steps}
     out: list[str] = []
     for step in spec.steps:
-        if step.kind is not StepKind.ZSCORE:
+        if step.kind not in SAMPLED_KINDS:
             continue
         target = step.inputs[0]
         lines = [f"\n\ndef _at_{target}(at: datetime, series: dict):",
-                 f'    """在任意过去时刻求 {target} 的值。zscore 的参考分布要用它。"""']
+                 f'    """在任意过去时刻求 {target} 的值。参考分布要用它。"""']
         for name in _reachable(index, target):
             sub = index[name]
             var = f"v_{name}"

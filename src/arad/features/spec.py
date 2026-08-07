@@ -24,9 +24,12 @@ from ..registry.specs import content_id
 #: 0.2.0：zscore 由"未实现"变为可求值，Step 新增 sample_every_seconds 与 min_samples，
 #: 派生步骤的 offset_seconds 由静默忽略改为拒绝。新增字段进入 model_dump，因此
 #: **全部 content id 随之改变** —— 这正是要的：旧证据与新证据不共用 id。
-FEATURE_SPEC_VERSION = "0.2.0"
+#: 0.3.0：新增 rank_pct。实测动机：一条真实特征的最大杠杆是 0.607，即单个观测占了
+#: 回归元全部变异的六成，而当时的语言里没有任何稳健变换可用。分位排名有界于 [0,1]，
+#: 单点无法主导它。
+FEATURE_SPEC_VERSION = "0.3.0"
 
-#: zscore 参考样本的硬约束。写死在语言层而不是解释器里：它们决定规格是否可能有定义。
+#: 参考样本的硬约束。写死在语言层而不是解释器里：它们决定规格是否可能有定义。
 MIN_SAMPLE_STEP_SECONDS = 60
 MIN_REFERENCE_SAMPLES = 3
 MAX_REFERENCE_SAMPLES = 512
@@ -59,13 +62,19 @@ class StepKind(str, Enum):
     RATIO = "ratio"                # 两个已算步骤之比
     DIFFERENCE = "difference"      # 两个已算步骤之差
     ZSCORE = "zscore"              # 相对过去窗口的标准化
+    RANK_PCT = "rank_pct"          # 在过去窗口分布中的分位排名，取值 [0,1]
     RESIDUALISE = "residualise"    # 对已声明控制项残差化
 
 
 #: 引用其他步骤的种类。它们没有自己的取数窗口，因此也没有 offset 的确定语义。
 DERIVED_KINDS = frozenset(
-    {StepKind.RATIO, StepKind.DIFFERENCE, StepKind.ZSCORE, StepKind.RESIDUALISE}
+    {StepKind.RATIO, StepKind.DIFFERENCE, StepKind.ZSCORE, StepKind.RANK_PCT,
+     StepKind.RESIDUALISE}
 )
+
+#: 需要在过去采样网格上重算输入的种类。两者的采样约束完全相同：
+#: 参考分布的网格与最小互异样本数都是规格的一部分，不能由实现替它决定。
+SAMPLED_KINDS = frozenset({StepKind.ZSCORE, StepKind.RANK_PCT})
 
 
 class UnsupportedMechanism(BaseModel):
@@ -154,12 +163,14 @@ class Step(BaseModel):
             raise ValueError(f"{self.kind.value} 需要恰好两个输入步骤")
         if self.kind is StepKind.RESIDUALISE and (len(self.inputs) != 1 or not self.controls):
             raise ValueError("residualise 需要一个输入步骤与至少一个控制项")
-        if self.kind is not StepKind.ZSCORE and (
+        if self.kind not in SAMPLED_KINDS and (
             self.sample_every_seconds is not None or self.min_samples is not None
         ):
-            raise ValueError("sample_every_seconds 与 min_samples 只属于 zscore 步骤")
-        if self.kind is StepKind.ZSCORE:
-            self._zscore_requirements()
+            raise ValueError(
+                "sample_every_seconds 与 min_samples 只属于 zscore 与 rank_pct 步骤"
+            )
+        if self.kind in SAMPLED_KINDS:
+            self._sampled_requirements()
         if self.kind in DERIVED_KINDS and self.offset_seconds:
             # 派生步骤此前**静默忽略** offset_seconds。让它生效会使同一个 content id
             # 算出另一个数，违反"同内容必同语义"；因此改为拒绝。滞后写在叶子 window 上。
@@ -169,12 +180,13 @@ class Step(BaseModel):
             )
         return self
 
-    def _zscore_requirements(self) -> None:
+    def _sampled_requirements(self) -> None:
+        name = self.kind.value
         if len(self.inputs) != 1 or self.window_seconds is None:
-            raise ValueError("zscore 需要一个输入步骤与一个窗口长度")
+            raise ValueError(f"{name} 需要一个输入步骤与一个窗口长度")
         if self.sample_every_seconds is None or self.min_samples is None:
             raise ValueError(
-                "zscore 必须声明 sample_every_seconds 与 min_samples："
+                f"{name} 必须声明 sample_every_seconds 与 min_samples："
                 "参考分布的采样网格与最小互异样本数都是规格的一部分，不能由实现替它决定"
             )
         if self.sample_every_seconds < MIN_SAMPLE_STEP_SECONDS:
@@ -194,7 +206,7 @@ class Step(BaseModel):
         if planned < self.min_samples:
             raise ValueError(
                 f"窗口内最多只能取到 {planned} 个样本，低于声明的 min_samples "
-                f"{self.min_samples}：该 zscore 在任何数据上都不可能有定义"
+                f"{self.min_samples}：该 {name} 在任何数据上都不可能有定义"
             )
 
     @property
@@ -204,7 +216,7 @@ class Step(BaseModel):
         跨步累计必须由 `FeatureSpec` 沿 DAG 求解：步骤只知道输入的名字，
         看不到输入的回看深度。
         """
-        if self.kind is StepKind.ZSCORE:
+        if self.kind in SAMPLED_KINDS:
             return self.window_seconds or 0
         span = max(self.window_seconds or 0, self.baseline_seconds or 0)
         return self.offset_seconds + span
@@ -281,18 +293,26 @@ class FeatureSpec(BaseModel):
             )
 
     def _no_nested_zscore(self) -> None:
+        """采样类步骤不得互相嵌套。
+
+        嵌套的两个理由都与是哪一种无关：对已经相对自身分布归一过的量再归一一次
+        没有确定含义，且求值代价随嵌套深度指数增长（每一层都要把整条输入链在
+        整个采样网格上重算一遍）。因此 rank_pct 与 zscore 一并纳入，
+        两者交叉嵌套同样被拒。
+        """
         index = self._index()
         for step in self.steps:
-            if step.kind is not StepKind.ZSCORE:
+            if step.kind not in SAMPLED_KINDS:
                 continue
             nested = sorted(
                 n for n in self._reachable_from(step.name) - {step.name}
-                if index[n].kind is StepKind.ZSCORE
+                if index[n].kind in SAMPLED_KINDS
             )
             if nested:
                 raise ValueError(
-                    f"zscore 步骤 {step.name!r} 的输入链上还有 zscore {nested}。"
-                    "对已标准化的量再标准化没有确定含义，且求值代价随嵌套深度指数增长。"
+                    f"{step.kind.value} 步骤 {step.name!r} 的输入链上还有采样类步骤 "
+                    f"{nested}。对已归一的量再归一没有确定含义，"
+                    "且求值代价随嵌套深度指数增长。"
                     "这是第一版的保守选择，若出现真实需求可重新审议"
                 )
 

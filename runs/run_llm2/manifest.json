@@ -1,0 +1,13 @@
+{
+  "run_id": "run_llm2",
+  "created_at": "2026-08-07T17:07:52.021282+00:00",
+  "family": "demo_sc_price_volume",
+  "studies": 8,
+  "statistical_denominator": 5,
+  "proposal_denominator": 8,
+  "headline": "这一轮没有留下可用的发现。",
+  "exceeded_band": false,
+  "cards": 4,
+  "chain_intact": true,
+  "runs_version": "0.1.0"
+}

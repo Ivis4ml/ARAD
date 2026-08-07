@@ -169,7 +169,8 @@ def test_context_is_recorded_as_evidence(ledger):
 def test_primitive_catalogue_is_narrow_and_states_its_rules():
     cat = primitive_catalogue()
     assert cat["step_kinds"] == [
-        "difference", "innovation", "ratio", "residualise", "window", "zscore",
+        "difference", "innovation", "rank_pct", "ratio", "residualise",
+        "window", "zscore",
     ]
     assert any("offset_seconds 只能非负" in r for r in cat["hard_rules"])
     assert any("UnsupportedMechanism" in r for r in cat["hard_rules"])

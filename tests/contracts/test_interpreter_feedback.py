@@ -412,3 +412,117 @@ def test_a_window_reaching_before_coverage_is_undefined():
                    coverage_start=T - timedelta(seconds=200))
     assert evaluate_spec(spec_of(window_step(window_seconds=600)), T, series(bs)) is None
     assert evaluate_spec(spec_of(window_step(window_seconds=150)), T, series(bs)) == 1.0
+
+
+# ---------------------------------------------------------------- rank_pct
+
+
+def _sampled_step(kind: StepKind, name: str) -> Step:
+    return Step(name=name, kind=kind, inputs=["w"], window_seconds=86400 * 40,
+                sample_every_seconds=86400, min_samples=10)
+
+
+def _spec_with(kind: StepKind, name: str) -> FeatureSpec:
+    return FeatureSpec(
+        feature_id=f"f_{name}", mechanism="重尾量的归一", output_step=name,
+        failure_condition="参考样本不足时无定义", authored_by="t",
+        steps=[Step(name="w", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                    field="close", op=Op.LAST, window_seconds=3600),
+               _sampled_step(kind, name)],
+    )
+
+
+#: bar 放在采样点**前一分钟**：窗口右端点是开区间（PIT 纪律），
+#: 正好落在采样时刻的 bar 会被排除，整条特征就全程无定义。
+_BAR_LEAD = timedelta(minutes=1)
+
+
+def _daily_series(values: list[float]) -> BarSeries:
+    """每天一根 bar，第 i 根对应 T - (n-1-i) 天。"""
+    n = len(values)
+    times = [T - timedelta(days=n - 1 - i) - _BAR_LEAD for i in range(n)]
+    return BarSeries(field="close", times=times, values=values,
+                     coverage_start=T - timedelta(days=400))
+
+
+def _with_outlier_at(position: int) -> BarSeries:
+    """一条重尾序列：绝大多数是小值，一天是其余全部的数百倍。
+
+    互异取值要够多：门槛计**互异**样本数，只有 7 个不同的小值时整条特征无定义，
+    而那是采样门槛在起作用，不是这些测试要验的东西。
+    """
+    values = [1.0 + (i % 37) * 0.01 for i in range(120)]
+    values[position] = 500.0
+    return _daily_series(values)
+
+
+def _max_leverage(xs: list[float]) -> float:
+    mean = sum(xs) / len(xs)
+    sxx = sum((x - mean) ** 2 for x in xs)
+    return max((x - mean) ** 2 / sxx for x in xs) if sxx > 0 else 1.0
+
+
+def _both(position: int):
+    data = {(Source.COMMODITY_BAR, "close"): _with_outlier_at(position)}
+    times = [T - timedelta(days=d) for d in range(35, 0, -1)]
+    z, _ = evaluate_series(_spec_with(StepKind.ZSCORE, "z"), times, data)
+    r, _ = evaluate_series(_spec_with(StepKind.RANK_PCT, "r"), times, data)
+    zs = [v for v in z if v is not None]
+    rs = [v for v in r if v is not None]
+    assert len(zs) == len(rs) > 30, "两者必须在同样的点上有定义，否则比的不是一回事"
+    return zs, rs
+
+
+def test_rank_pct_stops_one_point_from_owning_the_regressor():
+    """离群日落在**被评估的点**里：zscore 的取值本身重尾，单点占掉回归元几乎全部变异。
+
+    实测：zscore 的最大杠杆 0.97，即一个观测决定了斜率；rank_pct 是 0.11。
+    这正是本原语存在的理由 —— 一条真实特征的最大杠杆是 0.607，
+    而当时的语言里没有任何稳健变换可用。
+    """
+    zs, rs = _both(100)
+    assert all(0.0 <= v <= 1.0 for v in rs), "分位排名必须落在 [0,1]"
+    assert _max_leverage(zs) > 0.9
+    assert _max_leverage(rs) < 0.2
+
+
+def test_rank_pct_survives_an_outlier_in_its_own_reference_window():
+    """离群日落在**参考窗口**里：zscore 的失效方式反过来 —— 不是杠杆过大，是信号被压平。
+
+    离群值撑爆参考分布的标准差，于是其余全部取值被压到几乎相同，
+    评价机会正确地报「回归元没有变异」，那一轮白花。
+    实测 zscore 的极差 0.005，rank_pct 的极差 0.95。
+    """
+    zs, rs = _both(80)
+    assert max(zs) - min(zs) < 0.01, "zscore 在这里被压平了"
+    assert max(rs) - min(rs) > 0.5, "分位排名保住了区分度"
+
+
+def test_rank_pct_ties_each_count_a_half():
+    """平局各算一半，取值因此可精确算出，不靠近似。
+
+    构造：参考样本恰好是 1..40（40 个互异取值），当前值为 5。
+    严格小于的有 4 个，相等的有 1 个，于是分位排名 = (4 + 0.5) / 40 = 0.1125。
+    平局若整个算「小于」会得到 0.125，若整个不算会得到 0.100，三者可区分。
+    """
+    values = [float(41 - k) for k in range(1, 41)] + [5.0]
+    data = {(Source.COMMODITY_BAR, "close"): _daily_series(values)}
+    value = evaluate_spec(_spec_with(StepKind.RANK_PCT, "r"), T, data)
+    assert value == pytest.approx(0.1125)
+
+
+def test_rank_pct_and_zscore_cannot_be_nested_in_each_other():
+    """交叉嵌套与同类嵌套一样被拒：对已归一的量再归一没有确定含义。"""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="输入链上还有采样类步骤"):
+        FeatureSpec(
+            feature_id="f", mechanism="m", output_step="z",
+            failure_condition="c", authored_by="t",
+            steps=[Step(name="w", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                        field="close", op=Op.LAST, window_seconds=3600),
+                   _sampled_step(StepKind.RANK_PCT, "r"),
+                   Step(name="z", kind=StepKind.ZSCORE, inputs=["r"],
+                        window_seconds=86400 * 40, sample_every_seconds=86400,
+                        min_samples=10)],
+        )

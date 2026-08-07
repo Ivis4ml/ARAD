@@ -95,6 +95,16 @@ STEP_SCHEMA: dict[str, dict] = {
                    "样本数上限 512。min_samples 计**互异取值**：采样步长小于数据节奏时"
                    "会反复读到同一批数据，重复样本压低标准差并放大 z"
                )},
+    "rank_pct": {"required": ["name", "kind", "inputs", "window_seconds",
+                              "sample_every_seconds", "min_samples"],
+                 "note": (
+                     "与 zscore 同一张采样网格，同样的字段与同样的约束，"
+                     "只是归一方式不同：输出是当前值在参考样本中的分位排名，"
+                     "取值域 [0,1]（平局各算一半）。"
+                     "重尾的量用它比用 zscore 稳健 —— 无论尾多重，任何单个观测的"
+                     "杠杆都被 [0,1] 这个界约束住；代价是丢掉幅度信息，"
+                     "因此它不是 zscore 的替代，是另一个假设"
+                 )},
     "residualise": {"required": ["name", "kind", "inputs", "controls"],
                     "note": "inputs 恰好一个；controls 至少一个已登记的 Baseline Control；"
                             "解释器尚未实现，提交后会判 blocked"},

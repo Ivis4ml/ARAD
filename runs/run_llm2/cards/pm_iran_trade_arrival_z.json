@@ -1,0 +1,34 @@
+{
+  "card_version": "0.1.0",
+  "codegen_version": "0.1.0",
+  "feature_id": "pm_iran_trade_arrival_z",
+  "content_id": "5d075ccab77331a8775384b952355704146a323beaf5175f594f70e1628886e1",
+  "family": "demo_sc_price_volume",
+  "status": "sealed_failed",
+  "taxonomy_clean": false,
+  "mechanism": "Polymarket 上以 iran / shipping / attack / targets / response 为头部词的市场族，交易的是霍尔木兹海峡与红海一带的原油供给中断风险。这类风险的新增信息（袭击报道、护航与保险费率变化、外交回应）通常先在预测市场被下注消化：该市场 24 小时开放、无涨跌停、无交割约束，且参与者可以直接对事件本身定价，而上海原油期货只能在下一个交易时段通过价格与波动来反映同一信息。因此该族的成交笔数是一个信息到达强度的代理量：单位时间内互相不同意的交易者越多，说明进入市场的新信息越多。按混合分布假说（information arrival 驱动 return variance），信息到达强度应当先于并正向作用于下一时段的已实现波动率，而非作用于收益的符号。选用 trades 而非 p：该族聚合了 1444 个异质市场且概率已归一到 outcome_seq==1 一侧，其概率水平的经济含义不明确，且概率向任一方向移动都可能抬高波动率，而现有原语没有取绝对值或平方的步骤，符号无法确定；选用 trades 而非 notional，是因为笔数对少数大额成交更稳健。",
+  "failure_condition": "以下任一情形出现即认为该特征在该时点不可用或不成立：一，参考分布的互异取值少于 20 个（该族在 2023-01-09 之前无数据，序列起始的九十日内必然如此），此时不应产生取值；二，参考期内成交笔数近乎恒定使标准差趋近于零，导致 z 值被放大到与信息到达强度无关的量级；三，该族在某段时间内因市场集中到期而成交枯竭，此时异动反映的是市场生命周期而非外部信息到达。",
+  "formula": [
+    "iran_trade_burst = 求和( pm_market.cand:iran:trades , 窗口 [t−1日, t) ) − 同算子(窗口 [t−30日, t) )",
+    "iran_trade_burst_z = ( iran_trade_burst(t) − μ ) / σ，其中 μ、σ 取自 iran_trade_burst 在 t−k×1日（k=1..90）上的取值，互异取值不足 20 个则无定义",
+    "输出 = iran_trade_burst_z"
+  ],
+  "code": "\"\"\"pm_iran_trade_arrival_z\n\n机制：以 cand:iran 族最近一日的成交笔数相对其一个月基线的异动，度量霍尔木兹与红海供给中断风险上的信息到达强度，再用近九十日的同类取值把该异动标准化，以消除该族成交规模在 2023 至 2024 年间的量级漂移。取值越高表示进入该风险市场的新信息越多，据混合分布假说应对应下一时段更高的已实现波动率。\n\n失败条件：以下任一情形出现即认为该特征在该时点不可用或不成立：一，参考分布的互异取值少于 20 个（该族在 2023-01-09 之前无数据，序列起始的九十日内必然如此），此时不应产生取值；二，参考期内成交笔数近乎恒定使标准差趋近于零，导致 z 值被放大到与信息到达强度无关的量级；三，该族在某段时间内因市场集中到期而成交枯竭，此时异动反映的是市场生命周期而非外部信息到达。\n\n**本文件由 `arad.features.codegen` 从冻结规格确定性生成，请勿手改。**\n规格内容身份 5d075ccab77331a8775384b952355704146a323beaf5175f594f70e1628886e1\n生成器 0.1.0；改规格才能改代码，两者不可能不一致。\n\nPIT：每个窗口的右端点一律**不含**决策时点，offset 只能非负。\n无定义返回 None，绝不返回 0 —— 返回 0 会被下游当成「没有信号」，那是伪造。\n本特征最早触及 120日 前的数据；该深度未整段落在序列覆盖范围内时判为无定义。\n\"\"\"\n\nfrom __future__ import annotations\n\nimport math\nfrom bisect import bisect_left\nfrom datetime import datetime, timedelta\n\nREQUIRED_LOOKBACK_SECONDS = 10368000\n\n\ndef _window(times, values, end, seconds):\n    \"\"\"取 [end - seconds, end) 内的值。**end 一律不含**，这是 PIT 的关键。\"\"\"\n    lo = bisect_left(times, end - timedelta(seconds=seconds))\n    hi = bisect_left(times, end)\n    return values[lo:hi]\n\n\ndef _agg(op, xs):\n    if not xs:\n        return None\n    if op == \"last\":\n        return xs[-1]\n    if op == \"mean\":\n        return math.fsum(xs) / len(xs)\n    if op == \"sum\":\n        return math.fsum(xs)\n    if op == \"count\":\n        return float(len(xs))\n    if op == \"min\":\n        return min(xs)\n    if op == \"max\":\n        return max(xs)\n    if op == \"std\":\n        if len(xs) < 2:\n            return None\n        m = math.fsum(xs) / len(xs)\n        return math.sqrt(math.fsum((x - m) ** 2 for x in xs) / (len(xs) - 1))\n    raise ValueError(op)\n\n\ndef _ok(v):\n    \"\"\"非有限值一律当作无定义：NaN 传下去会让比较式的闸门全部取假地通过。\"\"\"\n    return v is not None and math.isfinite(v)\n\n\ndef _at_iran_trade_burst(at: datetime, series: dict):\n    \"\"\"在任意过去时刻求 iran_trade_burst 的值。zscore 的参考分布要用它。\"\"\"\n    t, x = series[\"pm_market.cand:iran:trades\"]\n    end = at - timedelta(seconds=0)\n    v_iran_trade_burst = _agg(\"sum\", _window(t, x, end, 86400))\n    far = _agg(\"sum\", _window(t, x, end, 2592000))\n    v_iran_trade_burst = (v_iran_trade_burst - far) if _ok(v_iran_trade_burst) and _ok(far) else None\n    return v_iran_trade_burst\n\ndef compute(decision_time: datetime, series: dict, coverage_start=None):\n    \"\"\"在一个决策时点上求值。无定义返回 None。\"\"\"\n    # 覆盖准入：回看深度必须整段落在序列覆盖范围内，否则同一份规格在完整\n    # 序列与其截断副本上会给出不同的数，而没有任何记录能看出差别\n    if coverage_start is not None and (\n        decision_time - timedelta(seconds=REQUIRED_LOOKBACK_SECONDS)\n        < coverage_start\n    ):\n        return None\n    t_iran_trade_burst, x_iran_trade_burst = series[\"pm_market.cand:iran:trades\"]\n    end_iran_trade_burst = decision_time - timedelta(seconds=0)\n    v_iran_trade_burst = _agg(\"sum\", _window(t_iran_trade_burst, x_iran_trade_burst, end_iran_trade_burst, 86400))\n    far_iran_trade_burst = _agg(\"sum\", _window(t_iran_trade_burst, x_iran_trade_burst, end_iran_trade_burst, 2592000))\n    v_iran_trade_burst = (v_iran_trade_burst - far_iran_trade_burst) if _ok(v_iran_trade_burst) and _ok(far_iran_trade_burst) else None\n    if v_iran_trade_burst is not None and not math.isfinite(v_iran_trade_burst):\n        v_iran_trade_burst = None\n    # zscore：参考样本取自规格自己声明的采样网格，严格取自过去\n    samples_iran_trade_burst_z = []\n    for k in range(1, 90 + 1):\n        past = decision_time - timedelta(seconds=k * 86400)\n        s = _at_iran_trade_burst(past, series)\n        if _ok(s):\n            samples_iran_trade_burst_z.append(s)\n    distinct_iran_trade_burst_z = len(set(samples_iran_trade_burst_z))\n    if not _ok(v_iran_trade_burst) or distinct_iran_trade_burst_z < 20:\n        v_iran_trade_burst_z = None\n    else:\n        mu = math.fsum(samples_iran_trade_burst_z) / len(samples_iran_trade_burst_z)\n        sd = math.sqrt(math.fsum((s - mu) ** 2 for s in samples_iran_trade_burst_z) / (len(samples_iran_trade_burst_z) - 1))\n        v_iran_trade_burst_z = ((v_iran_trade_burst - mu) / sd) if sd > 0 else None\n    if v_iran_trade_burst_z is not None and not math.isfinite(v_iran_trade_burst_z):\n        v_iran_trade_burst_z = None\n    return v_iran_trade_burst_z\n",
+  "required_lookback_seconds": 10368000,
+  "sources": [
+    "pm_market"
+  ],
+  "discovery": {
+    "t_stat": 0.7758467738116017,
+    "ic_spearman": 0.046753850146647645,
+    "rows": 520,
+    "study_id": "auto-study-0"
+  },
+  "sealed": {
+    "t_stat": -0.5793984453948633,
+    "ic_spearman": -0.04158932754631639,
+    "rows": 476,
+    "segment": "historical_validation"
+  },
+  "meaning": "机制：Polymarket 上以 iran / shipping / attack / targets / response 为头部词的市场族，交易的是霍尔木兹海峡与红海一带的原油供给中断风险。这类风险的新增信息（袭击报道、护航与保险费率变化、外交回应）通常先在预测市场被下注消化：该市场 24 小时开放、无涨跌停、无交割约束，且参与者可以直接对事件本身定价，而上海原油期货只能在下一个交易时段通过价格与波动来反映同一信息。因此该族的成交笔数是一个信息到达强度的代理量：单位时间内互相不同意的交易者越多，说明进入市场的新信息越多。按混合分布假说（information arrival 驱动 return variance），信息到达强度应当先于并正向作用于下一时段的已实现波动率，而非作用于收益的符号。选用 trades 而非 p：该族聚合了 1444 个异质市场且概率已归一到 outcome_seq==1 一侧，其概率水平的经济含义不明确，且概率向任一方向移动都可能抬高波动率，而现有原语没有取绝对值或平方的步骤，符号无法确定；选用 trades 而非 notional，是因为笔数对少数大额成交更稳健。 发现段上斜率的 t 值为 +0.776，IC（时序秩相关）+0.0468，提交观测 520 行。 封闭段（只开一次）上 t 值 -0.579，与发现段反号，提交观测 476 行。 结论：「在样本外没有保住」。这是一个完整的否定结论，不是运行失败 ——发现段上的强度来自搜索本身。 注意，分类法不干净：候选机制族的归纳语料覆盖了本段，机制的选择并不独立于结果，样本外也救不了这一点（决定 0004）。真正干净的检验只能在归纳切点之后的数据上做。 成本与容量模型尚未建立（属 M5），因此本因子在任何情况下都不得取 candidate；以上全部为 pre-cost。"
+}

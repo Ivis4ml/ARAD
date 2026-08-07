@@ -108,12 +108,18 @@ def run_service(
     max_rounds: int = 40,
     calls_per_episode: int = 6,
     stall_rounds: int = 3,
+    run_id: str = "auto",
     now: datetime | None = None,
 ) -> ServiceResult:
     """一轮接一轮地跑，直到到达外部边界或停滞。
 
     每一轮结束后由**上一轮的语义错配**决定下一版怎么变 —— 这是环真正闭上的地方：
     诊断是盲化的，因此这条反馈通路不构成在检验统计量上爬山。
+
+    `run_id` 进入任务与 Study 的标识。实测：第二次运行只跑了一轮就以
+    `no_runnable_work` 停止 —— 队列是持久的，`auto-task-1` 在上一次运行里已经是
+    `done`，于是入队成了空操作。同一个缺陷还有更糟的一面：`auto-study-N` 也会撞上，
+    两次运行的证据会被写进同一个 Study 标识下，快照因此混成一份。
     """
     result = ServiceResult()
     current = now or datetime.now(UTC)
@@ -125,8 +131,8 @@ def run_service(
     index = 0
 
     while result.rounds < max_rounds:
-        task_id = f"auto-task-{index}"
-        study_id = f"auto-study-{index}"
+        task_id = f"{run_id}-task-{index}"
+        study_id = f"{run_id}-study-{index}"
         # 累积的错配码走**任务载荷**，不走 provider 属性。原实现是
         # `if hasattr(provider, "mismatch_codes")`，而那个属性只有确定性变异器有，
         # `ClaudeCliProvider` 没有 —— 于是诊断对真实模型被静默丢弃，实跑 8 轮里
@@ -137,7 +143,7 @@ def run_service(
                        "learned_mismatches": list(learned)},
                       now=current)
         episode = run_episode(
-            episode_id=f"auto-episode-{index}",
+            episode_id=f"{run_id}-episode-{index}",
             queue=queue, ledger=ledger, provider=provider,
             budget=EpisodeBudget(max_calls=calls_per_episode),
             family=family, owner=owner, assemble=assemble,

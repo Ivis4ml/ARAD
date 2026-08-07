@@ -102,6 +102,20 @@ SPECS = {
                  sample_every_seconds=86400, min_samples=8),
         ],
     ),
+    "rank_pct": FeatureSpec(
+        feature_id="r", mechanism="创新量在自身过去分布中的分位排名", output_step="r",
+        failure_condition="参考分布被截断",
+        authored_by="t",
+        steps=[
+            Step(name="a", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                 field="close", op=Op.MEAN, window_seconds=86400),
+            Step(name="b", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                 field="close", op=Op.MEAN, window_seconds=604800),
+            Step(name="d", kind=StepKind.DIFFERENCE, inputs=["a", "b"]),
+            Step(name="r", kind=StepKind.RANK_PCT, inputs=["d"], window_seconds=1728000,
+                 sample_every_seconds=86400, min_samples=8),
+        ],
+    ),
 }
 
 
