@@ -25,11 +25,15 @@ type Props = {
   revealed?: number
   /** 已冻结但还没出结果的那个提案 —— 画成空心待定点。 */
   pendingId?: string | null
+  /** 横轴说明。**必须由调用方给**：演化视图的横轴是「第几版沿谱系」，
+   *  实时视图的横轴是「本族第几次检验」，两者跨的对象不同（实测实时那条
+   *  27 个点跨了 5 次运行，根本不是一条谱系）。写死一个会骗人。 */
+  xCaption?: string
 }
 
 export function Chart({
   points, metric, showNullBand, selected, onSelect,
-  revealed, pendingId,
+  revealed, pendingId, xCaption,
 }: Props) {
   const W = 720
   const H = 320
@@ -170,7 +174,7 @@ export function Chart({
         </text>
       ))}
       <text x={pad.left + innerW / 2} y={H - 10} textAnchor="middle" fontSize={11} fill="#5c6773">
-        第几版（沿谱系）　·　点开一个点看它的判决快照
+        {xCaption ?? '第几版（沿谱系）　·　点开一个点看它的判决快照'}
       </text>
     </svg>
   )

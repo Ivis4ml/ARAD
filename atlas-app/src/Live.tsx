@@ -120,6 +120,11 @@ export function Live() {
       </div>
 
       <h3 className="small">逐次检验的 |t| 与同步抬高的地板</h3>
+      <p className="small muted">
+        横轴是<strong>本族第几次检验</strong>，跨全部运行累计 ——
+        它不是一条谱系，相邻两点之间没有父子关系。地板按同一个计数抬高，
+        因此这条线上的每一点都要按它右边最高的那根横杠重读。
+      </p>
       <Chart
         points={state.curve.map((c) => ({
           study_id: c.study_id, verdict: c.verdict, change_summary: '',
@@ -128,6 +133,7 @@ export function Live() {
           null_threshold: c.null_threshold,
         })) as never}
         metric="abs_t" showNullBand selected={null} onSelect={() => {}}
+        xCaption="第几次检验（本族已读 outcome 的次数，跨全部运行累计）"
       />
       <p className="notice small">
         曲线<strong>绝不单独出现</strong>：一条随迭代上升的曲线，本身就是选择在纯噪声上
