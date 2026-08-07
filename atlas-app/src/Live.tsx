@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Chart } from './Chart'
 import { startAdaptivePoll } from './livePoll'
 
 /** 一个 Study 固定走的 11 步。中文名只用于显示，判定一律按事件类型。 */
@@ -17,6 +18,10 @@ const STEP_LABELS: Record<string, string> = {
 }
 
 type Step = { step: string; seq: number | null; done: boolean }
+type CurvePt = {
+  index: number; study_id: string; value: number | null
+  running_best: number | null; null_threshold: number; verdict: string
+}
 type LiveState = {
   running: boolean
   run_id: string | null
@@ -30,6 +35,7 @@ type LiveState = {
   verdicts: Record<string, number>
   denominators: { proposal_denominator: number; statistical_denominator: number }
   price: { tests_spent: number; floor_now: number; floor_after_one_more: number }
+  curve: CurvePt[]
 }
 
 export function Live() {
@@ -106,10 +112,26 @@ export function Live() {
         <div><span className="muted small">再问一个</span><b>{state.price.floor_after_one_more}</b></div>
       </div>
 
+      <h3 className="small">逐次检验的 |t| 与同步抬高的地板</h3>
+      <Chart
+        points={state.curve.map((c) => ({
+          study_id: c.study_id, verdict: c.verdict, change_summary: '',
+          value: c.value, counts_toward_denominator: true, index: c.index - 1,
+          tests_so_far: c.index, running_best: c.running_best,
+          null_threshold: c.null_threshold,
+        })) as never}
+        metric="abs_t" showNullBand selected={null} onSelect={() => {}}
+      />
       <p className="notice small">
-        这一栏<strong>不显示任何效应量</strong>。进度是「跑到哪了」，不是「结果如何」——
-        运行期间盯着效应看，会让「要不要继续找」这个判断变成事后选择，
-        而那正是零假设带在度量的东西。结果在运行结束后的判决视图里看。
+        曲线<strong>绝不单独出现</strong>：一条随迭代上升的曲线，本身就是选择在纯噪声上
+        必然产出的形状。要看的是它有没有跑赢那条<strong>同步抬高</strong>的地板 ——
+        每多问一个会被评价的假设，地板就往上走一格，而它对已有的与将来的全部结论同时生效。
+      </p>
+      <p className="notice small">
+        看着结果决定何时停，会让停止时点与结果相关。零假设带按<strong>已花掉的</strong>
+        检验次数计价，早停不会把已花的退回来，因此它不制造额外的多重检验偏差；
+        真正的风险是「看着不错就停」—— 而缓解手段正是把地板画在旁边，
+        使「不错」是相对于那根横杠判断的，不是相对于零。
       </p>
     </section>
   )

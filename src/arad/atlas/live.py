@@ -10,9 +10,21 @@
 **本模块只用 SQL 聚合，不把事件读进内存。**投影的代价必须与账本大小无关，
 否则轮询会随运行时间变慢，而那正是最需要它的时候。
 
-它是给**人**看的（Atlas 一直是只读的人类视图），因此不受提案器盲化边界约束；
-但它同样不返回任何效应量 —— 进度是「跑到哪了」，不是「结果如何」。
-让进度条泄漏效应，会把「盯着它看」变成一种事后选择。
+它是给**人**看的（Atlas 一直是只读的人类视图），因此不受提案器盲化边界约束。
+
+**它返回逐次检验的 |t| 与零假设带，但两者永远成对。**先前这里写着「不返回任何效应量」，
+理由是运行期间盯着效应看会让「要不要继续找」变成事后选择。那条顾虑是真的，
+但用错了地方：这个决定按设计本来就归人（M6：「该不该继续找」是人的判断），
+不能用一条设计原则挡住那个被指定要做判断的人。
+
+**形态上有一条硬约束：曲线绝不单独出现。**一条随迭代上升的曲线，本身就是选择在纯噪声上
+必然产出的形状；单画它会系统性地骗人。因此 `curve` 的每一点都同时带 `running_best` 与
+`null_threshold`，缺一不可，前端也据此渲染。
+
+残余风险如实记下：看着结果决定何时停，会让停止时点与结果相关。零假设带按**已花掉的**
+检验次数计价，早停不会把已花的退回来，因此它不制造额外的多重检验偏差；
+真正的风险是「看着不错就停」——而缓解手段正是把地板画在旁边，
+使「不错」是相对于那根同步抬高的横杠判断的，不是相对于零。
 """
 
 from __future__ import annotations
@@ -58,6 +70,37 @@ def live_state(ledger_path: str, family: str, *, now: datetime | None = None) ->
         return _project(conn, family, now or datetime.now(UTC))
     finally:
         conn.close()
+
+
+def _curve(conn: sqlite3.Connection) -> list[dict]:
+    """逐次检验的 |t| 与同一时刻的零假设带。**两者永远成对。**
+
+    只取真正读过 outcome 的那些 —— 被语义审计拦下的 Study 没有 evaluation_result，
+    也不该出现在这条曲线上：它没消耗多重检验预算，地板不因它抬高。
+    """
+    rows = conn.execute(
+        "SELECT study_id,"
+        "       json_extract(payload, '$.effects.t_stat') t,"
+        "       json_extract(payload, '$.suggested_verdict') verdict"
+        "  FROM events WHERE event_type = 'evaluation_result' ORDER BY seq"
+    ).fetchall()
+    out: list[dict] = []
+    best = 0.0
+    for i, row in enumerate(rows, start=1):
+        raw = row["t"]
+        value = abs(raw) if isinstance(raw, (int, float)) else None
+        if value is not None and value > best:
+            best = value
+        out.append({
+            "index": i,
+            "study_id": row["study_id"],
+            "value": value,
+            "running_best": best if out or value is not None else None,
+            # 地板按**这一点为止**已花的检验次数算，因此它随曲线一起长
+            "null_threshold": round(expected_max_abs_z(i), 4),
+            "verdict": row["verdict"],
+        })
+    return out
 
 
 def _project(conn: sqlite3.Connection, family: str, now: datetime) -> dict:
@@ -141,8 +184,9 @@ def _project(conn: sqlite3.Connection, family: str, now: datetime) -> dict:
             "floor_now": round(expected_max_abs_z(tests), 4) if tests else 0.0,
             "floor_after_one_more": round(expected_max_abs_z(tests + 1), 4),
         },
+        "curve": _curve(conn),
         "note": (
-            "进度是「跑到哪了」，不是「结果如何」：本视图不返回任何效应量。"
-            "让进度泄漏效应，会把盯着它看变成一种事后选择"
+            "|t| 与零假设带成对返回，缺一不可：一条随迭代上升的曲线本身就是选择在"
+            "纯噪声上必然产出的形状，单看它会系统性地骗人"
         ),
     }
