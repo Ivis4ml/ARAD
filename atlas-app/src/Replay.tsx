@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Beat, Chain, Projection, Study } from './types'
 import { Chart } from './Chart'
 import { SPEEDS, useReplay } from './useReplay'
+import { useLiveBeats } from './useLiveBeats'
 import { makeDraw, pin, redraw, seedHex } from './draw'
 import { METRIC_HAS_NULL_BAND, METRIC_LABELS, num, when } from './format'
 import { Value, VerdictChip } from './Value'
@@ -29,13 +30,27 @@ export function Replay({ p }: { p: Projection }) {
 
   const chain: Chain | null =
     p.lineage.find((c) => c.chain_id === chainId) ?? p.lineage[0] ?? null
-  const beats = p.replay
+  // 跟随最新：数据源由静态快照换成增量追加的实时流。拖动进度条会自动关掉跟随 ——
+  // 「看历史」与「跟着跑」是两种意图，混在一起会互相打架。
+  const [follow, setFollow] = useState(false)
+  const live = useLiveBeats(follow)
+  const beats = follow ? live.beats : p.replay
   // 开场抽签：随机只决定**从哪一拍走进这个过程**。判决区在它上面，抽签够不到结论。
   const [draw] = useState(() => makeDraw(p.key_moments))
   const [pinned, setPinned] = useState(draw.pinned)
   const start = draw.entry?.beat
     ?? p.key_moments.find((m) => m.label.includes('读 outcome'))?.beat ?? 0
-  const r = useReplay(beats, start)
+  const r = useReplay(beats, follow ? 0 : start)
+  // 跟随时把游标推到最新一拍。用户一旦手动拖动，`follow` 被关掉，这里就不再动它。
+  const lastLen = useRef(0)
+  useEffect(() => {
+    if (!follow) return
+    if (beats.length > lastLen.current) {
+      lastLen.current = beats.length
+      r.seek(beats.length - 1)
+    }
+  }, [follow, beats.length, r])
+
   const byId = useMemo(
     () => Object.fromEntries(p.studies.map((s) => [s.study_id, s])) as Record<string, Study>,
     [p.studies],
@@ -109,7 +124,9 @@ export function Replay({ p }: { p: Projection }) {
 
         <div className="panel replay">
           <div className="transport">
-            <button className="primary" onClick={r.toggle}>
+            <label className="follow"><input type="checkbox" checked={follow}
+            onChange={(e) => setFollow(e.target.checked)} />跟随最新</label>
+          <button className="primary" onClick={r.toggle}>
               {r.playing ? '暂停' : r.cursor >= beats.length - 1 ? '重放' : '播放'}
             </button>
             <button onClick={() => r.step(-1)} disabled={r.cursor === 0}>上一拍</button>
@@ -165,7 +182,7 @@ export function Replay({ p }: { p: Projection }) {
 
           <input className="scrub" type="range" min={0} max={beats.length - 1}
                  value={r.cursor} aria-label="回放进度"
-                 onChange={(e) => { r.seek(Number(e.target.value)) }} />
+                 onChange={(e) => { setFollow(false); r.seek(Number(e.target.value)) }} />
 
           <div className="counters">
             <Counter k="提案分母" v={r.beat.proposals_so_far}

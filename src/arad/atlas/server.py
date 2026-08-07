@@ -69,6 +69,15 @@ class AtlasHandler(BaseHTTPRequestHandler):
         if parts[0] != "api":
             self._json({"error": "未知路径"}, 404)
             return
+        if parts[1:] == ["live", "beats"]:
+            from .live import live_beats
+
+            since = int((parse_qs(parsed.query).get("since") or ["0"])[0])
+            try:
+                self._json(live_beats(self.ledger_path, since))
+            except Exception as exc:                       # noqa: BLE001
+                self._json({"error": f"读取账本失败：{exc}"}, 503)
+            return
         if parts[1:] == ["live"]:
             # 运行中的进度。运行目录只在服务结束后写一次，因此运行期间应用里
             # 什么都看不到；账本本来就是实时写的，这里只读它投影当前状态。

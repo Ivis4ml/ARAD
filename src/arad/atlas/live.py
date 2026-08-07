@@ -72,6 +72,67 @@ def live_state(ledger_path: str, family: str, *, now: datetime | None = None) ->
         conn.close()
 
 
+def live_beats(ledger_path: str, since: int = 0, limit: int = 400) -> dict:
+    """增量拉取回放节拍。**代价与 since 之后的新事件数成正比，不与账本大小成正比。**
+
+    节拍带两个累计量（提案分母、统计分母），因此不能只看新事件就算出来。
+    做法是先用两条聚合查询取 `since` 处的计数，再在新事件上往后累加 ——
+    每次从头重算会让轮询随运行时间变慢，而那正是最需要它的时候。
+    """
+    from .project import BEAT_STAGES, _beat_detail
+
+    conn = sqlite3.connect(f"file:{ledger_path}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    try:
+        # 提案分母按**内容去重**计数（record_proposal 是 INSERT OR IGNORE），
+        # 数事件次数会与账本对不上：参数扫描的多个变体共用一个提案内容身份。
+        proposals = {
+            r["pid"]
+            for r in conn.execute(
+                "SELECT DISTINCT json_extract(payload, '$.proposal_id') pid FROM events"
+                " WHERE event_type = 'proposal_recorded' AND seq <= ?", (since,)
+            )
+            if r["pid"] is not None
+        }
+        tests = conn.execute(
+            "SELECT COUNT(*) n FROM events WHERE event_type = 'outcome_read'"
+            " AND seq <= ?", (since,)
+        ).fetchone()["n"]
+        rows = conn.execute(
+            "SELECT seq, study_id, event_type, payload, created_at FROM events"
+            " WHERE seq > ? ORDER BY seq LIMIT ?", (since, limit)
+        ).fetchall()
+        head = conn.execute("SELECT MAX(seq) m FROM events").fetchone()["m"] or 0
+    finally:
+        conn.close()
+
+    import json as _json
+
+    beats: list[dict] = []
+    for row in rows:
+        payload = _json.loads(row["payload"])
+        stage, headline = BEAT_STAGES.get(
+            row["event_type"], ("other", row["event_type"])
+        )
+        if row["event_type"] == "proposal_recorded":
+            pid = payload.get("proposal_id")
+            if pid is not None:
+                proposals.add(pid)
+        if row["event_type"] == "outcome_read":
+            tests += 1
+        beats.append({
+            "seq": row["seq"], "at": row["created_at"],
+            "event_type": row["event_type"], "study_id": row["study_id"],
+            "stage": stage, "headline": headline,
+            "detail": _beat_detail(row["event_type"], payload),
+            "pending_point": row["event_type"] == "proposal_locked",
+            "reveal_point": row["event_type"] == "evaluation_result",
+            "proposals_so_far": len(proposals), "tests_so_far": tests,
+        })
+    return {"since": since, "head": head, "beats": beats,
+            "more": bool(beats) and beats[-1]["seq"] < head}
+
+
 def _curve(conn: sqlite3.Connection) -> list[dict]:
     """逐次检验的 |t| 与同一时刻的零假设带。**两者永远成对。**
 
