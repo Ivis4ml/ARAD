@@ -796,6 +796,10 @@ def run_service_demo(
     for path in (ledger_path, queue_path):
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
 
+    # 运行标识必须在 run_service 之前定下来。时间戳兜底原本写在函数末尾（只为 Atlas
+    # 的运行目录命名），于是 `--run-id` 缺省时 run_service 拿到的是 None，
+    # 任务标识变成恒定的 "None-task-0"，M7.2 要修的冲突原样回来。
+    run_id = run_id or datetime.now(UTC).strftime("run_%Y%m%d_%H%M%S")
     rows, sc, visible = _load_sc(target_path)
     record = next(t.record() for t in TARGET_SPECS if t.name == LABEL_TARGET)
     now = datetime.now(UTC)
@@ -869,7 +873,6 @@ def run_service_demo(
         paths = render_app(projection, atlas_dir, freshness=fresh)
         # 同一次运行同时落成 runs/<id>/：单文件那条路保留（不需要服务器），
         # 运行目录让独立 app 能看历史、能并排比较
-        run_id = run_id or datetime.now(UTC).strftime("run_%Y%m%d_%H%M%S")
         paths["run"] = write_run(
             projection, runs_root, run_id,
             events=ledger.read_events(role=LedgerRole.HUMAN),

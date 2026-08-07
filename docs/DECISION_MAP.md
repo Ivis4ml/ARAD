@@ -578,3 +578,11 @@ M7.2（标识必须带上运行 id）：修完 M7.1 重启服务，`--max-rounds
 `auto-study-N` 同样会撞，两次运行的证据会被写进同一个 Study 标识下，`collect_snapshot`
 按 study_id 收集，快照因此混成一份。`run_service` 新增 `run_id` 并由 CLI 的 `--run-id`
 透传（该参数此前只用于 Atlas 运行目录命名，没有进入证据标识）。测试在同一队列上连跑两次。
+
+M7.2 补充两处同类问题：（一）`--run-id` 缺省时时间戳兜底原本写在函数末尾（只为 Atlas
+运行目录命名），因此缺省调用时 `run_service` 拿到 None，任务标识恒为 "None-task-0"，
+冲突原样回来；兜底移到服务启动之前。（二）`no_runnable_work` 是唯一一个能由缺陷触发却
+读起来像干净完成的停止理由 —— 入队静默成空操作、不写 human_review_required、退出 0。
+改为入队前检查标识存在即抛 `TaskIdentifierCollision`。同时把解释器的
+`ZScoreCoverage` / `zscore_reference_samples` 改名为 `ReferenceSampleCoverage` /
+`reference_samples`：rank_pct 的证据此前被记在 zscore 名下。

@@ -90,8 +90,8 @@ class BarSeries:
 
 
 @dataclass
-class ZScoreCoverage:
-    """一个 zscore 步骤在一个决策时点上的参考样本统计。
+class ReferenceSampleCoverage:
+    """一个采样类步骤（zscore / rank_pct）在一个决策时点上的参考样本统计。
 
     这三个数必须进证据：参考分布被假日截断时特征照样出数，而截断量既不改变
     content id 也不进入现有的 coverage，评价机的影响点闸门也看不见它。
@@ -109,7 +109,7 @@ class EvalContext:
 
     series: dict[tuple[Source, str], BarSeries]
     memo: dict[tuple[str, datetime], float | None] = field(default_factory=dict)
-    zscore_coverage: list[ZScoreCoverage] = field(default_factory=list)
+    reference_sample_coverage: list[ReferenceSampleCoverage] = field(default_factory=list)
 
 
 def _defined(value: float | None) -> bool:
@@ -244,8 +244,8 @@ def _reference_samples(
         if _defined(value):
             samples.append(value)
     distinct = len(set(samples))
-    ctx.zscore_coverage.append(
-        ZScoreCoverage(step=step.name, expected=expected, defined=len(samples),
+    ctx.reference_sample_coverage.append(
+        ReferenceSampleCoverage(step=step.name, expected=expected, defined=len(samples),
                        distinct=distinct)
     )
     return current, samples, distinct
@@ -353,12 +353,12 @@ def evaluate_series(
         }
         for (source, field_name), bs in series.items()
     }
-    if ctx.zscore_coverage:
-        coverage["zscore_reference_samples"] = _summarise_zscore(ctx.zscore_coverage)
+    if ctx.reference_sample_coverage:
+        coverage["reference_samples"] = _summarise_reference_samples(ctx.reference_sample_coverage)
     return values, coverage
 
 
-def _summarise_zscore(records: list[ZScoreCoverage]) -> dict:
+def _summarise_reference_samples(records: list[ReferenceSampleCoverage]) -> dict:
     """把逐点样本统计聚合进证据。逐点数组太长，聚合量足以审计截断。"""
     out: dict[str, dict] = {}
     for step in sorted({r.step for r in records}):

@@ -400,3 +400,34 @@ def test_two_runs_on_the_same_queue_both_do_work(rig):
     studies = {e["study_id"] for e in ledger.read_events(role=LedgerRole.HUMAN)
                if e.get("study_id")}
     assert {"runA-study-0", "runB-study-0"} <= studies
+
+
+def test_a_repeated_run_id_raises_instead_of_looking_like_clean_completion(rig):
+    """标识重复是操作错误，不是「没有可做的工作」。
+
+    `no_runnable_work` 是唯一一个能由缺陷触发、却读起来像干净完成的停止理由：
+    入队静默成空操作，服务退出 0，不写 human_review_required。
+    实测就是这样丢掉了一次 12 轮的运行 —— 只跑了一轮。
+    """
+    import pytest as _pytest
+
+    from arad.harness.service import TaskIdentifierCollision
+
+    _run(rig, NeverParses(), max_rounds=1, run_id="same")
+    with _pytest.raises(TaskIdentifierCollision, match="same"):
+        _run(rig, NeverParses(), max_rounds=1, run_id="same")
+
+
+def test_the_service_demo_never_passes_a_constant_run_id():
+    """时间戳兜底原本写在函数末尾（只为 Atlas 的运行目录命名），
+    于是 `--run-id` 缺省时 run_service 拿到的是 None，任务标识变成恒定的
+    "None-task-0"，M7.2 要修的冲突原样回来。这条钉住兜底在服务启动**之前**。
+    """
+    import inspect
+
+    from arad.harness import demo
+
+    src = inspect.getsource(demo.run_service_demo)
+    fallback = src.index('run_id = run_id or datetime.now(UTC).strftime')
+    call = src.index("result = run_service(")
+    assert fallback < call, "运行标识必须在 run_service 之前定下来"

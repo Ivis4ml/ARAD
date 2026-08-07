@@ -24,12 +24,21 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from ..memory.ledger import EvidenceLedger
-from ..orchestrator.queue import DurableQueue
+from ..orchestrator.queue import DurableQueue, TaskNotFound
 from ..providers.base import EpisodeBudget, ProviderRequest, ProviderResponse, Role
 from .episode import run_episode
 from .mutate import next_proposal
 
 SERVICE_VERSION = "0.2.0"
+
+class TaskIdentifierCollision(RuntimeError):
+    """运行标识重复。队列与账本跨运行持久，重复的 run_id 会让入队变成空操作。
+
+    刻意抛异常而不是记一条停止理由：`no_runnable_work` 读起来像「做完了」，
+    而这是操作错误，让它响比让它安静地退出 0 好。它是唯一一个能由缺陷触发、
+    却读起来像干净完成的停止理由。
+    """
+
 
 #: 基础设施失败，不是"问不出新东西"。这一轮压根没走到提案，把它记进停滞计数，
 #: 一个 schema 缺陷就会被读成模型枯竭 —— 与此前按 `proposal_id` 计新颖性
@@ -138,6 +147,18 @@ def run_service(
         # `ClaudeCliProvider` 没有 —— 于是诊断对真实模型被静默丢弃，实跑 8 轮里
         # 最后三轮连续撞在同一个 magnitude_vs_signed_label 上。载荷这条路对任何
         # provider 都成立，因为它最终进的是提示词。
+        try:
+            queue.get(task_id)
+        except TaskNotFound:
+            pass
+        else:
+            # 标识已被用过。这是操作错误，不是「没有可做的工作」—— 入队会静默成为
+            # 空操作，接着服务以 `no_runnable_work` 退出，读起来像干净地做完了。
+            # 这正是本仓库已经修过两次的那类错误：把缺陷报成研究结论。
+            raise TaskIdentifierCollision(
+                f"任务标识 {task_id!r} 已存在于队列中。run_id={run_id!r} 与此前某次运行"
+                "相同，而队列与账本跨运行持久。请换一个 run_id"
+            )
         queue.enqueue(task_id, "study",
                       {**seed_task, "study_id": study_id, "parent_study_id": parent,
                        "learned_mismatches": list(learned)},

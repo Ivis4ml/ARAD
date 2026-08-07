@@ -369,7 +369,7 @@ def test_repeated_readings_do_not_count_as_information():
              sample_every_seconds=3600, min_samples=5),
     )
     values, stats = evaluate_series(spec, [T], series(sparse))
-    reported = stats["zscore_reference_samples"]["z"]
+    reported = stats["reference_samples"]["z"]
     # 样本个数够，互异取值只有一个：每小时采样反复读到同一根 bar
     assert reported["defined_min"] >= 5
     assert reported["distinct_min"] == 1
@@ -382,11 +382,11 @@ def test_a_flat_reference_distribution_is_undefined_not_infinite():
     assert evaluate_spec(zscore_spec(), T, series(flat)) is None
 
 
-def test_zscore_reference_samples_are_reported_in_coverage():
+def test_reference_samples_are_reported_in_coverage():
     """参考分布被截断多少必须进证据：现有 coverage 与影响点闸门都看不见它。"""
     bs = bars(n=600, step=60)
     _, stats = evaluate_series(zscore_spec(), [T, T - timedelta(hours=1)], series(bs))
-    reported = stats["zscore_reference_samples"]["z"]
+    reported = stats["reference_samples"]["z"]
     assert reported["expected_per_point"] == 10
     assert reported["points"] == 2
     assert reported["defined_min"] <= 10
