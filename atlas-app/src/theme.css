@@ -131,7 +131,12 @@ footer { border-top: 1px solid var(--line); padding: 18px 0 40px; color: var(--m
   100% { transform: none; opacity: 1; }
 }
 
-svg.curve { display: block; margin: 4px 0 2px; }
+/* 高度必须封顶。`viewBox` 是 720x320 而宽度取 100%，因此渲染高度 = 容器宽度 x 0.444：
+   在 1230px 宽的卡片里就是 547px，在最大化的宽屏上超过 1100px —— 图被撑成一整屏，
+   内容只占其中很窄一条，其余全是空白。实测就是这样看到「演化视图一大片空白」的。
+   用 max-height 封顶，配默认的 xMidYMid meet：图形按比例缩放并水平居中，
+   宁可两侧留白，不要竖直方向撑高。 */
+svg.curve { display: block; margin: 4px 0 2px; max-height: 360px; }
 svg.curve path { transition: d .5s ease, opacity .4s ease; }
 svg.curve .point circle { transition: r .18s ease; }
 svg.curve .point.landed circle { animation: land .55s cubic-bezier(.2,.9,.3,1); }

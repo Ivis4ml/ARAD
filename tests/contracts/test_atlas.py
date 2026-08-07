@@ -484,3 +484,25 @@ def test_a_run_that_stopped_without_asking_for_review_says_so_more_plainly(ledge
     a_chain(ledger, ["s0"], t_stats=[1.0])
     v = project(ledger, family=FAMILY).search_verdict
     assert v["headline"] == "这一轮没有留下可用的发现。"
+
+
+def test_the_vendored_shell_matches_the_built_app():
+    """`app_shell.html` 是构建产物的副本，会静默漂移。
+
+    实测代价：我改了 `Evolution.tsx` 的默认链选择与图表高度，两次 `npm run build`
+    都通过，服务出来的页面却毫无变化 —— 因为服务器读的是这份副本，而复制那一步
+    没有人做。没有这条测试，下一次同样看不出来。
+    """
+    from pathlib import Path
+
+    from arad.atlas.app import SHELL_PATH
+
+    built = Path(__file__).resolve().parents[2] / "atlas-app" / "dist" / "index.html"
+    if not built.exists():
+        import pytest as _pytest
+
+        _pytest.skip("尚未运行 npm run build")
+    assert SHELL_PATH.read_bytes() == built.read_bytes(), (
+        "内联副本与构建产物不一致：在 atlas-app/ 运行 npm run build 之后，"
+        "把 dist/index.html 复制到 src/arad/atlas/app_shell.html"
+    )
