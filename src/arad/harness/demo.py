@@ -51,11 +51,15 @@ from ..providers.base import EpisodeBudget, Provider
 from ..providers.claude_cli import ClaudeCliProvider
 from ..providers.mock import MockProvider
 from ..registry.specs import TaxonomyContamination
-from ..temporal.targets import TARGET_SPECS
+from ..temporal.targets import TARGET_SPECS, specs_for
 
 
 class UnknownTarget(RuntimeError):
     """提案声明的 target 没有已物化的目标表。"""
+
+
+class UnknownUniverse(RuntimeError):
+    """提案声明的 universe 解析不出品种清单。拒绝猜测。"""
 
 
 def _label_target_record() -> dict:
@@ -253,6 +257,63 @@ def _read_target(path: str, segment: str = SEGMENT) -> list[dict]:
     return rows
 
 
+def built_products() -> list[str]:
+    """已物化 spine 的品种，按品种名排序。
+
+    只看盘面上真有的东西：M8.1 登记了 72 个品种，实际建成 51 个
+    （21 个郑商所卡在交易所 TradingDay 约定差异上，见阻塞事项 10）。
+    菜单必须反映真实可用的东西，否则「自主选择」变成在一张有一半是空头支票的表上选。
+    """
+    root = Path("data/spine")
+    if not root.exists():
+        return []
+    out = []
+    for d in sorted(root.iterdir()):
+        if not d.is_dir() or d.name == "controls":
+            continue
+        if (d / f"target_{d.name}_{LABEL_TARGET[3:]}.parquet").exists():
+            out.append(d.name)
+    return out
+
+
+def _product_target_path(product: str, target_name: str) -> str:
+    return str(Path("data/spine") / product / f"target_{target_name}.parquet")
+
+
+def universe_members(universe: str) -> list[str]:
+    """把 universe 名解析成品种清单。**不认识的名字直接报错，不猜。**
+
+    两种形态：
+    - `<品种>_dominant_t1`：单品种。`sc_dominant_t1` 是既有的那一个，取值不变；
+    - `full_coverage_panel`：样本期内目标表满行的全部品种。成员资格是**数据可得性**
+      规则，与任何结果无关，因此不构成结果依赖的选择；但它排除了样本期内退市或
+      中途上市的品种，这一条是幸存者性质的，必须在证据里读得出来。
+    """
+    built = built_products()
+    if universe == "full_coverage_panel":
+        full = []
+        for product in built:
+            path = _product_target_path(product, f"{product}_{LABEL_TARGET[3:]}")
+            if not os.path.exists(path):
+                continue
+            if pq.read_metadata(path).num_rows >= _FULL_COVERAGE_ROWS:
+                full.append(product)
+        return full
+    if universe.endswith("_dominant_t1"):
+        product = universe[: -len("_dominant_t1")]
+        if product in built:
+            return [product]
+    raise UnknownUniverse(
+        f"不认识的 universe {universe!r}；可用：full_coverage_panel 与 "
+        f"{[p + '_dominant_t1' for p in built[:6]]}… 共 {len(built)} 个单品种"
+    )
+
+
+#: 「满覆盖」的行数门槛。sc 与 au 的目标表都是 1816 行（909 个交易日 × 2 个 session
+#: 减去缺口），样本期内全程挂牌的品种都落在这个数上。
+_FULL_COVERAGE_ROWS = 1816
+
+
 def _load_sc(target_path: str, segment: str = SEGMENT) -> tuple[list[dict], dict, dict]:
     """读 M2 目标表的 discovery 段，构造 bar 序列、决策点与标签。
 
@@ -267,17 +328,24 @@ def _load_sc(target_path: str, segment: str = SEGMENT) -> tuple[list[dict], dict
     # **全部**已物化的 target 都载入，由模型在提案里选。此前只载 LABEL_TARGET，
     # 而菜单又只告诉模型 FEATURE_TARGET，于是模型预注册的是波动幅度的假设，
     # 系统检验的是收益方向（实测 12 条 Study 全部如此，两者秩相关 −0.05）。
+    # 兄弟目标表按**品种**推路径，不按字符串替换。替换法只在 sc 上碰巧成立：
+    # au 的表叫 `target_au_rv_next_session.parquet`，其中不含 `sc_rv_next_session`，
+    # 于是三个 spec 会全部指向同一个文件而不报错。
+    product = Path(target_path).parent.name
     labels_by_target: dict[str, dict] = {}
-    for spec in TARGET_SPECS:
-        path = target_path.replace(FEATURE_TARGET, spec.name)
+    for spec in specs_for(product):
+        path = _product_target_path(product, spec.name)
         if os.path.exists(path):
             labels_by_target[spec.name] = {_key(r): r for r in _read_target(path, segment)}
-    if LABEL_TARGET not in labels_by_target:
+    label_target = next(
+        t.name for t in specs_for(product) if t.name.endswith(LABEL_TARGET[2:])
+    )
+    if label_target not in labels_by_target:
         raise FileNotFoundError(
-            f"缺少收益型目标表 {target_path.replace(FEATURE_TARGET, LABEL_TARGET)}；"
+            f"缺少收益型目标表 {_product_target_path(product, label_target)}；"
             "请先运行 `arad spine build`"
         )
-    label_by_key = labels_by_target[LABEL_TARGET]
+    label_by_key = labels_by_target[label_target]
 
     rows = [r for r in feature_rows if _key(r) in label_by_key]
     return_rows = sorted(label_by_key.values(), key=lambda r: r["label_end"])
@@ -368,50 +436,106 @@ def _load_pm_series(path: str) -> dict:
     }
 
 
-def _build_evaluation(sc: dict, rows: list[dict], visible: dict):
-    """返回 harness 需要的 build_evaluation 回调。"""
-    series = sc["series"]
-    times = series[(Source.COMMODITY_BAR, "realised_volatility")].times
+def _load_product(product: str, segment: str = SEGMENT):
+    """按品种装载一份 spine。返回 (pack, rows)，与 `_load_sc` 的形状一致。"""
+    feature_target = next(
+        t.name for t in specs_for(product) if t.name.endswith(FEATURE_TARGET[2:])
+    )
+    rows, pack, _visible = _load_sc(_product_target_path(product, feature_target), segment)
+    return pack, rows
+
+
+def _collect(spec, rows, values, times, eval_rows, authoritative, exclusions) -> None:
+    """把一个品种的求值结果并入面板。逐行的 PIT 由构造保证，不靠检查。"""
+    for row, value in zip(rows, values, strict=True):
+        key = _key(row)
+        authoritative.append(key)
+        idx = bisect_left(times, row["decision_time"]) - 1
+        if value is None or idx < 0:
+            exclusions[key] = (
+                "特征在该决策时点无定义（回看窗口内无数据）。"
+                "定义与否只取决于特征与历史数据，与标签无关，因此不是结果依赖过滤"
+            )
+            continue
+        eval_rows.append(
+            EvaluationRow(
+                row_key=key,
+                episode_id=row["episode_id"],
+                date_cluster=str(row["trading_day"]),
+                # 多品种下这一维才有内容。单品种时它恒为一组，双向 cluster 退化，
+                # 而那条理由出现在此前**每一条**判决里。
+                product_cluster=row["product"],
+                decision_time=row["decision_time"],
+                label_start=row["label_start"],
+                availability_times={"commodity_bar": times[idx]},
+                prediction=value,
+                controls={"trading_day_parity": float(int(row["trading_day"]) % 2)},
+            )
+        )
+
+
+def _build_evaluation(sc: dict, rows: list[dict], visible: dict,
+                      loader=None, default_universe: str = "sc_dominant_t1"):
+    """返回 harness 需要的 build_evaluation 回调。
+
+    `loader(product)` 按品种装载 spine，缺省时只有 `default_universe` 那一个品种，
+    即传进来的 `sc` 与 `rows`。提案声明多品种 universe 时，特征**逐品种**求值 ——
+    每个品种有自己的 session 表、自己的决策时点、自己的 bar 序列，
+    把它们混在一条序列上求值会算出一个不属于任何品种的数。求值之后再汇集成面板。
+    """
+    packs = {default_universe.replace("_dominant_t1", ""): (sc, rows)}
+
+    def _pack(product: str):
+        if product not in packs:
+            if loader is None:
+                raise UnknownUniverse(
+                    f"未提供多品种装载器，无法求值品种 {product!r}"
+                )
+            packs[product] = loader(product)
+        return packs[product]
 
     def build(spec: FeatureSpec, study_id: str, proposal=None):
         # **标签由提案声明的 target 决定。**此前写死用 LABEL_TARGET，而菜单又只告诉
         # 模型 FEATURE_TARGET，于是预注册的是波动幅度的假设、检验的是收益方向。
+        # 目标名带品种（`sc_ret_next_session`），而面板要跨品种，因此这里按**后缀**
+        # 解析：`ret_next_session` 是目标族名，每个品种贡献自己的那张表。
+        # 不这样做，面板会用 sc 的键去查其余品种的标签，把它们全部过滤掉 ——
+        # 实测面板与单品种给出**同样的 926 行、同样的 1 个品种簇**，看起来像在工作。
         target_name = (getattr(proposal, "target", None) or LABEL_TARGET)
-        chosen = sc.get("labels_by_target", {}).get(target_name)
-        if chosen is None:
+        suffix = target_name.split("_", 1)[1] if "_" in target_name else target_name
+        record = next(
+            (t.record() for t in TARGET_SPECS if t.name.endswith(suffix)), None
+        )
+        if record is None:
             raise UnknownTarget(
-                f"提案声明的 target {target_name!r} 没有已物化的目标表；"
-                f"可用：{sorted(sc.get('labels_by_target', {}))}"
+                f"提案声明的 target {target_name!r} 解析不出目标族；"
+                f"可用后缀：{[t.name.split('_', 1)[1] for t in TARGET_SPECS]}"
             )
-        record = next((t.record() for t in TARGET_SPECS if t.name == target_name), None)
-        decision_times = [r["decision_time"] for r in rows]
-        values, coverage = evaluate_series(spec, decision_times, series)
+        universe = getattr(proposal, "universe", None) or default_universe
+        members = universe_members(universe)
         eval_rows, authoritative, exclusions = [], [], {}
-        for row, value in zip(rows, values, strict=True):
-            key = _key(row)
-            authoritative.append(key)
-            idx = bisect_left(times, row["decision_time"]) - 1
-            if value is None or idx < 0:
-                exclusions[key] = (
-                    "特征在该决策时点无定义（回看窗口内无数据）。"
-                    "定义与否只取决于特征与历史数据，与标签无关，因此不是结果依赖过滤"
+        coverage: dict = {}
+        chosen_labels: dict[str, float] = {}
+        for product in members:
+            pack, prows = _pack(product)
+            per_product_target = f"{product}_{suffix}"
+            table = pack.get("labels_by_target", {}).get(per_product_target)
+            if table is None:
+                raise UnknownTarget(
+                    f"品种 {product!r} 没有已物化的 {per_product_target!r}；"
+                    f"可用：{sorted(pack.get('labels_by_target', {}))}"
                 )
-                continue
-            eval_rows.append(
-                EvaluationRow(
-                    row_key=key,
-                    episode_id=row["episode_id"],
-                    date_cluster=str(row["trading_day"]),
-                    product_cluster=row["product"],
-                    decision_time=row["decision_time"],
-                    label_start=row["label_start"],
-                    availability_times={"commodity_bar": times[idx]},
-                    prediction=value,
-                    controls={"trading_day_parity": float(int(row["trading_day"]) % 2)},
-                )
+            chosen_labels.update(
+                {k: v["value"] for k, v in table.items() if v.get("value") is not None}
             )
-        chosen_labels = {
-            k: v["value"] for k, v in chosen.items() if v.get("value") is not None
+            pseries = pack["series"]
+            times = pseries[(Source.COMMODITY_BAR, "realised_volatility")].times
+            decision_times = [r["decision_time"] for r in prows]
+            values, cov = evaluate_series(spec, decision_times, pseries)
+            coverage[product] = cov
+            _collect(spec, prows, values, times, eval_rows, authoritative, exclusions)
+        coverage = coverage.get(members[0], {}) if len(members) == 1 else {
+            "per_product": coverage, "products": len(members)
         }
         eval_rows = [r for r in eval_rows if r.row_key in chosen_labels]
         authoritative = [k for k in authoritative if k in chosen_labels]

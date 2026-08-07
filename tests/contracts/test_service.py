@@ -513,3 +513,64 @@ def test_the_implemented_kinds_list_matches_the_interpreter():
     from arad.harness.audit import IMPLEMENTED_STEP_KINDS
 
     assert IMPLEMENTED_STEP_KINDS == {k.value for k in SK} - {SK.RESIDUALISE.value}
+
+
+# ------------------------------------------- universe 解析（M8.4）
+
+
+def test_a_panel_universe_pools_rows_across_products():
+    """面板必须真的汇集多品种，而不是看起来像。
+
+    实测教训：目标名带品种（`sc_ret_next_session`），第一版用 sc 的键去查其余品种的
+    标签，把它们全部过滤掉，于是面板与单品种给出**同样的 926 行、同样的 1 个品种簇** ——
+    看起来在工作。目标必须按**族名后缀**逐品种解析。
+    """
+    import os
+
+    import pytest as _pytest
+
+    if not os.path.exists("data/spine/au/target_au_ret_next_session.parquet"):
+        _pytest.skip("需要先建多品种 spine")
+
+    from types import SimpleNamespace
+
+    from arad.features.spec import FeatureSpec, Op, Source, Step, StepKind
+    from arad.harness.demo import (
+        _build_evaluation,
+        _load_product,
+        _load_sc,
+        _product_target_path,
+    )
+
+    rows, sc, visible = _load_sc(_product_target_path("sc", "sc_rv_next_session"))
+    build = _build_evaluation(sc, rows, visible, loader=_load_product)
+    spec = FeatureSpec(
+        feature_id="mom", mechanism="上一 session 的对数收益", output_step="w",
+        failure_condition="窗口内无数据", authored_by="t",
+        steps=[Step(name="w", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                    field="log_return", op=Op.SUM, window_seconds=86400)],
+    )
+
+    def run(universe):
+        req, _labels, _detail = build(
+            spec, "probe", SimpleNamespace(target="sc_ret_next_session", universe=universe)
+        )
+        return req
+
+    one = run("sc_dominant_t1")
+    assert len({r.product_cluster for r in one.rows}) == 1
+
+    two = run("au_dominant_t1")
+    assert {r.product_cluster for r in two.rows} == {"au"}
+    assert not {r.row_key for r in one.rows} & {r.row_key for r in two.rows}, (
+        "跨品种的行键必须互不相交，否则汇集会撞键"
+    )
+
+
+def test_an_unknown_universe_is_refused_not_guessed():
+    import pytest as _pytest
+
+    from arad.harness.demo import UnknownUniverse, universe_members
+
+    with _pytest.raises(UnknownUniverse):
+        universe_members("随便写的")
