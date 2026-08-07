@@ -32,8 +32,12 @@ from .manifest import fingerprint_table
 from .sessions import PRODUCTS, Placement, ProductReference
 from .ticks import enrich
 
-_CONTRACT_RE = re.compile(r"^([a-z]{1,2})(\d{3,4})_(20\d{6})\.csv$")
-_ALIAS_RE = re.compile(r"^([a-z]{1,2})主力连续_(20\d{6})\.csv$")
+#: **必须与 M1 扫描器 `data_catalog/commodity.py` 的 `[A-Za-z]` 一致。**
+#: 原本写作 `[a-z]`，因此 35 个大写前缀品种（郑商所与中金所）在这里一个文件都匹配不上，
+#: 扫描返回 days=0 entries=0 而**不报错** —— 建出来的是一张空 spine。
+#: 有合同测试钉住两处正则的字母类相同。
+_CONTRACT_RE = re.compile(r"^([A-Za-z]{1,2})(\d{3,4})_(20\d{6})\.csv$")
+_ALIAS_RE = re.compile(r"^([A-Za-z]{1,2})主力连续_(20\d{6})\.csv$")
 
 TICK_CONVERT = pacsv.ConvertOptions(
     column_types={

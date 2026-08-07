@@ -229,8 +229,11 @@ def _pm_proposal_json() -> str:
     )
 
 
-_COLUMNS = ["contract", "trading_day", "session_name", "decision_time", "label_start",
-            "label_end", "value", "no_trade", "episode_id", "sample_segment"]
+#: `product` 是 `product_cluster` 的正确来源。原本切 `contract[:2]`，对单字母品种
+#: 是错的（'a2601'[:2] == 'a2'）；'sc'[:2] == 'sc' 恰好正确，因此单品种下从未暴露。
+_COLUMNS = ["product", "contract", "trading_day", "session_name", "decision_time",
+            "label_start", "label_end", "value", "no_trade", "episode_id",
+            "sample_segment"]
 
 
 def _key(row: dict) -> str:
@@ -378,7 +381,7 @@ def _build_evaluation(sc: dict, rows: list[dict], visible: dict):
                     row_key=key,
                     episode_id=row["episode_id"],
                     date_cluster=str(row["trading_day"]),
-                    product_cluster=row["contract"][:2],
+                    product_cluster=row["product"],
                     decision_time=row["decision_time"],
                     label_start=row["label_start"],
                     availability_times={"commodity_bar": times[idx]},

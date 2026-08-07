@@ -231,3 +231,74 @@ def test_calendar_fingerprint_is_deterministic_and_content_sensitive():
     c = TradingCalendar([date(2026, 7, 24), date(2026, 7, 28)], source="test")
     assert a.fingerprint == b.fingerprint
     assert a.fingerprint != c.fingerprint
+
+
+# ---------------------------------------------------------------- 多品种（M8.1）
+
+
+def test_every_commodity_product_shares_the_declared_day_geometry():
+    """品种之间只差夜盘收盘。日盘几何沿用 SC 已按权威参照声明的那一套。
+
+    实测依据（M8.1）：跨 2022 至 2026 采样 16 个交易日、88 个品种，
+    每个 (品种, 日) 取该日最大的合约文件，按 tick 时刻的 5 分钟空档判分段，
+    商品品种全部落在 09:00-10:15 / 10:30-11:30 / 13:30-15:00 上。
+    """
+    from arad.temporal.sessions import PRODUCTS
+
+    reference = PRODUCTS["sc"].sessions.session("day")
+    for name, product in PRODUCTS.items():
+        day = product.sessions.session("day")
+        assert day.open == reference.open, name
+        assert day.close == reference.close, name
+        assert day.auction_start == reference.auction_start, name
+        assert [(s.start, s.end) for s in day.segments] == [
+            (s.start, s.end) for s in reference.segments
+        ], name
+
+
+def test_night_close_partitions_the_products_into_the_measured_classes():
+    from arad.temporal.sessions import NIGHT_CLASSES, PRODUCTS
+
+    for night_close, products in NIGHT_CLASSES.items():
+        for name in products:
+            table = PRODUCTS[name].sessions
+            names = [s.name for s in table.sessions]
+            if not night_close:
+                assert names == ["day"], name
+                continue
+            hh, mm = (int(x) for x in night_close.split(":"))
+            night = table.session("night")
+            assert (night.close.hour, night.close.minute) == (hh, mm), name
+            assert night.open == time(21, 0), name
+            assert night.close_next_day is (hh < 12), name
+
+
+def test_a_derived_session_table_says_so_and_does_not_claim_an_exchange_source():
+    """出处标注必须比 sc 弱，而且必须写明弱在哪。
+
+    由数据归纳的时段表有一个结构性盲区：集合竞价窗口内没有 tick，
+    因此实测首笔是竞价成交打印而不是开盘。工厂因此不用实测值定任何时刻，
+    只用它判定品种属于哪一类。
+    """
+    from arad.temporal.sessions import PRODUCTS
+
+    sc = PRODUCTS["sc"].sessions.reference
+    cu = PRODUCTS["cu"].sessions.reference
+    assert "未由数据反推" in sc
+    assert "原始 tick 实测归纳" in cu
+    assert "不是交易所公告" in cu
+    assert "集合竞价窗口内没有 tick" in cu
+
+
+def test_contract_regex_matches_the_same_letters_as_the_m1_scanner():
+    """两处正则的字母类必须一致。
+
+    `build.py` 原本写 `[a-z]`，因此 35 个大写前缀品种在这里一个文件都匹配不上，
+    扫描返回 days=0 entries=0 而**不报错** —— 建出来的是一张空 spine。
+    """
+    from arad.data_catalog.commodity import _CONTRACT_RE as M1
+    from arad.temporal.build import _CONTRACT_RE as SPINE
+
+    for name in ("MA609_20260730.csv", "IF2608_20260730.csv",
+                 "sc2601_20260730.csv", "a2601_20260730.csv"):
+        assert bool(SPINE.match(name)) is bool(M1.search(name)), name

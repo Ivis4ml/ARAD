@@ -334,8 +334,11 @@ class ProductReference:
 
     product: str
     exchange: str
-    multiplier: float
-    tick_size: float
+    #: 合约乘数与最小变动价位。**可以为 None** —— 实测确认它们不进入任何计算：
+    #: `multiplier` 只出现在 manifest 记录里，`tick_size` 只用于涨跌停判断的半跳容差。
+    #: 权威的合约规格属取数流程，需单独人工授权；在拿到之前记 None，不编造数字。
+    multiplier: float | None
+    tick_size: float | None
     sessions: SessionTable
     reference: str
 
@@ -358,4 +361,96 @@ SC = ProductReference(
     ),
 )
 
-PRODUCTS: dict[str, ProductReference] = {"sc": SC}
+# ---------------------------------------------------------------------------
+# 商品品种的时段类（M8.1）
+#
+# 全部商品品种共用同一套**日盘**分段：09:00-10:15、10:30-11:30、13:30-15:00，
+# 集合竞价 08:55-08:59。这一套在上面的 SC 表里已按权威参照声明过。
+# 品种之间**只差夜盘收盘时刻**，实测归为四类（02:30 / 01:00 / 23:00 / 无夜盘）。
+#
+# 出处标注：日盘几何沿用 SC 的权威参照；夜盘收盘时刻与类成员资格由**原始 tick 实测**
+# 归纳，不是交易所公告。实测方法与结果记在 M8.1 票里：跨 2022 至 2026 采样 16 个交易日、
+# 88 个品种，每个 (品种, 日) 取该日最大的合约文件，只读 UpdateTime 一列求包络；
+# 日内分段由「tick 时刻的空档超过 5 分钟」判出，商品品种全部落在同一套日盘分段上。
+#
+# **这个标注比 SC 弱，必须写明。**由数据归纳的时段表有一个已知的结构性盲区：
+# 集合竞价窗口内没有 tick，因此实测首笔（20:59 / 08:59）是竞价成交打印而不是开盘。
+# 本工厂因此不用实测值定开盘，而是沿用 SC 已声明的 21:00 / 09:00 —— 实测只用于
+# **判定该品种属于哪一类**，不用于确定任何时刻。
+_DAY_SEGMENTS = (
+    Segment(name="d0", start=time(9, 0), end=time(10, 15)),
+    Segment(name="d1", start=time(10, 30), end=time(11, 30)),
+    Segment(name="d2", start=time(13, 30), end=time(15, 0)),
+)
+
+#: 夜盘收盘时刻 → 该类的品种。由原始 tick 实测归纳（见上）。
+NIGHT_CLASSES: dict[str, tuple[str, ...]] = {
+    "02:30": ("sc", "au", "ag"),
+    "01:00": ("cu", "al", "zn", "pb", "ni", "sn", "ss", "bc", "ao", "ad"),
+    "23:00": (
+        "a", "b", "br", "bu", "c", "cs", "eb", "eg", "fu", "hc", "i", "jm", "j",
+        "l", "lu", "m", "nr", "op", "p", "pg", "pp", "rb", "ru", "sp", "v", "y",
+        "bz", "rr", "SH",
+        # 郑商所：实测末笔落在 22:59:xx，与 23:00 同类
+        "CF", "CY", "FG", "MA", "OI", "PF", "PL", "PR", "PX", "RM", "SA", "SR", "TA",
+    ),
+    "": (
+        "AP", "CJ", "PK", "RS", "SF", "SM", "UR",
+        "bb", "fb", "jd", "lc", "lg", "lh", "pd", "ps", "pt", "si",
+    ),
+}
+
+
+def commodity_sessions(product: str, night_close: str) -> SessionTable:
+    """按夜盘收盘时刻构造商品品种的时段表。`night_close` 为空表示无夜盘。"""
+    day = Session(
+        name="day", seq=1, anchor="trading_day", auction_start=time(8, 55),
+        open=time(9, 0), close=time(15, 0), segments=_DAY_SEGMENTS,
+    )
+    reference = (
+        "日盘几何沿用 SC 的权威参照（上海国际能源交易中心交易时间规则）："
+        "09:00-10:15、10:30-11:30、13:30-15:00，集合竞价 08:55-08:59。"
+        f"夜盘收盘 {night_close or '无夜盘'} 与本品种的类成员资格由**原始 tick 实测归纳**"
+        "（M8.1：跨 2022 至 2026 采样 16 个交易日、88 个品种，每个 (品种, 日) 取该日"
+        "最大的合约文件，只读 UpdateTime 求包络），**不是交易所公告**。"
+        "开盘时刻不取实测值：集合竞价窗口内没有 tick，实测首笔是竞价成交打印而非开盘。"
+    )
+    if not night_close:
+        return SessionTable(product=product, sessions=(day,), reference=reference)
+    hh, mm = (int(x) for x in night_close.split(":"))
+    close = time(hh, mm)
+    next_day = hh < 12
+    night = Session(
+        name="night", seq=0, anchor="prev_trading_day", auction_start=time(20, 55),
+        open=time(21, 0), close=close, close_next_day=next_day,
+        segments=(Segment(name="n0", start=time(21, 0), end=close,
+                          end_next_day=next_day),),
+    )
+    return SessionTable(product=product, sessions=(night, day), reference=reference)
+
+
+def _commodity_products() -> dict[str, ProductReference]:
+    """按类展开全部商品品种。
+
+    `multiplier` 与 `tick_size` 为 None：实测确认它们**不进入任何计算** ——
+    `multiplier` 只出现在 manifest 记录里，`tick_size` 只用于涨跌停判断的半跳容差。
+    权威的合约规格属取数流程，需单独人工授权；在那之前不编造数字。
+    容差退化的后果记在 M8.1 票里。
+    """
+    out: dict[str, ProductReference] = {}
+    for night_close, products in NIGHT_CLASSES.items():
+        for product in products:
+            if product == "sc":
+                continue          # sc 用权威参照那一份，不用工厂
+            out[product] = ProductReference(
+                product=product, exchange="", multiplier=None, tick_size=None,
+                sessions=commodity_sessions(product, night_close),
+                reference=(
+                    "时段表见 sessions.reference。合约乘数与最小变动价位未声明："
+                    "它们不进入任何计算，权威规格属取数流程，需单独授权。"
+                ),
+            )
+    return out
+
+
+PRODUCTS: dict[str, ProductReference] = {"sc": SC, **_commodity_products()}

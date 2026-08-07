@@ -32,8 +32,12 @@ def build_rows(target_path: str, segment: str = "discovery") -> tuple[list, dict
     table = pq.read_table(
         target_path,
         columns=[
-            "contract", "trading_day", "session_name", "decision_time", "label_start",
-            "label_end", "value", "no_trade", "episode_id", "sample_segment",
+            # `product` 必须取出来：`product_cluster` 原本切 `contract[:2]`，
+            # 对单字母品种是错的（'a2601'[:2] == 'a2'），而目标表本来就有这一列。
+            # 'sc'[:2] == 'sc' 恰好正确，所以这个缺陷在单品种下从未暴露。
+            "product", "contract", "trading_day", "session_name", "decision_time",
+            "label_start", "label_end", "value", "no_trade", "episode_id",
+            "sample_segment",
         ],
     )
     rows = [r for r in table.to_pylist() if r["sample_segment"] == segment]
@@ -59,7 +63,7 @@ def build_rows(target_path: str, segment: str = "discovery") -> tuple[list, dict
                 row_key=key,
                 episode_id=cur["episode_id"],
                 date_cluster=str(cur["trading_day"]),
-                product_cluster=cur["contract"][:2],
+                product_cluster=cur["product"],
                 decision_time=cur["decision_time"],
                 label_start=cur["label_start"],
                 availability_times={"prev_same_session_rv": prev["label_end"]},
