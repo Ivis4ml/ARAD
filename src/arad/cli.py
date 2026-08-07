@@ -156,6 +156,9 @@ def main(argv: list[str] | None = None) -> int:
     asv.add_argument("--runs", default="runs")
     asv.add_argument("--host", default="127.0.0.1")
     asv.add_argument("--port", type=int, default=8770)
+    asv.add_argument("--ledger", default="data/ledger/service.db",
+                     help="实时进度直接读它；运行目录要等服务结束才写")
+    asv.add_argument("--family", default="demo_sc_price_volume")
     ar = atlas_sub.add_parser("render", help="从账本渲染静态站点")
     ar.add_argument("--ledger", default="data/ledger/arad.db")
     ar.add_argument("--queue", default=None, help="可选：读取 Research Service 状态")
@@ -275,7 +278,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.atlas_cmd == "serve":
             from .atlas.server import serve
 
-            serve(args.runs, host=args.host, port=args.port)
+            serve(args.runs, host=args.host, port=args.port,
+                  ledger_path=args.ledger, family=args.family)
             return 0
         from .atlas.app import render_app
         from .atlas.project import project

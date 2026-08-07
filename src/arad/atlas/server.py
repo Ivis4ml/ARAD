@@ -33,6 +33,9 @@ class AtlasHandler(BaseHTTPRequestHandler):
 
     server_version = f"arad-atlas/{SERVER_VERSION}"
     runs_root = "runs"
+    #: 实时进度直接读账本 —— 运行目录要等服务结束才写。
+    ledger_path = "data/ledger/service.db"
+    family = "demo_sc_price_volume"
 
     def log_message(self, fmt: str, *args) -> None:
         return                                        # 不往 stderr 刷访问日志
@@ -66,6 +69,19 @@ class AtlasHandler(BaseHTTPRequestHandler):
         if parts[0] != "api":
             self._json({"error": "未知路径"}, 404)
             return
+        if parts[1:] == ["live"]:
+            # 运行中的进度。运行目录只在服务结束后写一次，因此运行期间应用里
+            # 什么都看不到；账本本来就是实时写的，这里只读它投影当前状态。
+            from .live import live_state
+
+            try:
+                self._json(live_state(self.ledger_path, self.family))
+            except Exception as exc:                       # noqa: BLE001
+                # 读不到就如实说读不到。**不要返回一个空的进度** ——
+                # 把「暂时读不到」显示成「什么都没有」，与本仓库一直在修的
+                # 那类错误是同一种。
+                self._json({"error": f"读取账本失败：{exc}"}, 503)
+            return
         if parts[1:] == ["runs"]:
             self._json(list_runs(self.runs_root))
             return
@@ -87,9 +103,11 @@ class AtlasHandler(BaseHTTPRequestHandler):
         self._json({"error": "Atlas 是只读投影，不接受写入"}, 405)
 
 
-def serve(runs_root: str, *, host: str = "127.0.0.1", port: int = 8770) -> None:
+def serve(runs_root: str, *, host: str = "127.0.0.1", port: int = 8770,
+          ledger_path: str = "data/ledger/service.db",
+          family: str = "demo_sc_price_volume") -> None:
     mimetypes.init()
-    handler = partial(_bound_handler, runs_root)
+    handler = partial(_bound_handler, runs_root, ledger_path, family)
     httpd = ThreadingHTTPServer((host, port), handler)
     print(f"Atlas API 在 http://{host}:{port}/  （只读，只绑本机）")
     print(f"运行目录：{Path(runs_root).resolve()}")
@@ -99,6 +117,7 @@ def serve(runs_root: str, *, host: str = "127.0.0.1", port: int = 8770) -> None:
         httpd.server_close()
 
 
-def _bound_handler(runs_root: str, *args, **kwargs):
-    cls = type("BoundAtlasHandler", (AtlasHandler,), {"runs_root": runs_root})
+def _bound_handler(runs_root: str, ledger_path: str, family: str, *args, **kwargs):
+    cls = type("BoundAtlasHandler", (AtlasHandler,),
+               {"runs_root": runs_root, "ledger_path": ledger_path, "family": family})
     return cls(*args, **kwargs)

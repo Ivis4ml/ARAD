@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Live } from './Live'
 import { Overview } from './Overview'
 import { Evolution } from './Evolution'
 import { Cards } from './Cards'
@@ -12,6 +13,7 @@ import { Slab } from './Slab'
 import { VerdictChip } from './Value'
 
 const TABS = [
+  { id: 'live', label: '实时' },
   { id: 'replay', label: '回放' },
   { id: 'evolution', label: '演化' },
   { id: 'matrix', label: '矩阵' },
@@ -74,6 +76,7 @@ export function App({ loaded }: { loaded: Loaded }) {
           {tab === 'matrix' && <Matrix p={p} />}
           {tab === 'cards' && <Cards cards={loaded.cards} />}
           {tab === 'overview' && <Overview p={p} />}
+          {tab === 'live' && <Live />}
           {tab === 'process' && <Process p={p} />}
           {tab === 'snapshots' && (
             <>

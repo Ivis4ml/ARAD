@@ -211,3 +211,24 @@ pre.code { background: #131a22; color: #d7e0ea; font-family: var(--mono);
 .runbar { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center;
   font-size: var(--t-small); }
 .runbar select { max-width: 320px; }
+
+/* ---------------------------------------------------------------- 实时进度 */
+.live { border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px;
+        background: var(--card); margin: 12px 0 18px; }
+.live-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.live-head .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.dot.live-on { background: #1f6f43; box-shadow: 0 0 0 3px rgba(31,111,67,.18); }
+.dot.live-off { background: #8a8f98; }
+.live-head .warn { color: #8a6d1f; }
+.live-bar { height: 6px; background: var(--line); border-radius: 3px; margin: 12px 0 6px;
+            overflow: hidden; }
+.live-bar i { display: block; height: 100%; background: #17708a; transition: width .4s ease; }
+.live-steps { list-style: none; padding: 0; margin: 10px 0 14px;
+              display: grid; gap: 2px; }
+.live-steps li { display: flex; align-items: baseline; gap: 10px; padding: 3px 0; }
+.live-steps li.todo { opacity: .45; }
+.live-steps .mark { width: 1em; color: #1f6f43; font-weight: 700; }
+.live-steps li.todo .mark { color: var(--muted); font-weight: 400; }
+.live-facts { display: flex; gap: 26px; flex-wrap: wrap; margin: 4px 0 10px; }
+.live-facts div { display: flex; flex-direction: column; gap: 2px; }
+.live-facts b { font-variant-numeric: tabular-nums; font-size: 1.15rem; }
