@@ -89,6 +89,7 @@ def run_service(
     build_evaluation: Any,
     audit_input: Any,
     seed_task: dict,
+    contamination: Any = None,
     max_rounds: int = 40,
     calls_per_episode: int = 6,
     stall_rounds: int = 3,
@@ -119,7 +120,7 @@ def run_service(
             budget=EpisodeBudget(max_calls=calls_per_episode),
             family=family, owner=owner, assemble=assemble,
             build_evaluation=build_evaluation, audit_input=audit_input,
-            max_rounds=1, now=current,
+            contamination=contamination, max_rounds=1, now=current,
         )
         result.episodes.append(episode.summary())
         result.rounds += len(episode.rounds)

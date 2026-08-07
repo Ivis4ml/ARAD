@@ -159,6 +159,7 @@ def run_round(
     assemble: Any,
     build_evaluation: Any,
     audit_input: Any = None,
+    contamination: Any = None,
     now: datetime | None = None,
 ) -> RoundOutcome | None:
     """跑一轮。没有可运行任务时返回 None（不是"完成"）。"""
@@ -226,9 +227,15 @@ def run_round(
     ledger.record_proposal(proposal.content_id, family)
     ledger.append("proposal_locked", proposal.payload(), study_id=study_id)
 
+    # 分类法污染（决定 0004）：归纳语料若覆盖本 Study 读 outcome 的区间，
+    # 机制选择就发生在与结果相关的变量上，条件化之后选择偏差变成估计偏差。
+    # 它必须在**冻结时**记进 Hypothesis Lock，事后补记就不是事前信息了。
     hypothesis = HypothesisLock(
         proposal_id=proposal.content_id, experiment_family=family,
         sample_segments=["discovery"],
+        taxonomy_contamination=(
+            contamination(parsed.feature_spec) if contamination is not None else None
+        ),
     )
     confirmatory = ConfirmatoryLock(
         hypothesis_id=hypothesis.content_id,
@@ -345,6 +352,7 @@ def run_episode(
     assemble: Any,
     build_evaluation: Any,
     audit_input: Any = None,
+    contamination: Any = None,
     schedule_next: Any = None,
     max_rounds: int = 50,
     now: datetime | None = None,
@@ -364,7 +372,8 @@ def run_episode(
             outcome = run_round(
                 queue=queue, ledger=ledger, provider=provider, budget=budget,
                 family=family, owner=owner, assemble=assemble,
-                build_evaluation=build_evaluation, audit_input=audit_input, now=now,
+                build_evaluation=build_evaluation, audit_input=audit_input,
+                contamination=contamination, now=now,
             )
         except EpisodeBudgetExhausted:
             result.ended_because = "budget_exhausted"

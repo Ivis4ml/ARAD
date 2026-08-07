@@ -27,6 +27,58 @@ _BASELINE_GRID = (1728000, 2592000, 5184000)
 _ZWINDOW_GRID = (7776000, 15552000, 23328000)
 _ZSTEP_GRID = (86400, 172800, 259200)
 
+#: 候选机制族。族的选择进入特征字段名，因而进 content id 与冻结锁 ——
+#: 「用哪个族」是本提案的经济假设，不是藏在映射表里的常量。
+_PM_FAMILIES = ("cand:iran", "cand:russia", "cand:israel")
+#: 信念变化的回看跨度。SC 的两个闭市窗口约 6 与 6.5 小时，因此从 6 小时起步。
+_PM_LAG_GRID = (21600, 43200, 86400, 172800)
+_PM_OBS_GRID = (3600, 7200, 21600)
+
+
+def _pm_belief_feature(step_index: int) -> tuple[list[dict], str, str]:
+    """族的信念变化：现在的水平减去 Δ 之前的水平。
+
+    这是 ADAR T2 的 `dp_terminal` 在本语言里的写法 —— 用 offset 取「Δ 之前那一段的
+    最后取值」，再与当下作差。`dp_drift_run`（同号累积异号清零后最长的一段）
+    现有原语表达不了，那是一个应当被声明的缺口，不是这里该绕过的东西。
+    """
+    family = _PM_FAMILIES[step_index % len(_PM_FAMILIES)]
+    lag = _PM_LAG_GRID[(step_index // 3) % len(_PM_LAG_GRID)]
+    obs = _PM_OBS_GRID[(step_index // 5) % len(_PM_OBS_GRID)]
+    steps = [
+        {"name": "p_now", "kind": "window", "source": "pm_market",
+         "field": f"{family}:p", "op": "last", "window_seconds": obs},
+        {"name": "p_lag", "kind": "window", "source": "pm_market",
+         "field": f"{family}:p", "op": "last", "window_seconds": obs,
+         "offset_seconds": lag},
+        {"name": "dp", "kind": "difference", "inputs": ["p_now", "p_lag"]},
+    ]
+    return (
+        steps, "dp",
+        (f"改用 {family} 的信念变化（{lag // 3600} 小时跨度、{obs // 3600} 小时观测窗）："
+         "另类数据侧的主线机制，标的是有符号收益"),
+    )
+
+
+def _pm_attention_feature(step_index: int) -> tuple[list[dict], str, str]:
+    """族的资金关注度相对自身常态的抬升。名义额，不是笔数：一笔一美元与一笔十万
+    美元对「市场在看这件事」的证据强度不同。"""
+    family = _PM_FAMILIES[step_index % len(_PM_FAMILIES)]
+    obs = _PM_OBS_GRID[(step_index // 3) % len(_PM_OBS_GRID)]
+    base = _PM_LAG_GRID[(step_index // 4) % len(_PM_LAG_GRID)] * 4
+    steps = [
+        {"name": "flow_recent", "kind": "window", "source": "pm_market",
+         "field": f"{family}:notional", "op": "sum", "window_seconds": obs},
+        {"name": "flow_base", "kind": "window", "source": "pm_market",
+         "field": f"{family}:notional", "op": "sum", "window_seconds": base},
+        {"name": "attention", "kind": "ratio", "inputs": ["flow_recent", "flow_base"]},
+    ]
+    return (
+        steps, "attention",
+        (f"改用 {family} 的资金关注度（{obs // 3600} 小时成交额对 {base // 3600} 小时基线之比）："
+         "信念未必变，但钱在往这件事上压"),
+    )
+
 
 @dataclass(frozen=True)
 class MutationPlan:
@@ -94,11 +146,22 @@ def next_proposal(
 
     `mismatch_codes` 来自语义审计员，是封闭词表里的码，不含任何数字。
     """
+    # 机制轮转：一条链不该只在一个想法里扫参数。轮转次序固定，因此整条链可回放。
     if "magnitude_vs_signed_label" in mismatch_codes:
-        steps, output, why = _signed_feature(step_index)
+        wheel = (
+            (_pm_belief_feature,
+             "闭市期间地缘族信念变化驱动开盘后的方向",
+             "若该族信念变化与下一 session 收益无关，则本特征被证伪"),
+            (_signed_feature,
+             "价格动量：短期累计收益相对长期基线为正时，下一 session 收益方向偏正",
+             "若动量与下一 session 收益无关，则本特征被证伪"),
+            (_pm_attention_feature,
+             "资金关注度：地缘族成交额相对自身基线抬升时，下一 session 方向可预测",
+             "若关注度与下一 session 收益无关，则本特征被证伪"),
+        )
+        maker, mechanism, failure = wheel[step_index % len(wheel)]
+        steps, output, why = maker(step_index)
         reason = "magnitude_vs_signed_label"
-        mechanism = "价格动量：短期累计收益相对长期基线为正时，下一 session 收益方向偏正"
-        failure = "若动量与下一 session 收益无关，则本特征被证伪"
     else:
         steps, output, why = _magnitude_feature(step_index)
         reason = "parameter_sweep" if parent is not None else "seed"
@@ -108,9 +171,12 @@ def next_proposal(
     feature_id = "auto_" + "_".join(
         f"{s['name']}{s.get('window_seconds') or ''}" for s in steps
     )[:72]
+    # source 进 ProposalSpec 的 content id，也是 Atlas 覆盖表的分组依据：
+    # 用了 pm_market 的特征必须如实报 polymarket，否则另类因子会被记成量价因子
+    uses_pm = any(step.get("source") == "pm_market" for step in steps)
     payload = {
         "mechanism": mechanism,
-        "source": "commodity_bar",
+        "source": "polymarket" if uses_pm else "commodity_bar",
         "target": target_name,
         "horizon": "next_session",
         "universe": "sc_dominant_t1",

@@ -158,9 +158,19 @@ def test_ratio_by_zero_is_undefined():
 
 
 def test_unimplemented_source_is_a_recorded_gap_not_a_crash():
+    """pm_market 已接入（M5.2），未接入的仍必须是被记录的缺口而不是崩溃。"""
     with pytest.raises(SourceNotImplemented, match="原语缺口"):
         evaluate_spec(
-            spec_of(window_step(source=Source.PM_MARKET, field="price")), T, series()
+            spec_of(window_step(source=Source.CLS, field="headline_count")), T, series()
+        )
+
+
+def test_a_wired_source_without_a_series_is_still_a_gap():
+    """接入不等于任何字段都有序列：族没物化就该如实报缺口。"""
+    with pytest.raises(SourceNotImplemented, match="没有为"):
+        evaluate_spec(
+            spec_of(window_step(source=Source.PM_MARKET, field="cand:nope:p")),
+            T, series(),
         )
 
 

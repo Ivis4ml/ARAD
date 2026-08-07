@@ -32,7 +32,11 @@ from .spec import FeatureSpec, Op, Source, Step, StepKind
 
 #: 解释器语义版本。进入 `EvaluationRequest.digest()`：同一规格换一个解释器版本
 #: 可能算出另一个数，证据必须能区分。
-INTERPRETER_VERSION = "0.2.0"
+INTERPRETER_VERSION = "0.3.0"
+
+#: 已接入的数据源。`pm_market` 的序列由 `arad pm-index series` 物化，字段名形如
+#: `cand:iran:p` —— 族的选择是各 Study 冻结的经济假设，不是这里固化的映射表。
+WIRED_SOURCES = frozenset({Source.COMMODITY_BAR, Source.PM_MARKET})
 
 
 class NotInterpretable(RuntimeError):
@@ -160,7 +164,7 @@ def evaluate_step(
             f"{step.kind.value} 是派生步骤，必须经 evaluate_spec 求值；"
             "它需要在过去时刻重新求值输入，单点结果不够"
         )
-    if step.source is not Source.COMMODITY_BAR:
+    if step.source not in WIRED_SOURCES:
         raise SourceNotImplemented(
             f"解释器尚未接入数据源 {step.source.value!r}；"
             "这是原语缺口，应记录并驱动扩展，不是失败"

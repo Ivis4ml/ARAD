@@ -48,6 +48,7 @@ from ..orchestrator.queue import DurableQueue
 from ..providers.base import EpisodeBudget, Provider
 from ..providers.claude_cli import ClaudeCliProvider
 from ..providers.mock import MockProvider
+from ..registry.specs import TaxonomyContamination
 
 
 def _label_target_record() -> dict:
@@ -64,6 +65,9 @@ SEGMENT = "discovery"
 #: 预测收益的**方向**（sign_unit 仓位规则下 Sharpe 度量的正是方向）。
 LABEL_TARGET = "sc_ret_next_session"
 FEATURE_TARGET = "sc_rv_next_session"
+#: 候选机制族的 PIT 序列（M5.2）。族的选择是各 Study 冻结的经济假设，不是映射表。
+PM_SERIES_PATH = "data/pm_series/family_hourly.parquet"
+FAMILIES_MANIFEST = "artifacts/manifests/pm_candidate_families.json"
 
 #: 菜单偏差是实测过的（#12 taxonomy hindsight audit）。藏起来它会原样传导成提案偏差。
 MENU_BIASES = [
@@ -294,8 +298,57 @@ def _load_sc(target_path: str) -> tuple[list[dict], dict, dict]:
         "to": rows[-1]["label_end"].isoformat() if rows else None,
         "forward_data": "未读取：forward 段按 Study 逐个到期，Atlas 中只显示预约状态",
     }
+    pm = _load_pm_series(PM_SERIES_PATH)
+    series.update(pm["series"])
+    visible["pm_families"] = pm["families"]
+    visible["pm_note"] = pm["note"]
     return rows, {"series": series, "labels": labels,
                   "periods_per_year": visible["sessions_per_year"]}, visible
+
+
+def _load_pm_series(path: str) -> dict:
+    """把候选族的小时序列接成解释器可用的形态。
+
+    字段名形如 `cand:iran:p`：族在字段名里，因此「用哪个族」是**规格的一部分**，
+    会进 content id、进冻结锁、进快照 —— 而不是藏在某张映射表里。
+
+    `coverage_start` 显式取该族第一个分桶：族的市场是逐步出现的，早于它的决策点
+    必须判为无定义，而不是拿一段更短的历史硬算。
+    """
+    if not os.path.exists(path):
+        return {"series": {}, "families": [], "note": f"缺少 {path}，pm_market 不可用"}
+    table = pq.read_table(path)
+    buckets: dict[str, list[dict]] = {}
+    for row in table.to_pylist():
+        buckets.setdefault(row["family_id"], []).append(row)
+    series: dict[tuple[Source, str], BarSeries] = {}
+    families: list[dict] = []
+    for family_id, rows in sorted(buckets.items()):
+        rows.sort(key=lambda r: r["bucket_end"])
+        times = [r["bucket_end"] for r in rows]
+        start = times[0]
+        for field in ("p", "notional", "trades"):
+            values = [float(r[field]) for r in rows if r[field] is not None]
+            keep = [r["bucket_end"] for r in rows if r[field] is not None]
+            if len(values) < 2:
+                continue
+            series[(Source.PM_MARKET, f"{family_id}:{field}")] = BarSeries(
+                field=f"{family_id}:{field}", times=keep, values=values,
+                coverage_start=start,
+            )
+        families.append({
+            "family_id": family_id, "buckets": len(rows),
+            "from": start.isoformat(), "to": times[-1].isoformat(),
+            "notional": sum(r["notional"] or 0.0 for r in rows),
+        })
+    return {
+        "series": series,
+        "families": families,
+        "note": (
+            "概率已归一到 outcome_seq==1 一侧；可用时刻取小时桶右端，"
+            "比 block_timestamp（撮合时刻的保守下界）还要晚一档"
+        ),
+    }
 
 
 def _build_evaluation(sc: dict, rows: list[dict], visible: dict):
@@ -365,7 +418,14 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict):
                 "visible": visible,
                 "available_series": {
                     "commodity_bar": ["realised_volatility", "log_return"],
-                    "note": "解释器当前只提供这些序列；引用其他 field 会判 blocked",
+                    "pm_market": sorted(
+                        f"{f['family_id']}:{k}" for f in visible.get("pm_families", [])
+                        for k in ("p", "notional", "trades")
+                    ),
+                    "note": (
+                        "解释器当前只提供这些序列；引用其他 field 会判 blocked。"
+                        "pm_market 的字段名含族 id —— 用哪个族是本提案的经济假设"
+                    ),
                 },
             },
             targets=[{"target": "sc_rv_next_session", "horizon": "next_session",
@@ -439,9 +499,36 @@ def _lineage_scheduler(limit: int = len(LINEAGE_VARIANTS)):
     return schedule
 
 
+def _contamination(visible: dict, families_manifest: str):
+    """只有用到 pm_market 的特征才带分类法污染记录。
+
+    候选机制族是从市场标题归纳出来的，而市场的创建对真实事件内生 —— 那些事件正是
+    推动商品价格的事件。归纳语料若覆盖本 Study 读 outcome 的区间，族的选择就不独立
+    于结果（决定 0004）。`cand:israel` 排进头部，正是因为以色列相关市场被创建并被
+    大量交易，而它们被创建恰恰是在回应那些同时推动油价的事件。
+    """
+    if not os.path.exists(families_manifest):
+        return lambda spec: None
+    doc = json.loads(Path(families_manifest).read_text(encoding="utf-8"))
+    cutoff = doc["spec"]["induction"]["induction_cutoff"]
+    interval = (str(visible.get("from") or "")[:10], str(visible.get("to") or "")[:10])
+
+    def build(spec):
+        if not any(step.source is Source.PM_MARKET for step in spec.steps):
+            return None
+        return TaxonomyContamination(
+            taxonomy_id=f"pm_candidate_families/{doc['spec']['version']}",
+            taxonomy_freeze_at=cutoff,
+            induction_corpus_max_date=cutoff,
+            outcome_read_intervals=[interval],
+        )
+
+    return build
+
+
 def _audit_input(sc: dict, visible: dict, target_record: dict):
     """构造语义审计员的输入。**逐字段从类型化对象取，不是过滤某个 payload。**"""
-    wired = frozenset({Source.COMMODITY_BAR.value})
+    wired = frozenset({Source.COMMODITY_BAR.value, Source.PM_MARKET.value})
     span = None
     if visible.get("from") and visible.get("to"):
         span = int(
@@ -530,6 +617,7 @@ def run_service_demo(
             assemble=_assembler(ledger, manifest_dir, visible),
             build_evaluation=_build_evaluation(sc, rows, visible),
             audit_input=_audit_input(sc, visible, record),
+            contamination=_contamination(visible, FAMILIES_MANIFEST),
             seed_task={}, max_rounds=max_rounds, now=now,
         )
         # 相关矩阵：只比信号之间，不读 outcome

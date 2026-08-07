@@ -112,15 +112,34 @@ def test_the_mutator_switches_mechanism_when_told_the_label_is_signed():
     assert plan.reason_code == "magnitude_vs_signed_label"
 
 
-def test_the_momentum_baseline_is_always_longer_than_the_observation_window():
-    """两窗相等时 difference 恒为零，评价机会正确地报「回归元没有变异」，但那一轮白花。"""
-    for step in range(12):
+def test_paired_window_features_never_use_two_equal_windows():
+    """两窗相等时 difference/ratio 恒为零或一，评价机会正确地报「回归元没有变异」，
+    但那一轮白花。动量、关注度两类都是成对窗口，都要守这一条。"""
+    for step in range(18):
         spec = json.loads(next_proposal(
             step_index=step, mismatch_codes=("magnitude_vs_signed_label",),
             target_name="sc_ret_next_session", parent=1,
         )[0])["feature_spec"]
-        windows = [s["window_seconds"] for s in spec["steps"] if s.get("window_seconds")]
-        assert windows[1] > windows[0], step
+        paired = [s for s in spec["steps"] if s.get("window_seconds")]
+        if len(paired) != 2 or {s["field"] for s in paired} != {paired[0]["field"]}:
+            continue
+        # 同字段的两个窗口：要么窗长不同，要么用 offset 取的是不同时段
+        a, b = paired
+        assert (a["window_seconds"] != b["window_seconds"]
+                or a.get("offset_seconds", 0) != b.get("offset_seconds", 0)), (step, spec)
+
+
+def test_the_loop_can_now_express_polymarket_features():
+    """接入 pm_market 之前循环一个另类因子都产不出，搜索空间整个落在量价对照集里。"""
+    sources = set()
+    for step in range(12):
+        spec = json.loads(next_proposal(
+            step_index=step, mismatch_codes=("magnitude_vs_signed_label",),
+            target_name="sc_ret_next_session", parent=1,
+        )[0])
+        sources.add(spec["source"])
+    assert "polymarket" in sources
+    assert "commodity_bar" in sources
 
 
 def test_the_mutator_is_deterministic():

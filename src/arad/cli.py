@@ -96,6 +96,16 @@ def main(argv: list[str] | None = None) -> int:
     pma.add_argument("--config", default="configs/pm_index.yaml")
     pmt = pmi_sub.add_parser("text-corpus", help="确定性文本语料与模板归纳（#12 第一层）")
     pmt.add_argument("--config", default="configs/pm_index.yaml")
+    pms = pmi_sub.add_parser("series", help="候选族的 PIT 序列，使 pm_market 可求值（M5.2）")
+    pms.add_argument("--config", default="configs/pm_index.yaml")
+    pms.add_argument("--families-manifest",
+                     default="artifacts/manifests/pm_candidate_families.json")
+    pms.add_argument("--top", type=int, default=0, help="按成交量取前 N 个族")
+    pms.add_argument("--include", default="cand:iran,cand:russia,cand:israel",
+                     help="额外点名的族，逗号分隔")
+    pms.add_argument("--bucket-seconds", type=int, default=3600)
+    pms.add_argument("--out", default="data/pm_series/family_hourly.parquet")
+
     pmf = pmi_sub.add_parser("families", help="候选机制族归纳并登记为提案（#12 第二层）")
     pmf.add_argument("--config", default="configs/pm_index.yaml")
     pmf.add_argument("--ledger", default="data/ledger/arad.db")
@@ -171,6 +181,35 @@ def main(argv: list[str] | None = None) -> int:
             return pm_metadata_audit(args.config)
         if args.pm_cmd == "text-corpus":
             return pm_text_corpus(args.config)
+        if args.pm_cmd == "series":
+            from .data_catalog.pm_series import (
+                build_series,
+                conditions_by_family,
+                load_families,
+            )
+
+            with open(args.config, encoding="utf-8") as f:
+                cfg = yaml.safe_load(f)
+            fams = load_families(
+                args.families_manifest, top=args.top,
+                include=tuple(x for x in args.include.split(",") if x),
+            )
+            memb = conditions_by_family(
+                os.path.join(cfg["output"]["data_dir"], "market_text.parquet"), fams
+            )
+            table = build_series(cfg["source"]["roots"], memb,
+                                 bucket_seconds=args.bucket_seconds)
+            os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
+            import pyarrow.parquet as _pq
+
+            _pq.write_table(table, args.out)
+            print(json.dumps({
+                "families": {f.family_id: len(memb[f.family_id]) for f in fams},
+                "rows": table.num_rows,
+                "bucket_seconds": args.bucket_seconds,
+                "out": args.out,
+            }, ensure_ascii=False, indent=2))
+            return 0
         if args.pm_cmd == "families":
             from .temporal.pm_pipeline import pm_families
 
