@@ -11,6 +11,7 @@ M4 票的裁决是「结构化规格为主，可执行代码为辅，但代码�
 
 from __future__ import annotations
 
+from .interpreter import CONTROL_SERIES
 from .spec import SAMPLED_KINDS, FeatureSpec, Step, StepKind
 
 CODEGEN_VERSION = "0.1.0"
@@ -240,10 +241,55 @@ def to_python(spec: FeatureSpec) -> str:
                 f"        {name} = (below + 0.5 * tied) / len(samples_{step.name})"
             )
         elif step.kind is StepKind.RESIDUALISE:
+            src = step.inputs[0]
+            k = (step.window_seconds or 0) // (step.sample_every_seconds or 1)
+            ck = CONTROL_SERIES[step.controls[0]]
+            key = f"{ck[0].value}.{ck[1]}"
+            body.append("    # residualise：拟合样本严格取自决策时点之前，逐点重拟合")
+            body.append(f'    tc_{step.name}, xc_{step.name} = series["{key}"]')
+            body.append(f"    xs_{step.name}, cs_{step.name} = [], []")
+            body.append(f"    for k in range(1, {k} + 1):")
             body.append(
-                "    raise NotImplementedError('residualise 需要控制序列，"
-                "原样返回输入等于把未残差化的值当成已残差化的证据')"
+                f"        past = decision_time - timedelta("
+                f"seconds=k * {step.sample_every_seconds})"
             )
+            body.append(f"        xv = _at_{src}(past, series)")
+            body.append(
+                f"        cw = _window(tc_{step.name}, xc_{step.name}, past,"
+                f" {step.window_seconds})"
+            )
+            body.append("        cv = cw[-1] if cw else None")
+            body.append("        if _ok(xv) and _ok(cv):")
+            body.append(f"            xs_{step.name}.append(xv)")
+            body.append(f"            cs_{step.name}.append(cv)")
+            body.append(
+                f"    cw0 = _window(tc_{step.name}, xc_{step.name}, decision_time,"
+                f" {step.window_seconds})"
+            )
+            body.append("    c0 = cw0[-1] if cw0 else None")
+            body.append(
+                f"    if not _ok(v_{src}) or not _ok(c0)"
+                f" or len(set(cs_{step.name})) < {step.min_samples}:"
+            )
+            body.append(f"        {name} = None")
+            body.append("    else:")
+            body.append(
+                f"        cbar = math.fsum(cs_{step.name}) / len(cs_{step.name})"
+            )
+            body.append(
+                f"        xbar = math.fsum(xs_{step.name}) / len(xs_{step.name})"
+            )
+            body.append(
+                f"        scc = math.fsum((c - cbar) ** 2 for c in cs_{step.name})"
+            )
+            body.append("        if scc <= 0:")
+            body.append(f"            {name} = None")
+            body.append("        else:")
+            body.append(
+                f"            b = math.fsum((c - cbar) * (x - xbar) for c, x in"
+                f" zip(cs_{step.name}, xs_{step.name}, strict=True)) / scc"
+            )
+            body.append(f"            {name} = v_{src} - (xbar + b * (c0 - cbar))")
         body.append(f"    if {name} is not None and not math.isfinite({name}):")
         body.append(f"        {name} = None")
     body.append(f"    return v_{spec.output_step}")

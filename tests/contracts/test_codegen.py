@@ -151,19 +151,50 @@ def test_the_generated_code_returns_none_never_zero_when_undefined():
     assert run_generated(spec, T0, empty) is None
 
 
-def test_residualise_refuses_in_generated_code_too():
+def test_residualise_is_generated_and_matches_the_interpreter():
+    """`residualise` 由「未实现」变为可求值（M9.5），生成代码与解释器仍须逐位一致。
+
+    存在的理由是实测的：真实模型在面板上给出 |t| = 9.3 的特征，分母是
+    `mean(realised_volatility)` 而目标就是已实现波动 —— 它重新发现了波动率聚集，
+    是教科书级的 Baseline Control。没有这一步，任何与波动相关的目标都会被它淹没。
+    """
+    from datetime import timedelta as _td
+
     spec = FeatureSpec(
-        feature_id="res", mechanism="残差化", output_step="r",
-        failure_condition="控制序列缺失", authored_by="t",
+        feature_id="res", mechanism="对 Brent 残差化", output_step="r",
+        failure_condition="控制取值不变时不可识别", authored_by="t",
         steps=[
-            Step(name="a", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
-                 field="close", op=Op.MEAN, window_seconds=3600),
-            Step(name="r", kind=StepKind.RESIDUALISE, inputs=["a"], controls=["c"]),
+            Step(name="w", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                 field="close", op=Op.LAST, window_seconds=86400 * 2),
+            Step(name="r", kind=StepKind.RESIDUALISE, inputs=["w"], controls=["brent"],
+                 window_seconds=86400 * 40, sample_every_seconds=86400, min_samples=10),
         ],
     )
-    with pytest.raises(NotImplementedError):
-        run_generated(spec, T0, series_for("close"))
-
+    n = 200
+    times = [T0 - _td(days=n - i) - _td(minutes=1) for i in range(n)]
+    control = [1.0 + 0.01 * i for i in range(n)]
+    close = [2 * v + ((-1) ** i) * 0.05 for i, v in enumerate(control)]
+    series = {
+        (Source.COMMODITY_BAR, "close"): BarSeries(
+            field="close", times=times, values=close,
+            coverage_start=T0 - _td(days=400)),
+        (Source.INTL, "brent"): BarSeries(
+            field="brent", times=times, values=control,
+            coverage_start=T0 - _td(days=400)),
+    }
+    checked = 0
+    for days in range(0, 60, 7):
+        at = T0 - _td(days=days)
+        a = evaluate_spec(spec, at, series)
+        b = run_generated(spec, at, series)
+        if a is None and b is None:
+            continue
+        checked += 1
+        assert a is not None and b is not None, (at, a, b)
+        assert abs(a - b) < 1e-12, (at, a, b)
+        # x = 2c ± 0.05：残差化之后只剩噪声那一层
+        assert abs(a) < 0.2, (at, a)
+    assert checked > 0
 
 def test_the_formula_names_every_step_and_ends_at_the_output():
     lines = to_formula(SPECS["zscore"])

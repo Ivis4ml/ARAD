@@ -106,9 +106,16 @@ STEP_SCHEMA: dict[str, dict] = {
                      "杠杆都被 [0,1] 这个界约束住；代价是丢掉幅度信息，"
                      "因此它不是 zscore 的替代，是另一个假设"
                  )},
-    "residualise": {"required": ["name", "kind", "inputs", "controls"],
-                    "note": "inputs 恰好一个；controls 至少一个已登记的 Baseline Control；"
-                            "解释器尚未实现，提交后会判 blocked"},
+    "residualise": {"required": ["name", "kind", "inputs", "controls",
+                                 "window_seconds", "sample_every_seconds", "min_samples"],
+                    "note": (
+                        "inputs 恰好一个；controls 恰好**一个**已登记的 Baseline Control"
+                        "（brent 或 own_realised_volatility）。与 zscore 同一张采样网格："
+                        "拟合样本取自 t - k*sample_every_seconds，**严格在决策时点之前** —— "
+                        "在全样本上拟合再取残差等于用未来数据定义残差。"
+                        "min_samples 计**控制变量的互异取值**：控制恒定时斜率不可识别。"
+                        "把 Baseline Control 减掉之后剩下的，才是另类数据的增量"
+                    )},
 }
 
 #: FeatureSpec 自身的字段。同样是 extra="forbid"。

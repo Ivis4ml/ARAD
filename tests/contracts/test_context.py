@@ -230,7 +230,9 @@ def test_step_schema_matches_the_model_so_a_compliant_model_is_not_rejected():
         StepKind.DIFFERENCE: {"inputs": ["a", "b"]},
         StepKind.ZSCORE: {"inputs": ["a"], "window_seconds": 36000,
                           "sample_every_seconds": 3600, "min_samples": 5},
-        StepKind.RESIDUALISE: {"inputs": ["a"], "controls": ["c"]},
+        StepKind.RESIDUALISE: {"inputs": ["a"], "controls": ["brent"],
+                               "window_seconds": 36000,
+                               "sample_every_seconds": 3600, "min_samples": 5},
     }
     for kind, fields in probe.items():
         declared = set(STEP_SCHEMA[kind.value]["required"]) - {"name", "kind"}

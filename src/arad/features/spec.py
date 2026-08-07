@@ -24,10 +24,11 @@ from ..registry.specs import content_id
 #: 0.2.0：zscore 由"未实现"变为可求值，Step 新增 sample_every_seconds 与 min_samples，
 #: 派生步骤的 offset_seconds 由静默忽略改为拒绝。新增字段进入 model_dump，因此
 #: **全部 content id 随之改变** —— 这正是要的：旧证据与新证据不共用 id。
+#: 0.4.0：residualise 由"未实现"变为可求值（拟合样本严格取自过去）。
 #: 0.3.0：新增 rank_pct。实测动机：一条真实特征的最大杠杆是 0.607，即单个观测占了
 #: 回归元全部变异的六成，而当时的语言里没有任何稳健变换可用。分位排名有界于 [0,1]，
 #: 单点无法主导它。
-FEATURE_SPEC_VERSION = "0.3.0"
+FEATURE_SPEC_VERSION = "0.4.0"
 
 #: 参考样本的硬约束。写死在语言层而不是解释器里：它们决定规格是否可能有定义。
 MIN_SAMPLE_STEP_SECONDS = 60
@@ -72,9 +73,14 @@ DERIVED_KINDS = frozenset(
      StepKind.RESIDUALISE}
 )
 
-#: 需要在过去采样网格上重算输入的种类。两者的采样约束完全相同：
-#: 参考分布的网格与最小互异样本数都是规格的一部分，不能由实现替它决定。
-SAMPLED_KINDS = frozenset({StepKind.ZSCORE, StepKind.RANK_PCT})
+#: 需要在过去采样网格上重算输入的种类。采样约束完全相同：
+#: 参考分布（或拟合样本）的网格与最小互异样本数都是规格的一部分，
+#: 不能由实现替它决定。
+#:
+#: `residualise` 也在其中，而且它比另外两个更需要这条：**在全样本上拟合再取残差，
+#: 等于用未来数据定义了每个时点的残差**，那是最隐蔽的一种前视 —— 残差看起来永远
+#: 「干净」，而干净正是因为它见过未来。拟合样本必须严格取自决策时点之前。
+SAMPLED_KINDS = frozenset({StepKind.ZSCORE, StepKind.RANK_PCT, StepKind.RESIDUALISE})
 
 
 class UnsupportedMechanism(BaseModel):
@@ -163,6 +169,12 @@ class Step(BaseModel):
             raise ValueError(f"{self.kind.value} 需要恰好两个输入步骤")
         if self.kind is StepKind.RESIDUALISE and (len(self.inputs) != 1 or not self.controls):
             raise ValueError("residualise 需要一个输入步骤与至少一个控制项")
+        if self.kind is StepKind.RESIDUALISE and len(self.controls) != 1:
+            # 多元残差化要解正规方程，第一版只做一元。多写一个控制项就被拒，
+            # 而不是静默只用第一个 —— 后者会让规格声明的东西与实际算的东西不一致。
+            raise ValueError(
+                f"residualise 第一版只支持**一个**控制项，收到 {len(self.controls)} 个"
+            )
         if self.kind not in SAMPLED_KINDS and (
             self.sample_every_seconds is not None or self.min_samples is not None
         ):

@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from pydantic import ValidationError
 
 from arad.features.interpreter import (
     BarSeries,
@@ -267,22 +268,32 @@ def test_format_feedback_refuses_to_emit_effect_words():
         format_feedback({"study_id": "sharpe 很高", "blocked_reasons": []}, "blocked")
 
 
-def test_residualise_refuses_to_pretend_it_residualised_anything():
-    """原样返回输入会让评价机为一个并非规格声明的数出具结果。宁可判 blocked。"""
-    from arad.features.interpreter import StepNotImplemented
+def test_residualise_refuses_when_the_control_series_is_missing():
+    """缺控制序列时必须报错，**不得退化为原样返回**。
 
+    原样返回等于把未残差化的值当成已残差化的证据 —— 那正是评价机被建出来要拦的
+    单位错误形态，只不过发生在解释器内部，没有任何检查能看见。
+    """
     spec = FeatureSpec(
-        feature_id="f", mechanism="m", output_step="r",
-        failure_condition="控制序列缺失", authored_by="t",
-        steps=[
-            window_step("w"),
-            Step(name="r", kind=StepKind.RESIDUALISE, inputs=["w"],
-                 controls=["sc_own_information"]),
-        ],
+        feature_id="res", mechanism="m", output_step="r", failure_condition="c",
+        authored_by="t",
+        steps=[Step(name="w", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                    field="close", op=Op.LAST, window_seconds=3600),
+               # 回看深度必须落在测试序列的覆盖范围内，否则覆盖准入先判无定义，
+               # 根本走不到控制序列那一步
+               Step(name="r", kind=StepKind.RESIDUALISE, inputs=["w"],
+                    controls=["brent"], window_seconds=3600 * 10,
+                    sample_every_seconds=3600, min_samples=5)],
     )
-    with pytest.raises(StepNotImplemented, match="residualise"):
+    with pytest.raises(SourceNotImplemented):
         evaluate_spec(spec, T, series())
 
+
+def test_an_unregistered_control_is_refused_not_guessed():
+    with pytest.raises(ValidationError):
+        Step(name="r", kind=StepKind.RESIDUALISE, inputs=["w"],
+             controls=["brent", "own_realised_volatility"],
+             window_seconds=86400 * 40, sample_every_seconds=86400, min_samples=10)
 
 def test_describe_is_lossless_so_the_spec_can_be_rebuilt_from_the_ledger():
     """账本里存的是 describe()。规格若不能从证据里重建，快照就不自包含。"""

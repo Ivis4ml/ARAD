@@ -32,11 +32,21 @@ from .spec import FeatureSpec, Op, Source, Step, StepKind
 
 #: 解释器语义版本。进入 `EvaluationRequest.digest()`：同一规格换一个解释器版本
 #: 可能算出另一个数，证据必须能区分。
-INTERPRETER_VERSION = "0.3.0"
+INTERPRETER_VERSION = "0.4.0"
 
 #: 已接入的数据源。`pm_market` 的序列由 `arad pm-index series` 物化，字段名形如
 #: `cand:iran:p` —— 族的选择是各 Study 冻结的经济假设，不是这里固化的映射表。
 WIRED_SOURCES = frozenset({Source.COMMODITY_BAR, Source.PM_MARKET})
+
+#: 已登记的 Baseline Control：控制名 → 序列键。**不认识的名字直接拒绝**，
+#: 不退化为原样返回 —— 后者等于把未残差化的值当成已残差化的证据。
+CONTROL_SERIES: dict[str, tuple[Source, str]] = {
+    "brent": (Source.INTL, "brent"),
+    #: 品种自身的已实现波动。实测最需要减掉的正是它：模型给出 |t| = 9.3 的特征，
+    #: 分母是 `mean(realised_volatility)` 而目标就是已实现波动 ——
+    #: 它重新发现了波动率聚集，是教科书级的 Baseline Control。
+    "own_realised_volatility": (Source.COMMODITY_BAR, "realised_volatility"),
+}
 
 
 class NotInterpretable(RuntimeError):
@@ -214,11 +224,76 @@ def _evaluate(
     if step.kind is StepKind.RANK_PCT:
         return _rank_pct(spec, index, step, at, ctx)
     if step.kind is StepKind.RESIDUALISE:
-        raise StepNotImplemented(
-            "residualise 尚未实现：残差化需要控制序列，解释器目前不持有它们。"
-            "原样返回输入等于把未残差化的值当成已残差化的证据"
-        )
+        return _residualise(spec, index, step, at, ctx)
     raise ValueError(f"未实现的步骤类型 {step.kind}")
+
+
+def _residualise(
+    spec: FeatureSpec, index: dict[str, Step], step: Step, at: datetime, ctx: EvalContext
+) -> float | None:
+    """把输入步骤对一个控制序列做残差化。**拟合样本严格取自决策时点之前。**
+
+    在全样本上拟合再取残差，等于用未来数据定义了每个时点的残差 —— 那是最隐蔽的
+    一种前视：残差看起来永远「干净」，而干净正是因为它见过未来。这里对每个决策时点
+    单独拟合一次，样本取自 `at - k * sample_every_seconds`，与 zscore 同一张网格。
+
+    存在的理由是实测的：真实模型在面板上给出 |t| = 9.3 的特征，分母是
+    `mean(realised_volatility)` 而目标就是已实现波动 —— 它重新发现了波动率聚集，
+    是教科书级的 Baseline Control，不是另类数据的 alpha。没有这一步，
+    任何与波动相关的目标都会被这一层淹没。
+
+    控制值取自控制序列在同一时刻的取值（`Source.CONTROL`）。控制序列本身带
+    `available_time`，PIT 由序列构造保证。
+    """
+    source_name = step.inputs[0]
+    control_key = CONTROL_SERIES.get(step.controls[0])
+    if control_key is None:
+        raise SourceNotImplemented(
+            f"未登记的控制项 {step.controls[0]!r}；已登记 {sorted(CONTROL_SERIES)}"
+        )
+    if control_key not in ctx.series:
+        raise SourceNotImplemented(
+            f"没有为控制项 {step.controls[0]!r} 提供序列；"
+            "残差化不能在缺控制序列时退化为原样返回 —— 那等于把未残差化的值"
+            "当成已残差化的证据"
+        )
+    control = ctx.series[control_key]
+
+    def control_at(t: datetime) -> float | None:
+        # 取严格早于 t 的最后一个观测。窗口右端点一律不含，与其余原语同一条纪律。
+        window = control.window(t, step.window_seconds or 0)
+        return window[-1] if window else None
+
+    current_x = _value_of(spec, index, source_name, at, ctx)
+    current_c = control_at(at)
+    expected = (step.window_seconds or 0) // (step.sample_every_seconds or 1)
+    xs: list[float] = []
+    cs: list[float] = []
+    for k in range(1, expected + 1):
+        past = at - timedelta(seconds=k * (step.sample_every_seconds or 0))
+        xv = _value_of(spec, index, source_name, past, ctx)
+        cv = control_at(past)
+        if _defined(xv) and _defined(cv):
+            xs.append(xv)
+            cs.append(cv)
+    ctx.reference_sample_coverage.append(
+        ReferenceSampleCoverage(step=step.name, expected=expected, defined=len(xs),
+                               distinct=len(set(cs)))
+    )
+    if not _defined(current_x) or not _defined(current_c):
+        return None
+    # 门槛计**控制变量的互异取值**：控制恒定时斜率不可识别，此时残差就是去均值，
+    # 那不是残差化。宁可判无定义。
+    if len(set(cs)) < (step.min_samples or 0):
+        return None
+    cbar = math.fsum(cs) / len(cs)
+    xbar = math.fsum(xs) / len(xs)
+    scc = math.fsum((c - cbar) ** 2 for c in cs)
+    if scc <= 0:
+        return None
+    slope = math.fsum((c - cbar) * (x - xbar) for c, x in zip(cs, xs, strict=True)) / scc
+    out = current_x - (xbar + slope * (current_c - cbar))
+    return out if _defined(out) else None
 
 
 def _reference_samples(
