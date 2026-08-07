@@ -571,3 +571,10 @@ M4.2（分位排名原语）：M6.2 只用 X 重算杠杆时发现一条真实�
 （`SAMPLED_KINDS`）。**它不是 zscore 的替代，是另一个假设** —— 代价是丢掉幅度信息，
 提示词里明写。`_no_nested_zscore` 推广到整个 `SAMPLED_KINDS`，交叉嵌套一并拒绝。
 生成代码与解释器逐位一致。`FEATURE_SPEC_VERSION` 升至 0.3.0。
+
+M7.2（标识必须带上运行 id）：修完 M7.1 重启服务，`--max-rounds 12` 却只跑了一轮就以
+`no_runnable_work` 停止。队列与账本跨运行持久，而 `auto-task-N` / `auto-study-N` 不带运行
+标识，第二次运行的 `auto-task-1` 在上一次里已是 `done`，入队成空操作。更糟的一面是
+`auto-study-N` 同样会撞，两次运行的证据会被写进同一个 Study 标识下，`collect_snapshot`
+按 study_id 收集，快照因此混成一份。`run_service` 新增 `run_id` 并由 CLI 的 `--run-id`
+透传（该参数此前只用于 Atlas 运行目录命名，没有进入证据标识）。测试在同一队列上连跑两次。
