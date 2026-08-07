@@ -145,7 +145,6 @@ PROPOSER_VISIBLE_FIELDS: dict[str, tuple[str, ...]] = {
 
 WITHHELD = "<withheld:not-on-blinded-allowlist>"
 
-
 def _project_for_role(event_type: str, payload: dict) -> dict:
     """按事件类型取白名单字段。整条不在名单里的事件只留一个标记。"""
     allowed = PROPOSER_VISIBLE_FIELDS.get(event_type)

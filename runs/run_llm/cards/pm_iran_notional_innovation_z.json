@@ -1,0 +1,34 @@
+{
+  "card_version": "0.1.0",
+  "codegen_version": "0.1.0",
+  "feature_id": "pm_iran_notional_innovation_z",
+  "content_id": "24f6c3935bdc84c71d8be4fe96eccae03a6c3bf7ab9e4d4f91ed3c81b397bfc2",
+  "family": "demo_sc_price_volume",
+  "status": "sealed_survived",
+  "taxonomy_clean": false,
+  "mechanism": "地缘政治关注度冲击传导至原油波动率。Polymarket 的 cand:iran 族（head tokens: iran / shipping / attack / targets / response）以美元名义成交量度量交易者对霍尔木兹海峡与伊朗相关军事冲突的关注强度。该族的关注度在事件驱动下出现跳升时，反映的是尚未完全计入商品盘面的供给中断风险重估；由于预测市场以真金白银定价、且其参与者集合与商品期货参与者并不重合，这类关注度冲击应当先于商品市场的波动率上升出现。据此假设：cand:iran 族名义成交量相对其自身月度基线的异常上升，正向预测下一交易时段的已实现波动率。",
+  "failure_condition": "以下任一情形出现时，本特征应判为无效而非弱有效：(1) 有效样本不足 —— cand:iran 序列起于 2023-01-09，叠加 30 日基线与 90 日 z 窗口的预热期，特征在 2023 年二季度之前无定义；相对 1040 行的特征范围，可用行数显著低于该数，若可用行数不足以支撑分位比较，结果应判为不确定而非否证。(2) 该族约 18787 个小时桶分布于三年半区间，存在稀疏段；若某日 24 小时名义成交量为零或近零，innovation 与其后的 z 值将由基线主导而非由真实关注度主导，此类样本应被识别并剔除。(3) 自相关混淆 —— 若该特征的预测力在控制商品自身已实现波动率的持续性之后消失，则其经济含义不成立；本轮无法直接检验（residualise 尚未实现），因此该检验须在后续提案中补足。(4) 反向因果 —— 若关注度跳升实际发生于商品盘面波动之后（预测市场在追随而非领先），则机制方向被推翻。",
+  "formula": [
+    "iran_notional_innov = 求和( pm_market.cand:iran:notional , 窗口 [t−1时−1日, t−1时) ) − 同算子(窗口 [t−30日, t) )",
+    "iran_notional_innov_z = ( iran_notional_innov(t) − μ ) / σ，其中 μ、σ 取自 iran_notional_innov 在 t−k×1日（k=1..90）上的取值，互异取值不足 30 个则无定义",
+    "输出 = iran_notional_innov_z"
+  ],
+  "code": "\"\"\"pm_iran_notional_innovation_z\n\n机制：cand:iran 族名义成交量的日度异常，相对其 30 日基线取 innovation，再以过去 90 日的日度采样分布做标准化。取值越高表示对伊朗/航运/袭击类事件的资金关注度越偏离自身常态，代表一次尚未被商品盘面吸收的供给风险重估。\n\n失败条件：以下任一情形出现时，本特征应判为无效而非弱有效：(1) 有效样本不足 —— cand:iran 序列起于 2023-01-09，叠加 30 日基线与 90 日 z 窗口的预热期，特征在 2023 年二季度之前无定义；相对 1040 行的特征范围，可用行数显著低于该数，若可用行数不足以支撑分位比较，结果应判为不确定而非否证。(2) 该族约 18787 个小时桶分布于三年半区间，存在稀疏段；若某日 24 小时名义成交量为零或近零，innovation 与其后的 z 值将由基线主导而非由真实关注度主导，此类样本应被识别并剔除。(3) 自相关混淆 —— 若该特征的预测力在控制商品自身已实现波动率的持续性之后消失，则其经济含义不成立；本轮无法直接检验（residualise 尚未实现），因此该检验须在后续提案中补足。(4) 反向因果 —— 若关注度跳升实际发生于商品盘面波动之后（预测市场在追随而非领先），则机制方向被推翻。\n\n**本文件由 `arad.features.codegen` 从冻结规格确定性生成，请勿手改。**\n规格内容身份 24f6c3935bdc84c71d8be4fe96eccae03a6c3bf7ab9e4d4f91ed3c81b397bfc2\n生成器 0.1.0；改规格才能改代码，两者不可能不一致。\n\nPIT：每个窗口的右端点一律**不含**决策时点，offset 只能非负。\n无定义返回 None，绝不返回 0 —— 返回 0 会被下游当成「没有信号」，那是伪造。\n本特征最早触及 2881时 前的数据；该深度未整段落在序列覆盖范围内时判为无定义。\n\"\"\"\n\nfrom __future__ import annotations\n\nimport math\nfrom bisect import bisect_left\nfrom datetime import datetime, timedelta\n\nREQUIRED_LOOKBACK_SECONDS = 10371600\n\n\ndef _window(times, values, end, seconds):\n    \"\"\"取 [end - seconds, end) 内的值。**end 一律不含**，这是 PIT 的关键。\"\"\"\n    lo = bisect_left(times, end - timedelta(seconds=seconds))\n    hi = bisect_left(times, end)\n    return values[lo:hi]\n\n\ndef _agg(op, xs):\n    if not xs:\n        return None\n    if op == \"last\":\n        return xs[-1]\n    if op == \"mean\":\n        return math.fsum(xs) / len(xs)\n    if op == \"sum\":\n        return math.fsum(xs)\n    if op == \"count\":\n        return float(len(xs))\n    if op == \"min\":\n        return min(xs)\n    if op == \"max\":\n        return max(xs)\n    if op == \"std\":\n        if len(xs) < 2:\n            return None\n        m = math.fsum(xs) / len(xs)\n        return math.sqrt(math.fsum((x - m) ** 2 for x in xs) / (len(xs) - 1))\n    raise ValueError(op)\n\n\ndef _ok(v):\n    \"\"\"非有限值一律当作无定义：NaN 传下去会让比较式的闸门全部取假地通过。\"\"\"\n    return v is not None and math.isfinite(v)\n\n\ndef _at_iran_notional_innov(at: datetime, series: dict):\n    \"\"\"在任意过去时刻求 iran_notional_innov 的值。zscore 的参考分布要用它。\"\"\"\n    t, x = series[\"pm_market.cand:iran:notional\"]\n    end = at - timedelta(seconds=3600)\n    v_iran_notional_innov = _agg(\"sum\", _window(t, x, end, 86400))\n    far = _agg(\"sum\", _window(t, x, end, 2592000))\n    v_iran_notional_innov = (v_iran_notional_innov - far) if _ok(v_iran_notional_innov) and _ok(far) else None\n    return v_iran_notional_innov\n\ndef compute(decision_time: datetime, series: dict, coverage_start=None):\n    \"\"\"在一个决策时点上求值。无定义返回 None。\"\"\"\n    # 覆盖准入：回看深度必须整段落在序列覆盖范围内，否则同一份规格在完整\n    # 序列与其截断副本上会给出不同的数，而没有任何记录能看出差别\n    if coverage_start is not None and (\n        decision_time - timedelta(seconds=REQUIRED_LOOKBACK_SECONDS)\n        < coverage_start\n    ):\n        return None\n    t_iran_notional_innov, x_iran_notional_innov = series[\"pm_market.cand:iran:notional\"]\n    end_iran_notional_innov = decision_time - timedelta(seconds=3600)\n    v_iran_notional_innov = _agg(\"sum\", _window(t_iran_notional_innov, x_iran_notional_innov, end_iran_notional_innov, 86400))\n    far_iran_notional_innov = _agg(\"sum\", _window(t_iran_notional_innov, x_iran_notional_innov, end_iran_notional_innov, 2592000))\n    v_iran_notional_innov = (v_iran_notional_innov - far_iran_notional_innov) if _ok(v_iran_notional_innov) and _ok(far_iran_notional_innov) else None\n    if v_iran_notional_innov is not None and not math.isfinite(v_iran_notional_innov):\n        v_iran_notional_innov = None\n    # zscore：参考样本取自规格自己声明的采样网格，严格取自过去\n    samples_iran_notional_innov_z = []\n    for k in range(1, 90 + 1):\n        past = decision_time - timedelta(seconds=k * 86400)\n        s = _at_iran_notional_innov(past, series)\n        if _ok(s):\n            samples_iran_notional_innov_z.append(s)\n    distinct_iran_notional_innov_z = len(set(samples_iran_notional_innov_z))\n    if not _ok(v_iran_notional_innov) or distinct_iran_notional_innov_z < 30:\n        v_iran_notional_innov_z = None\n    else:\n        mu = math.fsum(samples_iran_notional_innov_z) / len(samples_iran_notional_innov_z)\n        sd = math.sqrt(math.fsum((s - mu) ** 2 for s in samples_iran_notional_innov_z) / (len(samples_iran_notional_innov_z) - 1))\n        v_iran_notional_innov_z = ((v_iran_notional_innov - mu) / sd) if sd > 0 else None\n    if v_iran_notional_innov_z is not None and not math.isfinite(v_iran_notional_innov_z):\n        v_iran_notional_innov_z = None\n    return v_iran_notional_innov_z\n",
+  "required_lookback_seconds": 10371600,
+  "sources": [
+    "pm_market"
+  ],
+  "discovery": {
+    "t_stat": -0.02974930834343881,
+    "ic_spearman": -0.009092792340890757,
+    "rows": 506,
+    "study_id": "auto-study-1"
+  },
+  "sealed": {
+    "t_stat": -0.6493479156006409,
+    "ic_spearman": -0.066637967464496,
+    "rows": 476,
+    "segment": "historical_validation"
+  },
+  "meaning": "机制：地缘政治关注度冲击传导至原油波动率。Polymarket 的 cand:iran 族（head tokens: iran / shipping / attack / targets / response）以美元名义成交量度量交易者对霍尔木兹海峡与伊朗相关军事冲突的关注强度。该族的关注度在事件驱动下出现跳升时，反映的是尚未完全计入商品盘面的供给中断风险重估；由于预测市场以真金白银定价、且其参与者集合与商品期货参与者并不重合，这类关注度冲击应当先于商品市场的波动率上升出现。据此假设：cand:iran 族名义成交量相对其自身月度基线的异常上升，正向预测下一交易时段的已实现波动率。 发现段上斜率的 t 值为 -0.030，IC（时序秩相关）-0.0091，提交观测 506 行。 封闭段（只开一次）上 t 值 -0.649，与发现段同号，提交观测 476 行。 结论：在时间上的样本外保住了符号与量级。 注意，分类法不干净：候选机制族的归纳语料覆盖了本段，机制的选择并不独立于结果，样本外也救不了这一点（决定 0004）。真正干净的检验只能在归纳切点之后的数据上做。 成本与容量模型尚未建立（属 M5），因此本因子在任何情况下都不得取 candidate；以上全部为 pre-cost。"
+}

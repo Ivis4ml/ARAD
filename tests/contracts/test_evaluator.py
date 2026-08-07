@@ -565,3 +565,127 @@ def test_an_unusable_standard_error_does_not_become_an_influence_finding(monkeyp
     infl = result["diagnostics"]["influence"]
     assert infl["gate_evaluable"] is False
     assert math.isnan(infl["max_abs_dfbetas"])
+
+
+# ---------------------------------------------------------------- 判决语义（决定 0005）
+
+
+def test_a_clean_negative_result_is_recorded_as_null_not_blocked():
+    """否定结论必须能被记成 null。
+
+    此前 `Verdict.NULL` 从未被任何代码路径产出：判决是
+    `BLOCKED if blocked else CANDIDATE`，而 `cost_model_declared=False` 对每一条
+    Study 都成立，于是一个干净的否定与一个真正判不出来的 Study 无从区分。
+    整套系统存在的理由正是让否定结论可信。
+    """
+    rows, labels = make_rows(n=60, seed=7)
+    result = evaluate(a_request(rows, cost_model_declared=False), labels, role="evaluator")
+    assert "placebo_failed" in result["blocked_reason_kinds"]
+    assert result["suggested_verdict"] == "null"
+    # null 必须带着它的排除界，否则它只是「没找到」而不是「排除了什么」
+    bound = result["null_exclusion_bound"]
+    assert bound["mde_at_2p8_se"] > 0
+    assert "M5" in bound["note"]
+
+
+def test_the_cost_model_gate_blocks_candidate_but_not_null():
+    """未声明成本模型挡的是可交易主张。
+
+    断言「该机制与标的没有统计关系」不需要交易成本模型。若它同时挡住 null，
+    则在 M5 完成之前 null 结构性不可达，而 M6/M7 的出口判据要求 null 可覆盖。
+    """
+    from arad.evaluation.kernel import REASON_INVALIDATES
+
+    assert REASON_INVALIDATES["cost_model_missing"] == frozenset({"candidate"})
+
+
+def test_cluster_degeneracy_invalidates_candidate_only():
+    """标准误被低估只会**高估**显著性，因此只可能推翻 candidate。
+
+    真实标准误更大只会让 |t| 更小，null 反而更强；且置换检验根本不使用标准误。
+    """
+    from arad.evaluation.kernel import REASON_INVALIDATES
+
+    assert REASON_INVALIDATES["cluster_structure_insufficient"] == frozenset({"candidate"})
+
+
+def test_single_point_influence_is_direction_aware():
+    """一个点能制造效应，也能遮蔽效应，但两者的判据不同。
+
+    守 candidate：这一点是否撑起了效应。守 null：删掉它之后 |t| 能否够到显著性。
+    对称地把两者都判为「什么都断言不了」，会让每一个干净的 null 都自己把自己作废。
+    """
+    from arad.evaluation.kernel import REASON_INVALIDATES
+
+    assert REASON_INVALIDATES["single_point_influence_candidate_only"] == frozenset(
+        {"candidate"}
+    )
+    assert REASON_INVALIDATES["single_point_influence_both"] == frozenset(
+        {"candidate", "null"}
+    )
+    rows, labels = make_rows(n=60, seed=3)
+    bad = rows[0]
+    rows[0] = EvaluationRow(**{**bad.__dict__, "prediction": 50.0})
+    labels[bad.row_key] = 50.0
+    result = evaluate(a_request(rows), labels, role="evaluator")
+    kind = next(k for k in result["blocked_reason_kinds"] if k.startswith("single_point"))
+    t = abs(result["effects"]["t_stat"])
+    d = result["diagnostics"]["influence"]["max_abs_dfbetas"]
+    expected = "both" if t + d >= 2.8 else "candidate_only"
+    assert kind.endswith(expected)
+
+
+def test_the_verdict_reads_only_reason_kinds_never_the_numbers_in_them():
+    """判决只能是封闭种类表的函数。
+
+    一旦推导条件化到任何未经预注册闸门表达的效应数值（例如「|t| < 0.5 才算 null」，
+    或把 null 分成强弱两档），判决词就开始编码一次新的量级比较，那才是泄漏。
+    强度差异只能留在证据里给评价机与人看。
+    """
+    from arad.evaluation.kernel import REASON_INVALIDATES, derive_verdict
+
+    for kinds, expected in [
+        (["placebo_failed", "cost_model_missing", "cluster_structure_insufficient"], "null"),
+        (["placebo_failed", "single_point_influence_candidate_only"], "null"),
+        (["placebo_failed", "single_point_influence_both"], "blocked"),
+        (["placebo_failed", "not_identified"], "blocked"),
+        (["cost_model_missing"], "blocked"),
+        (["insufficient_sample", "placebo_failed"], "underpowered"),
+        ([], "candidate"),
+    ]:
+        assert derive_verdict(kinds) == expected, kinds
+    # 未登记的种类必须报错而不是静默地当作无害
+    with pytest.raises(ValueError):
+        derive_verdict(["something_new"])
+    assert set(REASON_INVALIDATES) >= {"placebo_failed", "cost_model_missing"}
+
+
+def test_only_aggregate_verdict_counts_reach_the_proposer():
+    """判决词对提案器可见是设计声明的披露（「只给判决分类与分母」），
+    但披露的**边界**是聚合：提示词里只有按判决词计数，没有逐 Study 的判决。
+
+    这条边界才是要害。让 `null` 可达使这个计数从近乎常量变成有信息 ——
+    它告诉提案器「这些机制被证否了」，不含方向、不含量级。一旦逐 Study 的判决
+    也进了提示词，提案器就能把机制与结果一一对上，那才是在检验统计量上爬山。
+    """
+    import tempfile
+
+    from arad.harness.context import DeclaredBias, assemble_proposer_context
+    from arad.memory.ledger import EvidenceLedger
+
+    with tempfile.TemporaryDirectory() as tmp, EvidenceLedger(f"{tmp}/l.db") as ledger:
+        for i, verdict in enumerate(["null", "null", "blocked"]):
+            ledger.append("verdict_recorded",
+                          {"study_id": f"s{i}", "verdict": verdict,
+                           "next_action": "archive_evidence", "rationale": "r"},
+                          study_id=f"s{i}")
+        bundle = assemble_proposer_context(
+            ledger=ledger, family="fam", data_facts={}, targets=[{"name": "t"}],
+            menu=[{"family_id": "c"}],
+            menu_biases=[DeclaredBias("a", "b", "c")],
+            budget_facts={}, blockers=[],
+        )
+    history = bundle.facts["history"]
+    assert history["verdict_taxonomy"] == {"null": 2, "blocked": 1}
+    for study_id in ("s0", "s1", "s2"):
+        assert study_id not in bundle.prompt, "逐 Study 的判决不得进入提示词"

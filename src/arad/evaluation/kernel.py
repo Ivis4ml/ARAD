@@ -26,7 +26,7 @@ from datetime import datetime
 from ..registry.specs import Verdict, content_id
 from . import stats
 
-EVALUATOR_VERSION = "0.2.0"
+EVALUATOR_VERSION = "0.3.0"
 
 #: 准入所需的最小证据。缺任一项，Study 不得取 candidate。
 ADMISSION_REQUIREMENTS = (
@@ -36,6 +36,55 @@ ADMISSION_REQUIREMENTS = (
     "placebo_passed",
     "influence_bounded",
 )
+
+#: 显著性门槛。`mde_at_2p8_se` 与「单点能否把 null 翻成显著」共用它，
+#: 各写一份就会漂。
+SIGNIFICANCE_T = 2.8
+
+#: 每条阻塞理由**使哪些结论失效**（决定 0005）。
+#:
+#: 线性优先级表达不了这件事：同一条理由对 candidate 与对 null 的效力可以不同。
+#: 未声明成本模型挡的是可交易主张，不妨碍断言「该机制与标的没有统计关系」；
+#: cluster 退化使标准误被低估，那只会**高估**显著性，因此它只可能推翻 candidate ——
+#: 真实标准误更大只会让 |t| 更小，null 反而更强，而置换检验根本不使用标准误。
+#:
+#: **判决只能是这张表的函数。**一旦推导条件化到任何未经预注册闸门表达的效应数值
+#: （例如「|t| < 0.5 才算 null」），判决词就开始编码一次新的量级比较，那才是泄漏。
+#: 有合同测试钉住这一条。
+REASON_INVALIDATES: dict[str, frozenset[str]] = {
+    # 样本不足：什么都断言不了，单独走 underpowered
+    "insufficient_sample": frozenset({"candidate", "null"}),
+    "not_identified": frozenset({"candidate", "null"}),
+    "cost_model_missing": frozenset({"candidate"}),
+    "cluster_structure_insufficient": frozenset({"candidate"}),
+    # 单点影响是方向感知的：一个点能制造效应，也能遮蔽效应，但两者的判据不同
+    "single_point_influence_candidate_only": frozenset({"candidate"}),
+    "single_point_influence_both": frozenset({"candidate", "null"}),
+    # 置换检验未通过**本身就是 null 的证据**，它不使任何结论失效
+    "placebo_failed": frozenset(),
+}
+
+
+def derive_verdict(kinds: list[str]) -> str:
+    """由阻塞理由的**种类**推出判决。不读任何效应数值。
+
+    `Verdict.NULL` 此前从未被产出过：原实现是 `BLOCKED if blocked else CANDIDATE`，
+    而 `cost_model_declared=False` 对每一条 Study 都成立，于是一个干净的否定结论
+    与一个真正无法判定的 Study 在账本里无从区分。整套系统存在的理由正是让否定结论可信。
+    """
+    unknown = [k for k in kinds if k not in REASON_INVALIDATES]
+    if unknown:
+        raise ValueError(f"未登记的阻塞理由种类 {unknown}；判决只能是封闭表的函数")
+    if "insufficient_sample" in kinds:
+        return Verdict.UNDERPOWERED.value
+    invalidated: set[str] = set()
+    for kind in kinds:
+        invalidated |= REASON_INVALIDATES[kind]
+    if "placebo_failed" in kinds and "null" not in invalidated:
+        return Verdict.NULL.value
+    if "candidate" in invalidated:
+        return Verdict.BLOCKED.value
+    return Verdict.CANDIDATE.value
 
 
 class LeakageDetected(RuntimeError):
@@ -251,7 +300,8 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
     products = [r.product_cluster for r in rows]
     episodes = [r.episode_id for r in rows]
 
-    blocked: list[str] = []
+    # 每条理由与它的种类成对记录：判决读种类，人读文本
+    blocked: list[tuple[str, str]] = []
     coverage = {
         "rows_submitted": len(rows),
         "rows_authoritative": len(request.authoritative_keys),
@@ -261,16 +311,23 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
         "product_clusters": len(set(products)),
     }
     if len(rows) < request.min_returns:
-        blocked.append(f"观测数 {len(rows)} 低于预注册下限 {request.min_returns}")
+        blocked.append(
+            ("insufficient_sample",
+             f"观测数 {len(rows)} 低于预注册下限 {request.min_returns}")
+        )
     if len(set(episodes)) < request.min_clusters:
         blocked.append(
-            f"Episode 数 {len(set(episodes))} 低于预注册下限 {request.min_clusters}"
+            ("insufficient_sample",
+             f"Episode 数 {len(set(episodes))} 低于预注册下限 {request.min_clusters}")
         )
 
     try:
         intercept, slope, resid = stats.ols(y, x)
     except ValueError as exc:
-        return _result(request, coverage, None, [*blocked, f"回归不可识别：{exc}"], {})
+        return _result(
+            request, coverage, None,
+            [*blocked, ("not_identified", f"回归不可识别：{exc}")], {},
+        )
 
     two_way = stats.two_way_cluster_se(x, resid, dates, products)
     hac = stats.newey_west_se(x, resid, request.hac_lag)
@@ -308,23 +365,38 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
     }
 
     if not request.cost_model_declared:
-        blocked.append("未声明成本模型：不得取 candidate")
+        blocked.append(("cost_model_missing", "未声明成本模型：不得取 candidate"))
     if placebo["placebo_exceed_rate"] > 0.1:
-        blocked.append(
-            f"置换检验未通过：{placebo['placebo_exceed_rate']:.3f} 的置换斜率不小于实际值"
-        )
+        blocked.append((
+            "placebo_failed",
+            f"置换检验未通过：{placebo['placebo_exceed_rate']:.3f} 的置换斜率不小于实际值",
+        ))
     if not math.isnan(dfbetas) and dfbetas > request.max_abs_dfbetas:
-        blocked.append(
+        # 方向感知：删掉一个点最多把 |t| 移动约 dfbetas 个标准误（一阶近似 ——
+        # 删点同时也会改变标准误本身）。若移动之后仍够不着显著性门槛，
+        # 这一个点能制造效应，但不能把「没效应」翻成「有效应」，
+        # 因此它只使 candidate 失效，不使 null 失效。
+        could_flip_null = (
+            math.isnan(t_stat) or abs(t_stat) + dfbetas >= SIGNIFICANCE_T
+        )
+        blocked.append((
+            "single_point_influence_both" if could_flip_null
+            else "single_point_influence_candidate_only",
             f"单点影响过大：删掉最有影响的一个观测，斜率移动 {dfbetas:.2f} 个标准误，"
             f"超过预注册上限 {request.max_abs_dfbetas}"
-        )
+            + ("" if could_flip_null else
+               f"；移动后 |t| 仍不足 {SIGNIFICANCE_T}，不足以推翻否定结论"),
+        ))
     if two_way["variance_negative"]:
-        blocked.append("cluster 方差非正：cluster 结构不足以支撑推断")
-    if two_way.get("degenerate_dimension"):
         blocked.append(
-            f"{two_way['degenerate_dimension']} 维只有一组，双向 cluster 退化，"
-            f"已降级为{two_way['fell_back_to']}单向；单品种样本的横截面相关结构无法识别"
+            ("cluster_structure_insufficient", "cluster 方差非正：cluster 结构不足以支撑推断")
         )
+    if two_way.get("degenerate_dimension"):
+        blocked.append((
+            "cluster_structure_insufficient",
+            (f"{two_way['degenerate_dimension']} 维只有一组，双向 cluster 退化，"
+             f"已降级为{two_way['fell_back_to']}单向；单品种样本的横截面相关结构无法识别"),
+        ))
 
     effects = {
         "intercept": intercept,
@@ -428,12 +500,11 @@ def _result(
     request: EvaluationRequest,
     coverage: dict,
     effects: dict | None,
-    blocked: list[str],
+    blocked: list[tuple[str, str]],
     diagnostics: dict,
 ) -> dict:
-    verdict = Verdict.BLOCKED.value if blocked else Verdict.CANDIDATE.value
-    if blocked and any("低于预注册下限" in b for b in blocked):
-        verdict = Verdict.UNDERPOWERED.value
+    kinds = [kind for kind, _ in blocked]
+    verdict = derive_verdict(kinds)
     result = {
         "evaluator_version": EVALUATOR_VERSION,
         "study_id": request.study_id,
@@ -444,9 +515,24 @@ def _result(
         "coverage": coverage,
         "effects": effects,
         "diagnostics": diagnostics,
-        "blocked_reasons": blocked,
+        "blocked_reasons": [text for _, text in blocked],
+        #: 判决**只**读这一项。文本里的数字不进推导。
+        "blocked_reason_kinds": kinds,
         "suggested_verdict": verdict,
     }
+    if verdict == Verdict.NULL.value:
+        # null 必须带着它的排除界，否则它只是「没找到」而不是「排除了什么」。
+        # M5 的 economic_bound 将来会给 MDE 一个外部参照；在那之前，
+        # 这是「相对于本次达到的 MDE 的 null」，强度逐 Study 不同，证据里要能读出来。
+        mde = (effects or {}).get("mde_at_2p8_se")
+        result["null_exclusion_bound"] = {
+            "mde_at_2p8_se": mde,
+            "note": (
+                "在本次达到的最小可检出效应之下未检出任一方向的效应。"
+                "这是相对于该 MDE 的 null，不是对任意小效应的排除；"
+                "外部经济参照属 M5，尚未声明"
+            ),
+        }
     result["result_digest"] = content_id(
         {k: v for k, v in result.items() if k != "result_digest"}
     )

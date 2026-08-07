@@ -411,3 +411,26 @@ def test_demo_is_idempotent_and_keeps_the_chain_intact(tmp_path):
     assert second["events"] > first["events"]  # 只追加，从不覆盖
     with EvidenceLedger(path) as led:
         assert led.require_intact() == second["events"]
+
+
+def test_a_null_verdict_is_not_exempt_from_having_read_the_outcome(ledger):
+    """没读 outcome 不可能得出 null。
+
+    `blocked` 与 `underpowered` 可以一次 outcome 都没读（问错了的问题不该消耗
+    多重检验预算），`null` 不行 —— 它断言的是「检验过了，机制不成立」。
+    决定 0005 让 null 变得可达，这条豁免边界因此才真正被走到。
+    """
+    sid = "s-null"
+    for kind, payload in [
+        ("proposal_locked", {"study_id": sid}),
+        ("hypothesis_locked", {"study_id": sid}),
+        ("confirmatory_locked", {"study_id": sid}),
+        ("verdict_recorded", {"study_id": sid, "verdict": Verdict.NULL.value,
+                              "next_action": NextAction.ARCHIVE_EVIDENCE.value,
+                              "rationale": "置换检验未通过"}),
+    ]:
+        ledger.append(kind, payload, study_id=sid)
+    events = ledger.read_events(role=Role.EVALUATOR, study_id=sid)
+    with pytest.raises(SnapshotIncomplete) as exc:
+        require_complete(collect_snapshot(events, ledger.denominators("fam")))
+    assert "outcome_reads" in str(exc.value)

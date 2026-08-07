@@ -121,7 +121,9 @@ def test_a_full_round_reaches_a_verdict_and_records_everything(rig):
     ledger, _ = rig
     outcome, _ = run_one(rig, [a_proposal_json()])
     assert outcome.outcome == "evaluated"
-    assert outcome.verdict in {"candidate", "blocked", "underpowered"}
+    # 五个值全部是合法完整产出。null 此前不可达（决定 0005 之前判决只有
+    # `BLOCKED if blocked else CANDIDATE` 两条路），这条断言写于那个时期
+    assert outcome.verdict in {"candidate", "null", "blocked", "underpowered"}
     kinds = [e["event_type"] for e in ledger.read_events(
         role=LedgerRole.EVALUATOR, study_id="s0")]
     for required in ("context_assembled", "proposal_locked", "hypothesis_locked",

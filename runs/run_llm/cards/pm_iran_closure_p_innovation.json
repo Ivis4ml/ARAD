@@ -1,0 +1,33 @@
+{
+  "card_version": "0.1.0",
+  "codegen_version": "0.1.0",
+  "feature_id": "pm_iran_closure_p_innovation",
+  "content_id": "6ab8f5546c5f6099bebd4218201e7aa41c9e2b18a097ad9269a7e8c4f4b85bb8",
+  "family": "demo_sc_price_volume",
+  "status": "sealed_survived",
+  "taxonomy_clean": false,
+  "mechanism": "SC（上海原油期货）每日只在中国交易时段开市，收盘期间（日盘收盘至夜盘开盘、夜盘收盘至次日日盘开盘各约六小时）价格不更新，而 Polymarket 的地缘政治市场连续交易。cand:iran 族的头部词为 iran / shipping / attack / targets / response，其标的直接是霍尔木兹海峡与伊朗相关的军事与航运事件，也正是原油供给中断风险的主要来源。因此，在 SC 停市窗口内到达的伊朗局势信息会先被 Polymarket 的概率吸收，再在 SC 重新开市时进入价格。据此提出：停市窗口内 cand:iran 概率相对其自身三日水平的抬升，预测 SC 下一 session 的有符号收益为正。信息先于价格的理由是时段错开而非信息优势：SC 停市时该信息没有任何进入 SC 价格的通道。",
+  "failure_condition": "该族在决策时点前六小时内没有任何小时桶时，短窗均值无定义，特征无定义，该决策点应被排除而不是记为零；决策时点减去回看深度早于 cand:iran 的覆盖起点 2023-01-09 时同样无定义，样本前段约两个月因此不可用。此外，若归一到 outcome_seq==1 一侧的概率在本族内并非对应「事件发生」，则该特征的符号与所声明的经济含义相反，此时即使斜率显著也不支持本机制。",
+  "formula": [
+    "iran_p_closure_innovation = 均值( pm_market.cand:iran:p , 窗口 [t−6时, t) ) − 同算子(窗口 [t−3日, t) )",
+    "输出 = iran_p_closure_innovation"
+  ],
+  "code": "\"\"\"pm_iran_closure_p_innovation\n\n机制：cand:iran 族在 SC 停市窗口（决策时点前六小时）内的平均概率，减去其此前三日的平均概率。度量的是停市期间伊朗局势信息使该族概率偏离自身近期水平的有符号幅度：为正表示停市期间风险概率被上修，为负表示被下修。\n\n失败条件：该族在决策时点前六小时内没有任何小时桶时，短窗均值无定义，特征无定义，该决策点应被排除而不是记为零；决策时点减去回看深度早于 cand:iran 的覆盖起点 2023-01-09 时同样无定义，样本前段约两个月因此不可用。此外，若归一到 outcome_seq==1 一侧的概率在本族内并非对应「事件发生」，则该特征的符号与所声明的经济含义相反，此时即使斜率显著也不支持本机制。\n\n**本文件由 `arad.features.codegen` 从冻结规格确定性生成，请勿手改。**\n规格内容身份 6ab8f5546c5f6099bebd4218201e7aa41c9e2b18a097ad9269a7e8c4f4b85bb8\n生成器 0.1.0；改规格才能改代码，两者不可能不一致。\n\nPIT：每个窗口的右端点一律**不含**决策时点，offset 只能非负。\n无定义返回 None，绝不返回 0 —— 返回 0 会被下游当成「没有信号」，那是伪造。\n本特征最早触及 3日 前的数据；该深度未整段落在序列覆盖范围内时判为无定义。\n\"\"\"\n\nfrom __future__ import annotations\n\nimport math\nfrom bisect import bisect_left\nfrom datetime import datetime, timedelta\n\nREQUIRED_LOOKBACK_SECONDS = 259200\n\n\ndef _window(times, values, end, seconds):\n    \"\"\"取 [end - seconds, end) 内的值。**end 一律不含**，这是 PIT 的关键。\"\"\"\n    lo = bisect_left(times, end - timedelta(seconds=seconds))\n    hi = bisect_left(times, end)\n    return values[lo:hi]\n\n\ndef _agg(op, xs):\n    if not xs:\n        return None\n    if op == \"last\":\n        return xs[-1]\n    if op == \"mean\":\n        return math.fsum(xs) / len(xs)\n    if op == \"sum\":\n        return math.fsum(xs)\n    if op == \"count\":\n        return float(len(xs))\n    if op == \"min\":\n        return min(xs)\n    if op == \"max\":\n        return max(xs)\n    if op == \"std\":\n        if len(xs) < 2:\n            return None\n        m = math.fsum(xs) / len(xs)\n        return math.sqrt(math.fsum((x - m) ** 2 for x in xs) / (len(xs) - 1))\n    raise ValueError(op)\n\n\ndef _ok(v):\n    \"\"\"非有限值一律当作无定义：NaN 传下去会让比较式的闸门全部取假地通过。\"\"\"\n    return v is not None and math.isfinite(v)\n\n\ndef compute(decision_time: datetime, series: dict, coverage_start=None):\n    \"\"\"在一个决策时点上求值。无定义返回 None。\"\"\"\n    # 覆盖准入：回看深度必须整段落在序列覆盖范围内，否则同一份规格在完整\n    # 序列与其截断副本上会给出不同的数，而没有任何记录能看出差别\n    if coverage_start is not None and (\n        decision_time - timedelta(seconds=REQUIRED_LOOKBACK_SECONDS)\n        < coverage_start\n    ):\n        return None\n    t_iran_p_closure_innovation, x_iran_p_closure_innovation = series[\"pm_market.cand:iran:p\"]\n    end_iran_p_closure_innovation = decision_time - timedelta(seconds=0)\n    v_iran_p_closure_innovation = _agg(\"mean\", _window(t_iran_p_closure_innovation, x_iran_p_closure_innovation, end_iran_p_closure_innovation, 21600))\n    far_iran_p_closure_innovation = _agg(\"mean\", _window(t_iran_p_closure_innovation, x_iran_p_closure_innovation, end_iran_p_closure_innovation, 259200))\n    v_iran_p_closure_innovation = (v_iran_p_closure_innovation - far_iran_p_closure_innovation) if _ok(v_iran_p_closure_innovation) and _ok(far_iran_p_closure_innovation) else None\n    if v_iran_p_closure_innovation is not None and not math.isfinite(v_iran_p_closure_innovation):\n        v_iran_p_closure_innovation = None\n    return v_iran_p_closure_innovation\n",
+  "required_lookback_seconds": 259200,
+  "sources": [
+    "pm_market"
+  ],
+  "discovery": {
+    "t_stat": 0.5151933886410748,
+    "ic_spearman": 0.020170311583680385,
+    "rows": 498,
+    "study_id": "auto-study-4"
+  },
+  "sealed": {
+    "t_stat": 1.0824683760361762,
+    "ic_spearman": 0.07445412575976015,
+    "rows": 475,
+    "segment": "historical_validation"
+  },
+  "meaning": "机制：SC（上海原油期货）每日只在中国交易时段开市，收盘期间（日盘收盘至夜盘开盘、夜盘收盘至次日日盘开盘各约六小时）价格不更新，而 Polymarket 的地缘政治市场连续交易。cand:iran 族的头部词为 iran / shipping / attack / targets / response，其标的直接是霍尔木兹海峡与伊朗相关的军事与航运事件，也正是原油供给中断风险的主要来源。因此，在 SC 停市窗口内到达的伊朗局势信息会先被 Polymarket 的概率吸收，再在 SC 重新开市时进入价格。据此提出：停市窗口内 cand:iran 概率相对其自身三日水平的抬升，预测 SC 下一 session 的有符号收益为正。信息先于价格的理由是时段错开而非信息优势：SC 停市时该信息没有任何进入 SC 价格的通道。 发现段上斜率的 t 值为 +0.515，IC（时序秩相关）+0.0202，提交观测 498 行。 封闭段（只开一次）上 t 值 +1.082，与发现段同号，提交观测 475 行。 结论：在时间上的样本外保住了符号与量级。 注意，分类法不干净：候选机制族的归纳语料覆盖了本段，机制的选择并不独立于结果，样本外也救不了这一点（决定 0004）。真正干净的检验只能在归纳切点之后的数据上做。 成本与容量模型尚未建立（属 M5），因此本因子在任何情况下都不得取 candidate；以上全部为 pre-cost。"
+}
