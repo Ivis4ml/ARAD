@@ -589,6 +589,73 @@ def signal_correlations(ledger, sc: dict, rows: list[dict]) -> dict:
     return out
 
 
+def _alpha_cards(ledger, beam_members: list[dict], sealed: list[dict],
+                 projection) -> list[dict]:
+    """把束里的候选做成因子卡。代码由规格生成，因此说明与代码不可能各说各话。"""
+    from ..features.spec import FeatureSpec
+    from ..registry.alpha_card import AlphaCard
+
+    sealed_by = {e["feature_id"]: e for e in sealed if "t_stat" in e}
+    specs: dict[str, FeatureSpec] = {}
+    spec_study: dict[str, str] = {}
+    for event in ledger.read_events(role=LedgerRole.HUMAN):
+        if event["event_type"] != "feature_spec_locked":
+            continue
+        payload = event["payload"]
+        usable = {k: v for k, v in payload.items() if k in FeatureSpec.model_fields}
+        usable["steps"] = [Step(**st) for st in payload["steps"]]
+        specs.setdefault(payload["feature_id"], FeatureSpec(**usable))
+        spec_study.setdefault(payload["feature_id"], event["study_id"] or "")
+
+    by_study = {st["study_id"]: st for st in projection.studies}
+    cards: list[dict] = []
+    for member in beam_members:
+        spec = specs.get(member["feature_id"])
+        if spec is None:
+            continue
+        study = by_study.get(spec_study.get(spec.feature_id, ""), {})
+        metrics = study.get("metrics", {})
+        seal = sealed_by.get(spec.feature_id)
+        card = AlphaCard(
+            spec=spec,
+            mechanism=(study.get("mechanism") or spec.mechanism),
+            discovery={"t_stat": metrics.get("t_stat"),
+                       "ic_spearman": metrics.get("ic_spearman"),
+                       "rows": metrics.get("rows_submitted"),
+                       "study_id": study.get("study_id")},
+            sealed=({"t_stat": seal["t_stat"], "ic_spearman": seal["ic_spearman"],
+                     "rows": seal["rows"], "segment": seal["segment"]} if seal else None),
+            taxonomy_clean=bool(seal and seal.get("taxonomy_clean")),
+            family=FAMILY,
+        )
+        cards.append(card.payload())
+    return cards
+
+
+def _write_cards(cards: list[dict], atlas_dir: str) -> None:
+    """卡片另存一份可直接拿走的产物：说明是 markdown，代码是可运行的 .py。"""
+    root = os.path.join(atlas_dir, "cards")
+    os.makedirs(root, exist_ok=True)
+    for card in cards:
+        stem = card["feature_id"][:80]
+        Path(os.path.join(root, f"{stem}.py")).write_text(card["code"], encoding="utf-8")
+        lines = [
+            f"# {card['feature_id']}", "",
+            f"- 状态：`{card['status']}`　分类法干净：{card['taxonomy_clean']}",
+            f"- 数据源：{', '.join(card['sources'])}",
+            f"- 内容身份：`{card['content_id']}`", "",
+            "## 这个因子意味着什么", "", card["meaning"], "",
+            "## 公式", "", "```",
+            *card["formula"], "```", "",
+            "## 失败条件", "", card["failure_condition"], "",
+            "## 代码", "",
+            (f"见同目录 `{stem}.py`，由 `arad.features.codegen` 从冻结规格确定性生成；"
+             "有合同测试钉死它与解释器逐位相同。"),
+        ]
+        Path(os.path.join(root, f"{stem}.md")).write_text(
+            "\n".join(lines) + "\n", encoding="utf-8")
+
+
 def _signal_values(ledger, sc: dict, rows: list[dict],
                    feature_ids: list[str]) -> dict[str, list[float]]:
     """把指定特征在同一批决策时点上求值。不碰标签。"""
@@ -756,11 +823,18 @@ def run_service_demo(
             signals, [sc["labels"][_key(r)] for r in rows], max_size=3,
         ) if len(signals) >= 2 else {"constituents": [], "note": "可求值特征少于两个"}
         ledger.append("ensemble_selected", ensemble)
+
+        # 因子卡：公式、意义、证据、以及由规格确定性生成的代码
+        cards = _alpha_cards(ledger, beam.summary()["members"], sealed, proj)
+        ledger.append("alpha_cards", {"cards": [c["feature_id"] for c in cards]})
+        _write_cards(cards, atlas_dir)
         projection = project(ledger, family=FAMILY, service=queue.service_state())
         paths = render_app(projection, atlas_dir, freshness=data_freshness(manifest_dir))
         return {
             "service": result.summary(),
             "beam": beam.summary()["members"],
+            "cards": [{k: c[k] for k in ("feature_id", "status", "taxonomy_clean")}
+                      for c in cards],
             "ensemble": {k: ensemble.get(k) for k in
                          ("constituents", "trajectory", "score", "rejected_for_correlation")},
             "sealed": sealed,
