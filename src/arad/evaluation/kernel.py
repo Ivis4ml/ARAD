@@ -285,17 +285,27 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
     # t = -0.03 的干净零结果被报成「最大 DFBETA 占斜率 9.72」，而它的最大杠杆
     # 只有 0.022，根本没有任何单点主导。分母用本次推断实际使用的 SE（双向 cluster），
     # 因此这句话读作「删掉这一个观测，估计移动多少个我们实际用来做推断的标准误」。
+    # 标准误不可用时（cluster 方差非正、或退化维使其为 NaN）这个量**无定义**，
+    # 不是"超限"。取 inf 会让账本写下「斜率移动 inf 个标准误」，把度量失败报成
+    # 关于特征的实质发现 —— 与本票要修的正是同一类错误。
     dfbetas = (
         abs(influence["max_abs_dfbeta"]) / se
         if se and not math.isnan(se) and se > 0
-        else float("inf")
+        else float("nan")
     )
     # 旧口径仍然报出，但**不再阻断**：既保留与既有记录的可比性，
     # 也让「它为什么曾经触发」在账本里能被看见
     dfbeta_share = (
         abs(influence["max_abs_dfbeta"]) / abs(slope) if slope else float("inf")
     )
-    influence = {**influence, "max_abs_dfbetas": dfbetas, "dfbeta_over_slope": dfbeta_share}
+    influence = {
+        **influence,
+        "max_abs_dfbetas": dfbetas,
+        "dfbeta_over_slope": dfbeta_share,
+        # 闸门有没有被评估过，必须与"评估了而且通过了"区分开：
+        # 后者是关于特征的结论，前者只是说这次量不出来
+        "gate_evaluable": not math.isnan(dfbetas),
+    }
 
     if not request.cost_model_declared:
         blocked.append("未声明成本模型：不得取 candidate")
@@ -303,7 +313,7 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
         blocked.append(
             f"置换检验未通过：{placebo['placebo_exceed_rate']:.3f} 的置换斜率不小于实际值"
         )
-    if dfbetas > request.max_abs_dfbetas:
+    if not math.isnan(dfbetas) and dfbetas > request.max_abs_dfbetas:
         blocked.append(
             f"单点影响过大：删掉最有影响的一个观测，斜率移动 {dfbetas:.2f} 个标准误，"
             f"超过预注册上限 {request.max_abs_dfbetas}"

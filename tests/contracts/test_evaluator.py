@@ -544,3 +544,24 @@ def test_the_influence_gate_is_scaled_by_the_standard_error_not_the_estimate():
     assert {"max_abs_dfbetas", "dfbeta_over_slope", "max_leverage"} <= set(infl)
     reason = next(r for r in result["blocked_reasons"] if "单点影响过大" in r)
     assert "标准误" in reason and "占斜率" not in reason
+
+
+def test_an_unusable_standard_error_does_not_become_an_influence_finding(monkeypatch):
+    """标准误量不出来时，单点影响是**无定义**，不是"超限"。
+
+    分母取 inf 会让账本写下「斜率移动 inf 个标准误」，紧挨着另一条说 cluster 方差
+    不可用的理由 —— 把度量失败报成关于特征的实质发现，与本票要修的是同一类错误。
+    """
+    real = stats.two_way_cluster_se
+
+    def broken(*a, **kw):
+        return {**real(*a, **kw), "se": float("nan"), "variance_negative": True}
+
+    monkeypatch.setattr(stats, "two_way_cluster_se", broken)
+    rows, labels = make_rows(n=60, seed=3)
+    result = evaluate(a_request(rows), labels, role="evaluator")
+    assert not any("单点影响过大" in r for r in result["blocked_reasons"])
+    assert any("cluster 方差非正" in r for r in result["blocked_reasons"])
+    infl = result["diagnostics"]["influence"]
+    assert infl["gate_evaluable"] is False
+    assert math.isnan(infl["max_abs_dfbetas"])

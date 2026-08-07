@@ -277,3 +277,29 @@ def test_direction_accepts_closed_word_vocabulary_and_rejects_the_rest() -> None
     for bad in ("上升", "either", "sign", ""):
         with pytest.raises(ValidationError):
             ProposalOutput(direction=bad)
+
+
+def test_the_direction_type_actually_reaches_the_rendered_prompt() -> None:
+    """契约必须**出现在发出去的字符串里**，不是只存在于常量表。
+
+    M6.1 的单元测试钉的是常量与模型字段一致，钉不住它有没有被渲染进去 ——
+    而原来的缺陷正是「契约存在但模型看不到」。这一条查的是发出去的那份文本。
+    """
+    import tempfile
+
+    from arad.harness.context import assemble_proposer_context
+    from arad.memory.ledger import EvidenceLedger
+
+    with tempfile.TemporaryDirectory() as tmp, EvidenceLedger(f"{tmp}/l.db") as ledger:
+        bundle = assemble_proposer_context(
+            ledger=ledger, family="fam", data_facts={"trading_days": 909},
+            targets=[{"name": "sc_ret_next_session"}],
+            menu=[{"family_id": "cand:iran"}],
+            menu_biases=[DeclaredBias("菜单后见暴露", "只在全史切点出现", "菜单非无偏")],
+            budget_facts={"calls_remaining": 5}, blockers=[],
+        )
+    prompt = bundle.prompt
+    assert "整数，只能是 1 或 -1" in prompt
+    assert "positive" in prompt, "必须点名这个具体的错误写法：模型实测就是这么写的"
+    for name in ("mechanism", "falsifiable_condition", "feature_spec"):
+        assert name in prompt
