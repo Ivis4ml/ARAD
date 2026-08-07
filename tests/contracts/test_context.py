@@ -236,3 +236,44 @@ def test_step_schema_matches_the_model_so_a_compliant_model_is_not_rejected():
         assert declared == set(fields), f"{kind.value}: schema 与模型的必填集合不一致"
         # 按 schema 声明的字段构造必须成功：模型照着提示词写就不该被拒
         Step(name="s", kind=kind, **fields)
+
+
+def test_proposal_output_types_cover_every_field() -> None:
+    """顶层字段的类型必须逐个写进契约，不能只写字段名。
+
+    实测：一次真实调用里模型把 `direction` 写成 "positive"，三次尝试全被拒，
+    八分钟与三次调用预算白花，而那一次的 feature_spec 完全合法。
+    原因是 output_contract 只列了字段名。契约与模型钉在一起，就不会再漏。
+    """
+    from arad.harness.context import PROPOSAL_OUTPUT_TYPES
+    from arad.harness.episode import ProposalOutput
+
+    described = set(PROPOSAL_OUTPUT_TYPES)
+    fields = set(ProposalOutput.model_fields) - {"feature_spec", "unsupported_mechanism"}
+    assert fields <= described, f"契约漏了字段：{sorted(fields - described)}"
+    assert described <= set(ProposalOutput.model_fields), (
+        f"契约写了模型没有的字段：{sorted(described - set(ProposalOutput.model_fields))}"
+    )
+    # direction 的类型必须明确到"整数"，写"方向"是不够的
+    assert "整数" in PROPOSAL_OUTPUT_TYPES["direction"]
+
+
+def test_direction_accepts_closed_word_vocabulary_and_rejects_the_rest() -> None:
+    """封闭同义词表可以接受，表外的词必须整条拒掉。
+
+    关键在后半句：`direction` 为 None 时 `to_proposal()` 会写成 0，
+    于是一条 falsifiable_condition 写着「为正」的提案会带着「无方向主张」通过，
+    预注册就成了空的。宁可整条被拒。
+    """
+    import pytest
+    from pydantic import ValidationError
+
+    from arad.harness.episode import ProposalOutput
+
+    assert ProposalOutput(direction="positive").direction == 1
+    assert ProposalOutput(direction="NEGATIVE").direction == -1
+    assert ProposalOutput(direction=" short ").direction == -1
+    assert ProposalOutput(direction=-1).direction == -1
+    for bad in ("上升", "either", "sign", ""):
+        with pytest.raises(ValidationError):
+            ProposalOutput(direction=bad)

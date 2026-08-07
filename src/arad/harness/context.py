@@ -107,6 +107,25 @@ FEATURE_SPEC_SCHEMA = {
     "note": "output_step 必须是 steps 里某个步骤的 name；步骤按依赖顺序排列",
 }
 
+#: 提案顶层字段的**类型**。只列字段名不列类型是不够的：实测一次真实调用里，
+#: 模型把 `direction` 写成 `"positive"`，三次尝试全被拒，八分钟与三次调用预算白花，
+#: 而那一次的 feature_spec 完全合法。契约要么写全，要么就不算契约。
+PROPOSAL_OUTPUT_TYPES: dict[str, str] = {
+    "mechanism": "字符串。一段话说清经济机制：什么信息、为什么先于价格、为什么作用于该 target",
+    "source": "字符串，取 primitives.sources 之一",
+    "target": "字符串，取 targets 里某个 target 的名字",
+    "horizon": "字符串，与所选 target 的 horizon 一致",
+    "universe": "字符串，取 data 里声明的 universe",
+    "direction": (
+        "**整数，只能是 1 或 -1**。1 表示特征取值越高、label 越高，-1 表示越低。"
+        "不接受 \"positive\" / \"negative\" / \"long\" 这类词，也不接受 0"
+    ),
+    "falsifiable_condition": "字符串。什么样的观测结果会使你判定该机制不成立",
+    "feature_spec": "对象，字段以 primitives.feature_spec_schema 为准",
+    "rationale": "字符串，可选。为什么在本轮选这个方向",
+    "change_summary": "字符串，可选。若在某一版基础上迭代，一句话说明改了什么",
+}
+
 
 def primitive_catalogue() -> dict:
     """提案器能用的全部原语。窄是刻意的，缺口应被声明而不是绕过。"""
@@ -183,6 +202,7 @@ def assemble_proposer_context(
                 "direction", "falsifiable_condition", "feature_spec",
             ],
             "optional": ["rationale", "change_summary"],
+            "types": PROPOSAL_OUTPUT_TYPES,
             "note": (
                 "只输出 JSON。特征必须用上面列出的原语表达。"
                 "若本轮是在某一版基础上迭代，用 change_summary 一句话说明改了什么"
@@ -240,6 +260,8 @@ def render_proposer_prompt(facts: dict, biases: list[DeclaredBias]) -> str:
             "只输出一个 JSON 对象，不要有任何解释文字或围栏之外的内容。"
             "字段名严格以 primitives.step_schema 与 primitives.feature_spec_schema 为准："
             "**多写一个字段整条规格就会被拒绝**。"
+            "顶层字段的类型见 output_contract.types，其中 direction 是整数 1 或 -1，"
+            "写成词会使整个提案被拒。"
         ),
         "",
         (

@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, field_validator
 
 from ..evaluation.kernel import evaluate
 from ..features.interpreter import NotInterpretable
@@ -56,6 +56,18 @@ from .feedback import Feedback, format_feedback
 
 EPISODE_VERSION = "0.1.0"
 
+#: 方向的封闭同义词表。模型自然会写 "positive" 而不是 1，实测三次尝试都栽在这里。
+#: 这不是宽容：映射是封闭的、确定的，账本里记下的仍是规范化后的整数。
+#: **表外的词必须报错**——`direction` 为 None 时 `to_proposal()` 会写成 0，
+#: 于是一条 falsifiable_condition 写着「为正」的提案会带着「无方向主张」通过，
+#: 预注册就成了空的。宁可整条被拒。
+_DIRECTION_WORDS: dict[str, int] = {
+    "positive": 1, "negative": -1,
+    "long": 1, "short": -1,
+    "up": 1, "down": -1,
+    "+1": 1, "-1": -1, "1": 1,
+}
+
 
 class ProposalOutput(BaseModel):
     """提案器的结构化产出。要么是一个完整提案，要么是一条原语缺口声明。"""
@@ -71,6 +83,19 @@ class ProposalOutput(BaseModel):
     change_summary: str = ""
     feature_spec: FeatureSpec | None = None
     unsupported_mechanism: UnsupportedMechanism | None = None
+
+    @field_validator("direction", mode="before")
+    @classmethod
+    def _normalise_direction(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        word = value.strip().lower()
+        if word not in _DIRECTION_WORDS:
+            raise ValueError(
+                f"direction 只接受整数 1 或 -1（或 {sorted(_DIRECTION_WORDS)} 中的词），"
+                f"收到 {value!r}"
+            )
+        return _DIRECTION_WORDS[word]
 
     def is_gap(self) -> bool:
         return self.unsupported_mechanism is not None

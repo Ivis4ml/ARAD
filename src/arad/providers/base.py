@@ -143,14 +143,23 @@ class ProviderResponse:
 
 
 class ParseFailure(BaseModel):
-    """解析失败的结构化记录。这是证据，不是异常。"""
+    """解析失败的结构化记录。这是证据，不是异常。
+
+    只记 `last_error` 是不够的：一次真实失败耗了八分钟三次调用，事后只能看到
+    第三次错在 `direction`，前两次错在哪已经无从查起。因此逐次都记，
+    并记下原始输出的**长度** —— 截断与格式错误在 500 字的摘录里长得一样。
+    """
 
     request_id: str
     role: str
     schema_name: str
     attempts: int
     last_error: str
+    #: 逐次尝试的错误，按尝试顺序。长度等于 attempts。
+    attempt_errors: list[str] = []
     raw_excerpt: str
+    #: 最后一次原始输出的完整字符数。摘录截在 500 字，靠它才能判断是不是被截断。
+    raw_length: int = 0
 
 
 class Provider(Protocol):
@@ -210,6 +219,7 @@ def invoke_structured(
     responses: list[ProviderResponse] = []
     prompt = request.prompt
     last_error = ""
+    attempt_errors: list[str] = []
     for attempt in range(1, max_attempts + 1):
         attempt_request = ProviderRequest(
             role=request.role,
@@ -226,6 +236,7 @@ def invoke_structured(
             return model.model_validate(payload), None, responses
         except (ValueError, ValidationError) as exc:
             last_error = str(exc)[:400]
+            attempt_errors.append(last_error)
             prompt = request.prompt + REPAIR_INSTRUCTION.format(error=last_error)
     return (
         None,
@@ -235,7 +246,9 @@ def invoke_structured(
             schema_name=request.schema_name,
             attempts=max_attempts,
             last_error=last_error,
+            attempt_errors=attempt_errors,
             raw_excerpt=responses[-1].raw_text[:500] if responses else "",
+            raw_length=len(responses[-1].raw_text) if responses else 0,
         ),
         responses,
     )

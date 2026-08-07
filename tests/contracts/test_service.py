@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 
 import pytest
 
@@ -18,7 +19,13 @@ from arad.harness.audit import (
     audit,
     render_for_proposer,
 )
+from arad.harness.context import DeclaredBias, assemble_proposer_context
 from arad.harness.mutate import next_proposal
+from arad.harness.service import INFRASTRUCTURE_OUTCOMES, run_service
+from arad.memory.ledger import EvidenceLedger
+from arad.memory.ledger import Role as LedgerRole
+from arad.orchestrator.queue import DurableQueue
+from arad.providers.base import ProviderRequest, ProviderResponse, Role
 from arad.registry.specs import EFFECT_FIELDS
 
 RETURN_TARGET = {
@@ -161,3 +168,123 @@ def test_every_taxonomy_entry_explains_itself_without_numbers(code):
     text = SEMANTIC_MISMATCH_TAXONOMY[code]
     assert text.strip()
     assert not any(ch.isdigit() for ch in text)
+
+
+# ------------------------------------------- 停止语义：故障不是「问不出新东西」
+#
+# 这一节钉的是一次真实事故：`--provider claude` 的第一轮里，模型三次都把
+# `direction` 写成 `"positive"`，三次尝试全被拒，八分钟与三次调用预算白花。
+# 服务当时把「这一轮没走到提案」按停滞计数，于是一个 schema 缺陷会被写成
+# 「模型问不出新东西」请人来看。两种停法要人做的判断不是一回事，必须分开。
+
+T0 = datetime(2026, 8, 5, 12, 0, tzinfo=UTC)
+FAMILY = "fam"
+UNPARSEABLE = "我认为应当研究地缘风险与原油的关系。"
+
+
+class NeverParses:
+    """执行通道彻底不可用：每次都返回读不出 JSON 的输出。"""
+
+    model_id = "never_parses"
+
+    def __init__(self, raw: str = UNPARSEABLE) -> None:
+        self.raw = raw
+        self.calls = 0
+
+    def invoke(self, request: ProviderRequest) -> ProviderResponse:
+        self.calls += 1
+        return ProviderResponse(
+            request_id=request.request_id, role=Role.PROPOSER,
+            raw_text=self.raw, model_id=self.model_id,
+        )
+
+
+@pytest.fixture
+def rig(tmp_path):
+    ledger = EvidenceLedger(str(tmp_path / "l.db"))
+    queue = DurableQueue(str(tmp_path / "q.db"))
+    yield ledger, queue
+    ledger.close()
+    queue.close()
+
+
+def _assembler(ledger):
+    def assemble(task):
+        return assemble_proposer_context(
+            ledger=ledger, family=FAMILY,
+            data_facts={"trading_days": 909}, targets=[{"name": "sc_rv_next_session"}],
+            menu=[{"family_id": "cand:hormuz"}],
+            menu_biases=[DeclaredBias("菜单后见暴露", "只在全史切点出现", "菜单非无偏")],
+            budget_facts={"calls_remaining": 5}, blockers=[],
+        )
+    return assemble
+
+
+def _never_called(*a, **kw):  # pragma: no cover - 没形成提案时不该走到评价
+    raise AssertionError("没有形成提案的一轮不该进入评价")
+
+
+def _run(rig, provider, **kw):
+    ledger, queue = rig
+    return run_service(
+        ledger=ledger, queue=queue, provider=provider, family=FAMILY, owner="w1",
+        assemble=_assembler(ledger), build_evaluation=_never_called,
+        audit_input=_never_called, seed_task={}, calls_per_episode=6,
+        stall_rounds=3, now=T0, **kw,
+    )
+
+
+def test_repeated_parse_failure_is_not_reported_as_stalled(rig):
+    ledger, _ = rig
+    result = _run(rig, NeverParses(), max_rounds=8)
+    assert result.stopped_because == "provider_unusable", (
+        "连续解析失败是执行通道故障，不是「问不出新东西」"
+    )
+    assert result.infrastructure_failures == 3
+    assert result.distinct_features == 0
+    # 请人来看的理由必须说清这不是研究结论
+    reviews = [e["payload"] for e in ledger.read_events(role=LedgerRole.HUMAN)
+               if e["event_type"] == "human_review_required"]
+    assert len(reviews) == 1
+    assert "不构成关于该机制族的任何研究结论" in reviews[0]["reason"]
+    assert "新的提案内容" not in reviews[0]["reason"]
+
+
+def test_infrastructure_outcomes_are_exactly_the_pre_proposal_failures():
+    """名单必须与 episode 里那几个"还没形成提案"的结局一致。
+
+    漏一个，该结局就会重新被算进停滞；多一个，真正的停滞就永远判不出来。
+    判据可验证：这些结局都在 `record_proposal` 之前返回，因此既没有 proposal_id
+    也没有 feature_id，对"还有没有新问题可问"不构成任何证据。
+    """
+    assert INFRASTRUCTURE_OUTCOMES == {
+        "parse_failure", "provider_error", "context_blocked", "invalid_proposal",
+    }
+
+
+def test_parse_failure_records_every_attempt_not_just_the_last(rig):
+    """三次尝试各错在哪都要留下，否则下一次多分钟的失败同样无从查起。"""
+    ledger, _ = rig
+    _run(rig, NeverParses(), max_rounds=1)
+    failures = [e["payload"] for e in ledger.read_events(role=LedgerRole.HUMAN)
+                if e["event_type"] == "parse_failure"]
+    assert failures, "解析失败必须进账本"
+    payload = failures[0]
+    assert len(payload["attempt_errors"]) == payload["attempts"] == 3
+    # 摘录截在 500 字，靠长度才能把截断与格式错误分开
+    assert payload["raw_length"] == len(UNPARSEABLE)
+
+
+def test_a_word_direction_no_longer_burns_the_round(rig):
+    """真实事故的回归：`"positive"` 曾让三次尝试全废。
+
+    现在它规范化为 1，一次调用即通过解析。这里只验"不再重试到死"；
+    提案缺其余必填字段仍会被判 invalid_proposal，那是另一回事。
+    """
+    ledger, _ = rig
+    provider = NeverParses(raw='{"direction": "positive"}')
+    result = _run(rig, provider, max_rounds=1)
+    assert provider.calls == 1, "解析通过就不该有修复重试"
+    events = [e["event_type"] for e in ledger.read_events(role=LedgerRole.HUMAN)]
+    assert "parse_failure" not in events
+    assert result.infrastructure_failures == 1

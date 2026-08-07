@@ -29,7 +29,18 @@ from ..providers.base import EpisodeBudget, ProviderRequest, ProviderResponse, R
 from .episode import run_episode
 from .mutate import next_proposal
 
-SERVICE_VERSION = "0.1.0"
+SERVICE_VERSION = "0.2.0"
+
+#: 基础设施失败，不是"问不出新东西"。这一轮压根没走到提案，把它记进停滞计数，
+#: 一个 schema 缺陷就会被读成模型枯竭 —— 与此前按 `proposal_id` 计新颖性
+#: 是同一类归因错误。实测：真实模型三次都把 direction 写成词，
+#: 若按停滞算，三轮之后服务就会写下 human_review_required 说它没新想法了。
+#: 判据是「这一轮有没有形成过提案」，不是「失败得像不像工程问题」：
+#: 这四种结局都在 `record_proposal` 之前返回，既不进提案分母也没有内容身份，
+#: 因此它们对"还有没有新问题可问"不构成任何证据。
+INFRASTRUCTURE_OUTCOMES = frozenset({
+    "parse_failure", "provider_error", "context_blocked", "invalid_proposal",
+})
 
 
 @dataclass
@@ -67,6 +78,9 @@ class ServiceResult:
     stopped_because: str = ""
     rounds: int = 0
     distinct_features: int = 0
+    #: 基础设施失败的轮数。与 distinct_features 分开报，因为它们意思相反：
+    #: 一个说"问出了几个互异的问题"，一个说"有几轮根本没问成"。
+    infrastructure_failures: int = 0
 
     def summary(self) -> dict:
         return {
@@ -74,6 +88,7 @@ class ServiceResult:
             "episodes": len(self.episodes),
             "rounds": self.rounds,
             "distinct_features": self.distinct_features,
+            "infrastructure_failures": self.infrastructure_failures,
             "stopped_because": self.stopped_because,
         }
 
@@ -106,6 +121,7 @@ def run_service(
     seen: set[str] = set()
     learned: tuple[str, ...] = ()
     stale = 0
+    broken = 0
     index = 0
 
     while result.rounds < max_rounds:
@@ -129,14 +145,24 @@ def run_service(
             break
 
         outcome = episode.rounds[-1]
-        # 停滞判据只看内容身份，不看判决好坏：用「判决没改善」当停止条件，
-        # 就是在用结果决定搜索何时停，那是另一种选择偏差
-        novelty = outcome.feature_id or outcome.proposal_id
-        if novelty and novelty not in seen:
-            seen.add(novelty)
-            stale = 0
+        if outcome.outcome in INFRASTRUCTURE_OUTCOMES:
+            # 这一轮没走到提案，它对"还有没有新问题可问"不构成任何证据。
+            # 既不清零 stale 也不累加，只单独计数：连续失败由 broken_rounds 判停。
+            result.infrastructure_failures += 1
+            broken += 1
+            if broken >= stall_rounds:
+                result.stopped_because = "provider_unusable"
+                break
         else:
-            stale += 1
+            broken = 0
+            # 停滞判据只看内容身份，不看判决好坏：用「判决没改善」当停止条件，
+            # 就是在用结果决定搜索何时停，那是另一种选择偏差
+            novelty = outcome.feature_id or outcome.proposal_id
+            if novelty and novelty not in seen:
+                seen.add(novelty)
+                stale = 0
+            else:
+                stale += 1
         if outcome.study_id:
             parent = outcome.study_id
 
@@ -157,11 +183,20 @@ def run_service(
 
     result.distinct_features = len(seen)
     ledger.append("service_stopped", result.summary())
+    # 两种停法都要人看，但它们要人做的判断不是一回事：一个问「还值不值得继续找」，
+    # 一个说「执行者根本没产出可解析的东西」。混成一句话就会把工程缺陷读成研究结论。
     if result.stopped_because == "stalled":
         # 「该不该继续找」是人的判断，系统只负责如实报告它已经问不出新东西
         ledger.append("human_review_required", {
             "reason": "连续多轮没有产生新的提案内容；是否继续搜索由人决定",
             "distinct_features": result.distinct_features,
+            "rounds": result.rounds,
+        })
+    elif result.stopped_because == "provider_unusable":
+        ledger.append("human_review_required", {
+            "reason": "连续多轮未能取得可解析的提案；这是执行通道的故障，"
+                      "不构成关于该机制族的任何研究结论",
+            "infrastructure_failures": result.infrastructure_failures,
             "rounds": result.rounds,
         })
     return result
