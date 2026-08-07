@@ -1,13 +1,13 @@
 {
   "run_id": "run4",
-  "created_at": "2026-08-07T18:47:17.077356+00:00",
+  "created_at": "2026-08-07T20:33:40.777706+00:00",
   "family": "demo_sc_price_volume",
   "studies": 28,
   "statistical_denominator": 16,
   "proposal_denominator": 28,
   "headline": "这一轮没有留下可用的发现。",
   "exceeded_band": false,
-  "cards": 4,
+  "cards": 0,
   "chain_intact": true,
   "runs_version": "0.1.0"
 }

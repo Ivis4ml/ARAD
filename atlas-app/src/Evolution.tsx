@@ -9,7 +9,13 @@ import { StudyPanel } from './StudyPanel'
 export function Evolution({ p }: { p: Projection }) {
   const [metric, setMetric] = useState('abs_t')
   const [axis, setAxis] = useState<'lineage' | 'time'>('lineage')
-  const [chainId, setChainId] = useState(p.lineage[0]?.chain_id ?? '')
+  // 默认选**最长**的那条链，不是数组里的第一条。实测 run4 的四条链长度为
+  // 1 / 7 / 14 / 6，取第一条会渲染出一大片空白加一条只有一个点的"曲线"。
+  // 演化视图的全部意义在于看迭代，起始点选错就等于没有这个视图。
+  const longest = [...p.lineage].sort(
+    (a, b) => (b.curves?.abs_t?.length ?? 0) - (a.curves?.abs_t?.length ?? 0),
+  )[0]
+  const [chainId, setChainId] = useState(longest?.chain_id ?? '')
   const [selected, setSelected] = useState<string | null>(null)
 
   const byId = useMemo(
@@ -49,7 +55,7 @@ export function Evolution({ p }: { p: Projection }) {
 
   const chain = axis === 'time'
     ? timeChain
-    : p.lineage.find((c) => c.chain_id === chainId) ?? p.lineage[0] ?? null
+    : p.lineage.find((c) => c.chain_id === chainId) ?? longest ?? null
 
   if (!chain) return <p className="muted">账本里还没有任何 Study。</p>
   const points = chain.curves[metric] ?? []
