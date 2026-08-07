@@ -92,7 +92,7 @@ def test_history_comes_from_the_blinded_ledger_view(ledger):
     )
     history = blinded_history(ledger, "fam")
     assert history["verdict_taxonomy"] == {"underpowered": 1}
-    assert "不可见" in history["note"]
+    assert "不进提案器上下文" in history["note"]
     assert json.dumps(history, ensure_ascii=False).count("sharpe") == 0
 
 

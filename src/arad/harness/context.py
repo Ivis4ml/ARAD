@@ -180,7 +180,7 @@ def blinded_history(ledger: EvidenceLedger, family: str, *, limit: int = 40) -> 
         "denominators": denominators,
         "verdict_taxonomy": taxonomy,
         "studies_seen": len(studies),
-        "note": "只给判决分类与分母；效果方向与量级对提案器不可见",
+        "note": "判决分类与分母。**本视图供 Atlas 与人工复核使用，不进提案器上下文**",
     }
 
 
@@ -211,7 +211,15 @@ def assemble_proposer_context(
             "candidate_families": menu,
             "known_biases": [b.__dict__ for b in menu_biases],
         },
-        "history": blinded_history(ledger, family),
+        # **判决分类不再进提案器上下文（决定 0006）。**
+        # M7 把它定价为安全，前提是它指向一个**匿名总体**：提案器每轮由独立子进程
+        # 承载，跨轮不带上下文，因此「9 个 null」指的是哪 9 条它无从知道。
+        # M9 的具名清单取消了匿名，两者一联合就能做减法：`null` 只可能在读过 outcome
+        # 之后产生，因此 `#null <= tests_spent`；实测 run4 上 `#null = tests_spent = 9`，
+        # 等式成立即推出「全部被度量过的具名规格都是 null」，而 null 的充要条件是
+        # 置换检验未通过 = 实际斜率未超出其置换分布，那是一条关于**量级**的陈述。
+        # `blinded_history` 保留，供 Atlas 与人工复核使用，只是不再进这份上下文。
+        "denominators": ledger.denominators(family),
         # 第 0 层与第 1 层记忆（M9）。第 2 层（结果侧的归纳）对提案器永久关闭。
         "memory": proposal_memory(ledger, family),
         "budget": budget_facts,

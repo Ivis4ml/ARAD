@@ -660,17 +660,26 @@ def test_the_verdict_reads_only_reason_kinds_never_the_numbers_in_them():
     assert set(REASON_INVALIDATES) >= {"placebo_failed", "cost_model_missing"}
 
 
-def test_only_aggregate_verdict_counts_reach_the_proposer():
-    """判决词对提案器可见是设计声明的披露（「只给判决分类与分母」），
-    但披露的**边界**是聚合：提示词里只有按判决词计数，没有逐 Study 的判决。
+def test_the_verdict_classification_no_longer_reaches_the_proposer():
+    """判决分类不再进提案器上下文（决定 0006）。
 
-    这条边界才是要害。让 `null` 可达使这个计数从近乎常量变成有信息 ——
-    它告诉提案器「这些机制被证否了」，不含方向、不含量级。一旦逐 Study 的判决
-    也进了提示词，提案器就能把机制与结果一一对上，那才是在检验统计量上爬山。
+    M7 把它定价为安全，前提是它指向一个**匿名总体** —— 提案器每轮由独立子进程
+    承载，跨轮不带上下文，因此「9 个 null」指的是哪 9 条它无从知道。
+    M9 的具名清单取消了匿名，两者一联合就能做减法：`null` 只可能在读过 outcome
+    之后产生，故 `#null <= tests_spent`；实测 run4 上 `#null = tests_spent = 9`，
+    等式成立即推出「全部被度量过的具名规格都是 null」，而 null 的充要条件是
+    置换检验未通过 = 实际斜率未超出其置换分布，那是一条关于量级的陈述。
+
+    `blinded_history` 本身保留：Atlas 与人工复核要用它。
     """
+    import json
     import tempfile
 
-    from arad.harness.context import DeclaredBias, assemble_proposer_context
+    from arad.harness.context import (
+        DeclaredBias,
+        assemble_proposer_context,
+        blinded_history,
+    )
     from arad.memory.ledger import EvidenceLedger
 
     with tempfile.TemporaryDirectory() as tmp, EvidenceLedger(f"{tmp}/l.db") as ledger:
@@ -685,7 +694,15 @@ def test_only_aggregate_verdict_counts_reach_the_proposer():
             menu_biases=[DeclaredBias("a", "b", "c")],
             budget_facts={}, blockers=[],
         )
-    history = bundle.facts["history"]
-    assert history["verdict_taxonomy"] == {"null": 2, "blocked": 1}
+        # 视图本身仍在，供 Atlas 与人工复核
+        assert blinded_history(ledger, "fam")["verdict_taxonomy"] == {"null": 2, "blocked": 1}
+
+    dumped = json.dumps(bundle.facts, ensure_ascii=False)
+    assert "verdict_taxonomy" not in dumped
+    assert "verdict" not in dumped
+    for word in ("null", "blocked", "underpowered", "candidate"):
+        assert f'"{word}"' not in dumped, word
+    # 两本分母保留：它们由读 outcome 之前的纯函数决定，不是结果信息
+    assert bundle.facts["denominators"]["statistical_denominator"] == 0
     for study_id in ("s0", "s1", "s2"):
-        assert study_id not in bundle.prompt, "逐 Study 的判决不得进入提示词"
+        assert study_id not in bundle.prompt

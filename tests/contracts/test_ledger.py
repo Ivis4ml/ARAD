@@ -481,3 +481,44 @@ def test_the_price_of_one_more_test_is_only_a_function_of_n(ledger):
     assert after["tests_spent"] == 1
     assert after["floor_after_one_more"] > after["floor_now"]
     assert before["floor_after_one_more"] == pytest.approx(after["floor_now"])
+
+
+def test_memory_projection_is_separate_from_the_read_events_projection():
+    """两张表必须分开。
+
+    `PROPOSER_VISIBLE_FIELDS` 同时是 `read_events` 的投影表，而 `read_events`
+    的信封对任何角色都原样返回 `study_id`。把 `feature_spec_locked` 加进那张表，
+    等于让 `read_events(role=PROPOSER, study_id=X)` 一次返回规格**与**该 Study
+    的判决，由同一个 study_id 串起 —— 而 `proposer_memory` 丢弃 study_id 正是
+    为了挡这个。保护不能被同一对象上更宽的那扇门绕过。
+    """
+    from arad.memory.ledger import PROPOSER_MEMORY_FIELDS, PROPOSER_VISIBLE_FIELDS
+
+    assert "feature_spec_locked" not in PROPOSER_VISIBLE_FIELDS
+    assert set(PROPOSER_MEMORY_FIELDS) == {"feature_spec_locked", "primitive_gap_declared"}
+
+
+def test_read_events_still_hides_the_spec_from_the_proposer(ledger):
+    """同一个 study_id 下，提案器一次调用不得同时拿到规格与判决。"""
+    sid = "s-pair"
+    ledger.append("feature_spec_locked",
+                  {"feature_id": "f", "mechanism": "m", "steps": [], "content_id": "cid"},
+                  study_id=sid)
+    ledger.append("verdict_recorded",
+                  {"study_id": sid, "verdict": "null", "next_action": "archive_evidence",
+                   "rationale": "r"}, study_id=sid)
+    seen = ledger.read_events(role=Role.PROPOSER, study_id=sid)
+    spec = next(e for e in seen if e["event_type"] == "feature_spec_locked")
+    assert spec["payload"] == {"withheld": WITHHELD}
+
+
+def test_memory_gets_the_second_recursive_redaction_too(ledger):
+    """`steps` 是嵌套结构且逐字保留；一道白名单挡不住嵌在里面的效果字段。"""
+    ledger.append("feature_spec_locked", {
+        "feature_id": "f", "mechanism": "m", "content_id": "cid",
+        "steps": [{"name": "w", "kind": "window", "slope": 0.42, "t_stat": 3.1}],
+    })
+    got = ledger.proposer_memory("feature_spec_locked")[0]
+    dumped = json.dumps(got, ensure_ascii=False)
+    for leak in ("0.42", "3.1"):
+        assert leak not in dumped

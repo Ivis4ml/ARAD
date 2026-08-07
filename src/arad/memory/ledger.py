@@ -139,14 +139,24 @@ PROPOSER_VISIBLE_FIELDS: dict[str, tuple[str, ...]] = {
         "mechanism", "missing_primitive", "why_existing_primitives_insufficient",
     ),
     "study_created": ("study_id", "parent_study_id", "change_summary"),
-    # 第 0 层记忆（M9）：模型**自己写过的规格**。这些在读任何 outcome 之前就已存在，
-    # 因此泄漏为零是按构造成立的。给它看，是为了让它不必重复已经问过的问题 ——
-    # 重复一次要付一次地板抬升。`content_id` 必须在，去重靠它。
+    "episode_started": ("episode_id", "family"),
+    "episode_ended": ("episode_id", "rounds", "ended_because"),
+}
+
+#: 第 0 层记忆（M9）的投影表，**与 `PROPOSER_VISIBLE_FIELDS` 分开**。
+#:
+#: 两者合用会打开一条本不该开的门：`PROPOSER_VISIBLE_FIELDS` 同时是 `read_events`
+#: 的投影表，而 `read_events` 的信封对任何角色都原样返回 `study_id`。把
+#: `feature_spec_locked` 加进那张表，等于让 `read_events(role=PROPOSER, study_id=X)`
+#: 一次返回规格**与**该 Study 的判决，由同一个 study_id 串起 —— 而 `proposer_memory`
+#: 刻意丢弃 study_id 正是为了挡这个。保护不能被同一对象上更宽的那扇门绕过。
+PROPOSER_MEMORY_FIELDS: dict[str, tuple[str, ...]] = {
     "feature_spec_locked": ("feature_id", "mechanism", "steps", "output_step",
                             "failure_condition", "required_lookback_seconds",
                             "sources", "content_id", "spec_version"),
-    "episode_started": ("episode_id", "family"),
-    "episode_ended": ("episode_id", "rounds", "ended_because"),
+    "primitive_gap_declared": (
+        "mechanism", "missing_primitive", "why_existing_primitives_insufficient",
+    ),
 }
 
 WITHHELD = "<withheld:not-on-blinded-allowlist>"
@@ -246,21 +256,28 @@ class EvidenceLedger:
     #: 由账本自己强制：只放这两种事件，逐字段过白名单，并**丢弃 study_id**
     #: （study_id 是事件的列而不是 payload 字段，payload 白名单管不到它，
     #: 留着它提案器就能把规格与判决一一对上，那正是要挡的东西）。
-    CROSS_STUDY_MEMORY_EVENTS = ("feature_spec_locked", "primitive_gap_declared")
-
     def proposer_memory(self, event_type: str) -> list[dict]:
-        """跨 Study 的第 0 层记忆。只返回盲化投影，且不带 study_id。"""
-        if event_type not in self.CROSS_STUDY_MEMORY_EVENTS:
+        """跨 Study 的第 0 层记忆。只返回盲化投影，且不带 study_id。
+
+        两道遮蔽，与 `read_events` 一致：先按 `PROPOSER_MEMORY_FIELDS` 取白名单，
+        再过一次递归 `_redact`。第二道不是冗余 —— `steps` 是嵌套结构且逐字保留，
+        将来若步骤定义里出现 `slope`/`ic` 一类子键，一道白名单会原样送出。
+        """
+        allowed = PROPOSER_MEMORY_FIELDS.get(event_type)
+        if allowed is None:
             raise CapabilityDenied(
                 f"{event_type!r} 不在提案器可跨 Study 读取的名单里"
-                f"（只有 {list(self.CROSS_STUDY_MEMORY_EVENTS)}）"
+                f"（只有 {sorted(PROPOSER_MEMORY_FIELDS)}）"
             )
         import json as _json
 
         rows = self._conn.execute(
             "SELECT payload FROM events WHERE event_type = ? ORDER BY seq", (event_type,)
         ).fetchall()
-        return [_project_for_role(event_type, _json.loads(r["payload"])) for r in rows]
+        return [
+            _redact({k: v for k, v in _json.loads(r["payload"]).items() if k in allowed})
+            for r in rows
+        ]
 
     def read_events(self, *, role: Role, study_id: str | None = None) -> list[dict]:
         """按角色读取事件。proposer 拿不到效果字段。"""
