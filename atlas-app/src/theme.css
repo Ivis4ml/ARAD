@@ -236,3 +236,14 @@ pre.code { background: #131a22; color: #d7e0ea; font-family: var(--mono);
 /* 没有取值的版本：画在轴上，空心。它存在，但它没有数 —— 两件事都要看得见。 */
 svg.curve .point.novalue { transition: opacity .3s ease; }
 svg.curve .point.novalue:hover circle { r: 5.5; }
+
+/* 中间结论的流。给人看的，因此带机制全文；它不进提案器上下文。 */
+.live-feed { list-style: none; padding: 0; margin: 8px 0 14px; display: grid; gap: 10px; }
+.live-feed li { border-left: 3px solid var(--line); padding: 6px 0 6px 12px; }
+.live-feed .feed-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.live-feed p { margin: 3px 0; }
+.live-feed .warn { color: #8a6d1f; }
+.chip { padding: 1px 7px; border-radius: 10px; font-size: .78rem; color: #fff; }
+.chip.v-candidate { background: #1f6f43; } .chip.v-null { background: #5a6270; }
+.chip.v-blocked { background: #3f5d8a; } .chip.v-underpowered { background: #8a6d1f; }
+.chip.v-error { background: #8a2f2f; }

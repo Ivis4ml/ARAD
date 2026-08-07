@@ -103,6 +103,62 @@ def _curve(conn: sqlite3.Connection) -> list[dict]:
     return out
 
 
+def _recent(conn: sqlite3.Connection, limit: int = 8) -> list[dict]:
+    """最近几版的**中间结论**：模型提了什么、审计说了什么、判决是什么。
+
+    此前这些只有在服务跑完写进运行目录之后才看得到，而运行期间恰恰最想看它们。
+    账本本来就是实时写的，这里直接读。
+
+    这一段是给**人**看的，因此可以带机制全文。它不进提案器上下文 ——
+    提案器那一侧的记忆走 `memory/induction.py`，且判决分类已按决定 0006 退出。
+    """
+    ids = [
+        r["study_id"]
+        for r in conn.execute(
+            "SELECT DISTINCT study_id FROM events WHERE study_id IS NOT NULL"
+            " ORDER BY study_id DESC LIMIT ?", (limit,)
+        )
+    ]
+    if not ids:
+        return []
+    marks = ",".join("?" * len(ids))
+    rows = conn.execute(
+        f"SELECT study_id, event_type, payload FROM events"
+        f" WHERE study_id IN ({marks})"
+        f"   AND event_type IN ('proposal_locked','semantic_audit','verdict_recorded',"
+        f"                      'feature_spec_locked')"
+        f" ORDER BY seq", tuple(ids)
+    ).fetchall()
+    import json as _json
+
+    by_study: dict[str, dict] = {}
+    for row in rows:
+        entry = by_study.setdefault(row["study_id"], {"study_id": row["study_id"]})
+        payload = _json.loads(row["payload"])
+        if row["event_type"] == "proposal_locked":
+            entry.update({
+                "mechanism": payload.get("mechanism", ""),
+                "target": payload.get("target", ""),
+                "universe": payload.get("universe", ""),
+                "direction": payload.get("direction"),
+                "falsifiable_condition": payload.get("falsifiable_condition", ""),
+            })
+        elif row["event_type"] == "feature_spec_locked":
+            entry["feature_id"] = payload.get("feature_id", "")
+            entry["shape"] = " -> ".join(
+                f"{st.get('kind')}({st.get('field') or ','.join(st.get('inputs') or [])})"
+                for st in payload.get("steps", [])
+            )
+        elif row["event_type"] == "semantic_audit":
+            # 封闭词表的码。**审计拦下的那些根本没读 outcome**，
+            # 因此它们不抬高地板 —— 这一条是审计在替我们省预算的证据。
+            entry["audit_codes"] = [m["code"] for m in payload.get("mismatches", [])]
+        elif row["event_type"] == "verdict_recorded":
+            entry["verdict"] = payload.get("verdict", "")
+            entry["rationale"] = payload.get("rationale", "")
+    return [by_study[i] for i in sorted(by_study, reverse=True)]
+
+
 def _project(conn: sqlite3.Connection, family: str, now: datetime) -> dict:
     last = conn.execute(
         "SELECT seq, event_type, study_id, created_at FROM events"
@@ -185,6 +241,7 @@ def _project(conn: sqlite3.Connection, family: str, now: datetime) -> dict:
             "floor_after_one_more": round(expected_max_abs_z(tests + 1), 4),
         },
         "curve": _curve(conn),
+        "recent": _recent(conn),
         "note": (
             "|t| 与零假设带成对返回，缺一不可：一条随迭代上升的曲线本身就是选择在"
             "纯噪声上必然产出的形状，单看它会系统性地骗人"

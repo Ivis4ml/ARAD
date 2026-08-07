@@ -18,6 +18,12 @@ const STEP_LABELS: Record<string, string> = {
 }
 
 type Step = { step: string; seq: number | null; done: boolean }
+type Recent = {
+  study_id: string; feature_id?: string; shape?: string
+  mechanism?: string; target?: string; universe?: string
+  direction?: number | null; falsifiable_condition?: string
+  audit_codes?: string[]; verdict?: string; rationale?: string
+}
 type CurvePt = {
   index: number; study_id: string; value: number | null
   running_best: number | null; null_threshold: number; verdict: string
@@ -36,6 +42,7 @@ type LiveState = {
   denominators: { proposal_denominator: number; statistical_denominator: number }
   price: { tests_spent: number; floor_now: number; floor_after_one_more: number }
   curve: CurvePt[]
+  recent: Recent[]
 }
 
 export function Live() {
@@ -127,6 +134,34 @@ export function Live() {
         必然产出的形状。要看的是它有没有跑赢那条<strong>同步抬高</strong>的地板 ——
         每多问一个会被评价的假设，地板就往上走一格，而它对已有的与将来的全部结论同时生效。
       </p>
+      <h3 className="small">最近几版的中间结论</h3>
+      <ol className="live-feed">
+        {(state.recent ?? []).map((r) => (
+          <li key={r.study_id}>
+            <div className="feed-head">
+              <code>{r.study_id}</code>
+              {r.verdict && <span className={`chip v-${r.verdict}`}>{r.verdict}</span>}
+              <span className="mono small muted">
+                {r.target}　·　{r.universe}
+                {r.direction ? `　·　方向 ${r.direction > 0 ? '+1' : '-1'}` : ''}
+              </span>
+            </div>
+            {r.shape && <p className="mono small muted">{r.feature_id}：{r.shape}</p>}
+            {r.mechanism && <p className="small">{r.mechanism}</p>}
+            {r.falsifiable_condition && (
+              <p className="small muted">证否条件：{r.falsifiable_condition}</p>
+            )}
+            {r.audit_codes && r.audit_codes.length > 0 && (
+              <p className="small warn">
+                语义审计拦下：{r.audit_codes.join('、')}　
+                <span className="muted">未读 outcome，因此不抬高地板</span>
+              </p>
+            )}
+            {r.rationale && <p className="small muted">判决理由：{r.rationale}</p>}
+          </li>
+        ))}
+      </ol>
+
       <p className="notice small">
         看着结果决定何时停，会让停止时点与结果相关。零假设带按<strong>已花掉的</strong>
         检验次数计价，早停不会把已花的退回来，因此它不制造额外的多重检验偏差；
