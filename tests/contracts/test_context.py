@@ -304,3 +304,24 @@ def test_the_direction_type_actually_reaches_the_rendered_prompt() -> None:
     assert "positive" in prompt, "必须点名这个具体的错误写法：模型实测就是这么写的"
     for name in ("mechanism", "falsifiable_condition", "feature_spec"):
         assert name in prompt
+
+
+def test_the_target_menu_carries_no_free_prose():
+    """目标描述是写给人看的散文，而散文正是效应词的老家。
+
+    实测：`sc_ret_next_session` 的描述里有「Sharpe 因此才有定义」，
+    `sc_open_gap_absorption` 的描述里有「不作可交易 alpha 主张」。M8.2 把菜单改成
+    `t.record()` 全量列出，于是这两个词进了提示词，盲化检查在一次调用都没发出去之前
+    把整轮拦下（run5 连续两轮 context_blocked）。模型选目标需要的是 label 语义。
+    """
+    from arad.harness.demo import TARGET_MENU_FIELDS, _target_menu_entry
+    from arad.temporal.targets import TARGET_SPECS
+
+    assert "description" not in TARGET_MENU_FIELDS
+    for spec in TARGET_SPECS:
+        entry = _target_menu_entry(spec)
+        assert "description" not in entry, spec.name
+        assert set(entry) <= set(TARGET_MENU_FIELDS) | {"horizon", "segment"}
+        # 选目标真正需要的东西必须在
+        for needed in ("name", "label_rule", "label_is_return", "tradable_claim"):
+            assert needed in entry, (spec.name, needed)

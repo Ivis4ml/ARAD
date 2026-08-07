@@ -1,0 +1,29 @@
+{
+  "card_version": "0.1.0",
+  "codegen_version": "0.1.0",
+  "feature_id": "sc_signed_ret_1d_z",
+  "content_id": "85c3737c256a58fcf201e634e87775d502e5ac36da008cf7e1548479f0dfbcd2",
+  "family": "demo_sc_price_volume",
+  "status": "discovery_only",
+  "taxonomy_clean": false,
+  "mechanism": "原油价格的上行冲击与下行冲击携带的信息类型不同。上行多由供给端扰动推动（地缘冲突、出口或航道中断、库存意外下降），这类冲击在抬高价格的同时也抬高了后续的信息到达率与分歧度；下行则更多来自需求预期的缓慢修正，信息到达更平缓。因此上一日的有符号累计收益本身就是一个关于当前处于哪一类冲击的分类信号，而该信号对波动的作用要到次一 session 才完全体现出来（能源期货上记录的反向杠杆效应，与股指的杠杆效应符号相反）。据此，截至决策时点为止的有符号累计收益应当先于价格反映到次一 session 的已实现波动上。",
+  "failure_condition": "若参考网格上的互异取值数不足 min_samples（长假停市或主力合约换月造成的空窗、以及采样点落在非交易日导致的重复读数），该时点不产出特征值，不得以零、前值或截面均值填充；若填充，标准差被压低而 z 被放大，检验到的将是采样伪影而非机制。",
+  "formula": [
+    "ret_1d = 求和( commodity_bar.log_return , 窗口 [t−1日, t) )",
+    "ret_1d_z = ( ret_1d(t) − μ ) / σ，其中 μ、σ 取自 ret_1d 在 t−k×1日（k=1..250）上的取值，互异取值不足 100 个则无定义",
+    "输出 = ret_1d_z"
+  ],
+  "code": "\"\"\"sc_signed_ret_1d_z\n\n机制：截至决策时点前一日的有符号累计对数收益，用同一采样网格上的历史分布做 zscore 归一。取值为正表示近一日净上行，为负表示净下行；归一只改变量纲，不改变符号，因此该特征在 sign_unit 仓位下有可检验的方向。\n\n失败条件：若参考网格上的互异取值数不足 min_samples（长假停市或主力合约换月造成的空窗、以及采样点落在非交易日导致的重复读数），该时点不产出特征值，不得以零、前值或截面均值填充；若填充，标准差被压低而 z 被放大，检验到的将是采样伪影而非机制。\n\n**本文件由 `arad.features.codegen` 从冻结规格确定性生成，请勿手改。**\n规格内容身份 85c3737c256a58fcf201e634e87775d502e5ac36da008cf7e1548479f0dfbcd2\n生成器 0.1.0；改规格才能改代码，两者不可能不一致。\n\nPIT：每个窗口的右端点一律**不含**决策时点，offset 只能非负。\n无定义返回 None，绝不返回 0 —— 返回 0 会被下游当成「没有信号」，那是伪造。\n本特征最早触及 251日 前的数据；该深度未整段落在序列覆盖范围内时判为无定义。\n\"\"\"\n\nfrom __future__ import annotations\n\nimport math\nfrom bisect import bisect_left\nfrom datetime import datetime, timedelta\n\nREQUIRED_LOOKBACK_SECONDS = 21686400\n\n\ndef _window(times, values, end, seconds):\n    \"\"\"取 [end - seconds, end) 内的值。**end 一律不含**，这是 PIT 的关键。\"\"\"\n    lo = bisect_left(times, end - timedelta(seconds=seconds))\n    hi = bisect_left(times, end)\n    return values[lo:hi]\n\n\ndef _agg(op, xs):\n    if not xs:\n        return None\n    if op == \"last\":\n        return xs[-1]\n    if op == \"mean\":\n        return math.fsum(xs) / len(xs)\n    if op == \"sum\":\n        return math.fsum(xs)\n    if op == \"count\":\n        return float(len(xs))\n    if op == \"min\":\n        return min(xs)\n    if op == \"max\":\n        return max(xs)\n    if op == \"std\":\n        if len(xs) < 2:\n            return None\n        m = math.fsum(xs) / len(xs)\n        return math.sqrt(math.fsum((x - m) ** 2 for x in xs) / (len(xs) - 1))\n    raise ValueError(op)\n\n\ndef _ok(v):\n    \"\"\"非有限值一律当作无定义：NaN 传下去会让比较式的闸门全部取假地通过。\"\"\"\n    return v is not None and math.isfinite(v)\n\n\ndef _at_ret_1d(at: datetime, series: dict):\n    \"\"\"在任意过去时刻求 ret_1d 的值。参考分布要用它。\"\"\"\n    t, x = series[\"commodity_bar.log_return\"]\n    end = at - timedelta(seconds=0)\n    v_ret_1d = _agg(\"sum\", _window(t, x, end, 86400))\n    return v_ret_1d\n\ndef compute(decision_time: datetime, series: dict, coverage_start=None):\n    \"\"\"在一个决策时点上求值。无定义返回 None。\"\"\"\n    # 覆盖准入：回看深度必须整段落在序列覆盖范围内，否则同一份规格在完整\n    # 序列与其截断副本上会给出不同的数，而没有任何记录能看出差别\n    if coverage_start is not None and (\n        decision_time - timedelta(seconds=REQUIRED_LOOKBACK_SECONDS)\n        < coverage_start\n    ):\n        return None\n    t_ret_1d, x_ret_1d = series[\"commodity_bar.log_return\"]\n    end_ret_1d = decision_time - timedelta(seconds=0)\n    v_ret_1d = _agg(\"sum\", _window(t_ret_1d, x_ret_1d, end_ret_1d, 86400))\n    v_ret_1d = v_ret_1d if _ok(v_ret_1d) else None\n    if v_ret_1d is not None and not math.isfinite(v_ret_1d):\n        v_ret_1d = None\n    # zscore：参考样本取自规格自己声明的采样网格，严格取自过去\n    samples_ret_1d_z = []\n    for k in range(1, 250 + 1):\n        past = decision_time - timedelta(seconds=k * 86400)\n        s = _at_ret_1d(past, series)\n        if _ok(s):\n            samples_ret_1d_z.append(s)\n    distinct_ret_1d_z = len(set(samples_ret_1d_z))\n    if not _ok(v_ret_1d) or distinct_ret_1d_z < 100:\n        v_ret_1d_z = None\n    else:\n        mu = math.fsum(samples_ret_1d_z) / len(samples_ret_1d_z)\n        sd = math.sqrt(math.fsum((s - mu) ** 2 for s in samples_ret_1d_z) / (len(samples_ret_1d_z) - 1))\n        v_ret_1d_z = ((v_ret_1d - mu) / sd) if sd > 0 else None\n    if v_ret_1d_z is not None and not math.isfinite(v_ret_1d_z):\n        v_ret_1d_z = None\n    return v_ret_1d_z\n",
+  "required_lookback_seconds": 21686400,
+  "sources": [
+    "commodity_bar"
+  ],
+  "discovery": {
+    "t_stat": -1.2622206377378677,
+    "ic_spearman": -0.05365271641066239,
+    "rows": 635,
+    "study_id": "run3-study-8"
+  },
+  "sealed": null,
+  "meaning": "机制：原油价格的上行冲击与下行冲击携带的信息类型不同。上行多由供给端扰动推动（地缘冲突、出口或航道中断、库存意外下降），这类冲击在抬高价格的同时也抬高了后续的信息到达率与分歧度；下行则更多来自需求预期的缓慢修正，信息到达更平缓。因此上一日的有符号累计收益本身就是一个关于当前处于哪一类冲击的分类信号，而该信号对波动的作用要到次一 session 才完全体现出来（能源期货上记录的反向杠杆效应，与股指的杠杆效应符号相反）。据此，截至决策时点为止的有符号累计收益应当先于价格反映到次一 session 的已实现波动上。 发现段上斜率的 t 值为 -1.262，IC（时序秩相关）-0.0537，提交观测 635 行。 封闭段尚未开启，因此没有任何样本外证据。 注意，分类法不干净：候选机制族的归纳语料覆盖了本段，机制的选择并不独立于结果，样本外也救不了这一点（决定 0004）。真正干净的检验只能在归纳切点之后的数据上做。 成本与容量模型尚未建立（属 M5），因此本因子在任何情况下都不得取 candidate；以上全部为 pre-cost。"
+}

@@ -436,6 +436,26 @@ def _load_pm_series(path: str) -> dict:
     }
 
 
+#: 目标菜单允许出现的字段。**不含 `description`。**
+#:
+#: 目标描述是写给人看的散文，而散文正是效应词的老家：`sc_ret_next_session` 的描述里
+#: 有「Sharpe 因此才有定义」，`sc_open_gap_absorption` 的描述里有「不作可交易 alpha
+#: 主张」。M8.2 把菜单改成 `t.record()` 全量列出，于是这两个词进了提示词，
+#: 盲化检查在**一次调用都没发出去之前**把整轮拦下（实测 run5 连续两轮 context_blocked）。
+#: 模型选目标需要的是 label 语义，不是这段散文。
+TARGET_MENU_FIELDS = (
+    "name", "kind", "label_rule", "label_is_return", "tradable_claim",
+    "execution_lag_seconds", "min_observations",
+)
+
+
+def _target_menu_entry(spec) -> dict:
+    record = spec.record()
+    entry = {k: record[k] for k in TARGET_MENU_FIELDS if k in record}
+    entry.update({"horizon": "next_session", "segment": SEGMENT})
+    return entry
+
+
 def universe_menu() -> list[dict]:
     """可选的 universe。**只列真有 spine 的**，与机制族菜单同一条原则。
 
@@ -622,12 +642,8 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dic
             # 此前只列 sc_rv_next_session，而评价机用的是 sc_ret_next_session：
             # 模型预注册的是波动幅度的假设，系统检验的是收益方向。
             # 每一项如实带上 label 语义，选哪个是模型的经济判断。
-            targets=[
-                {**t.record(), "horizon": "next_session",
-                 "universe": "sc_dominant_t1", "segment": SEGMENT}
-                for t in TARGET_SPECS
-                if t.name in sc.get("labels_by_target", {})
-            ],
+            targets=[_target_menu_entry(t) for t in TARGET_SPECS
+                     if t.name in sc.get("labels_by_target", {})],
             menu=menu,
             universes=universe_menu(),
             menu_biases=MENU_BIASES,
