@@ -439,6 +439,9 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict):
                 "解释器目前只接入 commodity_bar；pm_market 与 cls_telegraph 尚未接入",
                 "无成本与容量模型（属 M5），因此本轮不可能取 candidate",
             ],
+            # 累积的语义错配码。任务载荷是唯一对所有 provider 都成立的通路：
+            # provider 属性那条路只有确定性变异器走得通
+            learned_mismatches=tuple(task["payload"].get("learned_mismatches") or ()),
         )
 
     return assemble

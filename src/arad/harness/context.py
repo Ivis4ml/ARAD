@@ -26,6 +26,7 @@ from ..memory.ledger import EvidenceLedger
 from ..memory.ledger import Role as LedgerRole
 from ..providers.base import Role, assert_blinded
 from ..registry.specs import content_id
+from .audit import SEMANTIC_MISMATCH_TAXONOMY
 
 CONTEXT_VERSION = "0.1.0"
 
@@ -182,8 +183,14 @@ def assemble_proposer_context(
     menu_biases: list[DeclaredBias],
     budget_facts: dict,
     blockers: list[str],
+    learned_mismatches: tuple[str, ...] = (),
 ) -> ContextBundle:
-    """组装提案器上下文。渲染后再过一次盲化检查。"""
+    """组装提案器上下文。渲染后再过一次盲化检查。
+
+    `learned_mismatches` 是**累积**的语义错配码，不是只有上一轮的：一旦
+    「幅度对方向」被指出来，之后就不该再退回幅度特征。只取上一轮会让链在两种机制
+    之间来回震荡（实测 A/B/A/B）。它走的是封闭词表，不含任何数字与效应量。
+    """
     facts = {
         "task": "提出一个可证伪的研究提案",
         "data": data_facts,
@@ -196,6 +203,11 @@ def assemble_proposer_context(
         "history": blinded_history(ledger, family),
         "budget": budget_facts,
         "blockers": blockers,
+        "learned_semantic_mismatches": [
+            {"code": code, "explanation": SEMANTIC_MISMATCH_TAXONOMY[code]}
+            for code in learned_mismatches
+            if code in SEMANTIC_MISMATCH_TAXONOMY
+        ],
         "output_contract": {
             "required": [
                 "mechanism", "source", "target", "horizon", "universe",
@@ -237,6 +249,22 @@ def render_proposer_prompt(facts: dict, biases: list[DeclaredBias]) -> str:
             "从无偏的宇宙里抽出来的。如果你的提案依赖某个高偏差的族，请在 rationale 里说明。"
         ),
         "",
+    ]
+    learned = facts.get("learned_semantic_mismatches") or []
+    if learned:
+        lines += [
+            "## 此前各版被语义审计拦下的错配（累积，不只是上一轮）",
+            "",
+            (
+                "这些是**在读取任何结果之前**做出的诊断，只比对规格与目标的语义，"
+                "不含任何效应量。被拦下的那些版本根本没有读 outcome。"
+                "本轮的提案不得再犯同样的错配："
+            ),
+            "",
+        ]
+        lines += [f"- `{m['code']}`：{m['explanation']}" for m in learned]
+        lines.append("")
+    lines += [
         "## 结构化事实",
         "",
         "```json",

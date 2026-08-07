@@ -127,8 +127,14 @@ def run_service(
     while result.rounds < max_rounds:
         task_id = f"auto-task-{index}"
         study_id = f"auto-study-{index}"
+        # 累积的错配码走**任务载荷**，不走 provider 属性。原实现是
+        # `if hasattr(provider, "mismatch_codes")`，而那个属性只有确定性变异器有，
+        # `ClaudeCliProvider` 没有 —— 于是诊断对真实模型被静默丢弃，实跑 8 轮里
+        # 最后三轮连续撞在同一个 magnitude_vs_signed_label 上。载荷这条路对任何
+        # provider 都成立，因为它最终进的是提示词。
         queue.enqueue(task_id, "study",
-                      {**seed_task, "study_id": study_id, "parent_study_id": parent},
+                      {**seed_task, "study_id": study_id, "parent_study_id": parent,
+                       "learned_mismatches": list(learned)},
                       now=current)
         episode = run_episode(
             episode_id=f"auto-episode-{index}",

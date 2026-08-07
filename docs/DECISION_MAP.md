@@ -547,3 +547,17 @@ null 分类，且 verdict 本就在白名单上。那是项目记录的设计意
 连续撞在同一个 `magnitude_vs_signed_label` 上（都被审计拦下且没读 outcome，统计分母
 因此是 4 而不是 7），正是因为模型无从得知上一轮错在哪。M6 票称之为「环真正闭上的地方」，
 而它只对变异器闭上了。
+
+M7.1（环只对确定性变异器闭上了，已修）：实跑 8 轮里最后三轮的结局都是
+`semantic_mismatch` 且错配码都是同一个 `magnitude_vs_signed_label` —— 三个不同构造，
+同一个语义错误。原因是 `service.py` 用 `if hasattr(provider, "mismatch_codes")` 回传诊断，
+而该属性只有 `AutoProposer` 有，`ClaudeCliProvider` 没有，诊断被静默丢弃。审计本身有效
+（三轮都被拦下且没读 outcome，统计分母 4 而不是 7），损失的是时间与调用预算。
+
+改为走**任务载荷**：`run_service` 把累积的错配码写进入队载荷，
+`assemble_proposer_context` 按封闭词表渲染进提示词并附上解释，**未登记的码不渲染**
+（自由文本是效应走私的通道，有测试用带数字的假码验证它不出现）。载荷这条路对任何
+provider 都成立，因为提示词是所有 provider 共同的入口。不构成泄漏：错配码在读取任何
+outcome 之前产生，被拦下的版本根本没读 outcome，且整张词表不含数字（有既有测试钉住）。
+
+据此结清阻塞事项 9。

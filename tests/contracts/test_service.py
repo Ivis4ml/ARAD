@@ -288,3 +288,94 @@ def test_a_word_direction_no_longer_burns_the_round(rig):
     events = [e["event_type"] for e in ledger.read_events(role=LedgerRole.HUMAN)]
     assert "parse_failure" not in events
     assert result.infrastructure_failures == 1
+
+
+# ------------------------------------------- 语义诊断必须回到提案器手里
+#
+# 原实现用 `if hasattr(provider, "mismatch_codes")` 回传错配码，而该属性只有确定性
+# 变异器 `AutoProposer` 有，`ClaudeCliProvider` 没有 —— 诊断对真实模型被静默丢弃。
+# 实跑 8 轮里最后三轮连续撞在同一个 `magnitude_vs_signed_label` 上，都被审计拦下
+# 且没读 outcome（统计分母因此是 4 而不是 7），正是因为模型无从得知上一轮错在哪。
+# M6 票称之为「环真正闭上的地方」，而它只对变异器闭上了。
+
+MAGNITUDE_PROPOSAL = json.dumps({
+    "mechanism": "已实现波动的短期创新", "source": "commodity_bar",
+    "target": "sc_ret_next_session", "horizon": "next_session",
+    "universe": "sc_dominant", "direction": 1,
+    "falsifiable_condition": "斜率不显著异于零则证伪",
+    "feature_spec": {
+        "feature_id": "rv_w", "mechanism": "近窗已实现波动均值",
+        "steps": [{"name": "w", "kind": "window", "source": "commodity_bar",
+                   "field": "realised_volatility", "op": "mean", "window_seconds": 600}],
+        "output_step": "w", "failure_condition": "窗口内无 bar 时无定义",
+        "authored_by": "llm_proposer",
+    },
+}, ensure_ascii=False)
+
+
+class NoMismatchAttribute:
+    """真实 provider 的形状：**没有** `mismatch_codes` 属性。"""
+
+    model_id = "no_attr"
+
+    def invoke(self, request: ProviderRequest) -> ProviderResponse:
+        return ProviderResponse(request_id=request.request_id, role=Role.PROPOSER,
+                                raw_text=MAGNITUDE_PROPOSAL, model_id=self.model_id)
+
+
+def test_semantic_diagnoses_reach_a_provider_without_the_attribute(rig):
+    ledger, queue = rig
+    seen_tasks: list[dict] = []
+
+    def assemble(task):
+        seen_tasks.append(task)
+        return assemble_proposer_context(
+            ledger=ledger, family=FAMILY, data_facts={},
+            targets=[{"name": "sc_ret_next_session"}], menu=[{"family_id": "c"}],
+            menu_biases=[DeclaredBias("a", "b", "c")], budget_facts={}, blockers=[],
+            learned_mismatches=tuple(task["payload"].get("learned_mismatches") or ()),
+        )
+
+    def audit_input(feature, proposal):
+        return AuditInput(
+            feature=feature, target_record=RETURN_TARGET, proposal_direction=1,
+            falsifiable_condition="斜率不显著异于零则证伪",
+            wired_sources=frozenset({"commodity_bar"}),
+        )
+
+    result = run_service(
+        ledger=ledger, queue=queue, provider=NoMismatchAttribute(), family=FAMILY,
+        owner="w1", assemble=assemble, build_evaluation=_never_called,
+        audit_input=audit_input, seed_task={}, max_rounds=3,
+        calls_per_episode=6, stall_rounds=9, now=T0,
+    )
+    assert result.rounds == 3
+    # 第一轮之后，诊断必须出现在后续每一轮的任务载荷里
+    assert seen_tasks[0]["payload"]["learned_mismatches"] == []
+    for task in seen_tasks[1:]:
+        assert task["payload"]["learned_mismatches"] == ["magnitude_vs_signed_label"]
+
+
+def test_the_diagnosis_is_rendered_into_the_prompt_with_its_explanation(rig):
+    """码本身对模型没有意义，必须带上封闭词表里的解释。
+
+    解释文本不含任何数字（有既有测试钉住整张词表），因此它不构成效应通道。
+    """
+    ledger, _ = rig
+    bundle = assemble_proposer_context(
+        ledger=ledger, family=FAMILY, data_facts={},
+        targets=[{"name": "sc_ret_next_session"}], menu=[{"family_id": "c"}],
+        menu_biases=[DeclaredBias("a", "b", "c")], budget_facts={}, blockers=[],
+        learned_mismatches=("magnitude_vs_signed_label",),
+    )
+    assert "magnitude_vs_signed_label" in bundle.prompt
+    assert SEMANTIC_MISMATCH_TAXONOMY["magnitude_vs_signed_label"] in bundle.prompt
+    assert "不得再犯同样的错配" in bundle.prompt
+    # 未登记的码不得被原样渲染出去：自由文本是效应走私的通道
+    other = assemble_proposer_context(
+        ledger=ledger, family=FAMILY, data_facts={},
+        targets=[{"name": "t"}], menu=[{"family_id": "c"}],
+        menu_biases=[DeclaredBias("a", "b", "c")], budget_facts={}, blockers=[],
+        learned_mismatches=("斜率为负且 t 值 -2.66",),
+    )
+    assert "2.66" not in other.prompt
