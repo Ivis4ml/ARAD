@@ -502,3 +502,45 @@ def test_the_correlation_matrix_is_symmetric_with_a_unit_diagonal():
     # a 与 b 是同一个想法的两种写法
     ia, ib = m["names"].index("a"), m["names"].index("b")
     assert m["matrix"][ia][ib] == pytest.approx(1.0)
+
+
+def test_a_clean_null_is_not_accused_of_single_point_influence():
+    """真实事故的回归：一条 t = -0.03 的干净零结果被报成「最大 DFBETA 占斜率 9.72」。
+
+    `|DFBETA| / |β̂|` 在 β̂ → 0 时发散，因此这道闸门在**根本没有效应**时最响，
+    而那时并不存在任何被单点主导的结论 —— 那条真实特征的最大杠杆只有 0.022。
+    这里用纯噪声复现同一形态：t = -0.059，旧口径 11.86，而最大杠杆是正常的。
+    """
+    rows, labels = make_rows(n=60, seed=7)
+    result = evaluate(a_request(rows), labels, role="evaluator")
+    infl = result["diagnostics"]["influence"]
+    assert abs(result["effects"]["t_stat"]) < 0.5, "这一条必须是零结果，否则测的不是同一件事"
+    assert infl["dfbeta_over_slope"] > 10, "旧口径确实会在这里触发"
+    assert infl["max_abs_dfbetas"] < 1.0
+    assert infl["max_leverage"] < 0.2, "没有任何单点主导：杠杆是正常的"
+    assert not any("单点影响过大" in r for r in result["blocked_reasons"])
+
+
+def test_max_leverage_does_not_depend_on_the_labels():
+    """最大杠杆是 DFBETA 里不含残差的那一半，因此读标签之前就可算。
+
+    这一条是「只用 X 的诊断通道」是否可能存在的前提：它对提案器不构成效应泄漏。
+    """
+    x = [0.0, 1.0, 2.0, 3.0, 40.0]
+    a = stats.influence_on_slope(x, [0.1, -0.2, 0.3, -0.1, 0.05])
+    b = stats.influence_on_slope(x, [-9.0, 4.0, 0.0, 7.0, -3.0])
+    assert a["max_leverage"] == b["max_leverage"]
+    assert a["max_leverage"] > 0.9, "一个点远离其余全部时，它几乎独占回归元的变异"
+
+
+def test_the_influence_gate_is_scaled_by_the_standard_error_not_the_estimate():
+    """闸门读的必须是 DFBETAS。把两个口径同时报出来，是为了让口径变更可回放。"""
+    rows, labels = make_rows(n=60, seed=3)
+    bad = rows[0]
+    rows[0] = EvaluationRow(**{**bad.__dict__, "prediction": 50.0})
+    labels[bad.row_key] = 50.0
+    result = evaluate(a_request(rows), labels, role="evaluator")
+    infl = result["diagnostics"]["influence"]
+    assert {"max_abs_dfbetas", "dfbeta_over_slope", "max_leverage"} <= set(infl)
+    reason = next(r for r in result["blocked_reasons"] if "单点影响过大" in r)
+    assert "标准误" in reason and "占斜率" not in reason

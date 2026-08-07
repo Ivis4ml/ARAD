@@ -26,7 +26,7 @@ from datetime import datetime
 from ..registry.specs import Verdict, content_id
 from . import stats
 
-EVALUATOR_VERSION = "0.1.0"
+EVALUATOR_VERSION = "0.2.0"
 
 #: 准入所需的最小证据。缺任一项，Study 不得取 candidate。
 ADMISSION_REQUIREMENTS = (
@@ -120,7 +120,13 @@ class EvaluationRequest:
     hac_lag: int = 5
     min_returns: int = 30
     min_clusters: int = 10
-    max_abs_dfbeta_share: float = 0.5
+    #: 单点影响的预注册上限，按 **DFBETAS** 计：删掉这一个观测，斜率移动多少个标准误。
+    #: 旧字段 `max_abs_dfbeta_share`（按 |DFBETA| / |β̂| 计）已废除，理由见 M6.2：
+    #: 该比值在 β̂ → 0 时发散，因此在完全没有效应时必然触发，而那时并不存在
+    #: 任何被单点主导的结论。取 1.0 是 Belsley-Kuh-Welsch 的尺度无关读法
+    #: 「一个点把估计移动了整整一个标准误」；他们同时给出的 2/sqrt(n) 是用于
+    #: **筛出待人工检视的点**的大样本阈值，不是用于阻断的。
+    max_abs_dfbetas: float = 1.0
 
     def digest(self) -> str:
         """请求的内容身份：同样的输入必然得到同样的结果。"""
@@ -160,7 +166,7 @@ class EvaluationRequest:
                     "hac_lag": self.hac_lag,
                     "min_returns": self.min_returns,
                     "min_clusters": self.min_clusters,
-                    "max_abs_dfbeta_share": self.max_abs_dfbeta_share,
+                    "max_abs_dfbetas": self.max_abs_dfbetas,
                 },
                 "evaluator_version": EVALUATOR_VERSION,
             }
@@ -275,9 +281,21 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
     se = two_way["se"]
     t_stat = slope / se if se and not math.isnan(se) and se > 0 else float("nan")
     mde = 2.8 * se if se and not math.isnan(se) else float("nan")
+    # 按标准误标准化，不按点估计。除以 β̂ 的旧写法在 β̂ → 0 时发散：实测一条
+    # t = -0.03 的干净零结果被报成「最大 DFBETA 占斜率 9.72」，而它的最大杠杆
+    # 只有 0.022，根本没有任何单点主导。分母用本次推断实际使用的 SE（双向 cluster），
+    # 因此这句话读作「删掉这一个观测，估计移动多少个我们实际用来做推断的标准误」。
+    dfbetas = (
+        abs(influence["max_abs_dfbeta"]) / se
+        if se and not math.isnan(se) and se > 0
+        else float("inf")
+    )
+    # 旧口径仍然报出，但**不再阻断**：既保留与既有记录的可比性，
+    # 也让「它为什么曾经触发」在账本里能被看见
     dfbeta_share = (
         abs(influence["max_abs_dfbeta"]) / abs(slope) if slope else float("inf")
     )
+    influence = {**influence, "max_abs_dfbetas": dfbetas, "dfbeta_over_slope": dfbeta_share}
 
     if not request.cost_model_declared:
         blocked.append("未声明成本模型：不得取 candidate")
@@ -285,10 +303,10 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
         blocked.append(
             f"置换检验未通过：{placebo['placebo_exceed_rate']:.3f} 的置换斜率不小于实际值"
         )
-    if dfbeta_share > request.max_abs_dfbeta_share:
+    if dfbetas > request.max_abs_dfbetas:
         blocked.append(
-            f"单点影响过大：最大 DFBETA 占斜率 {dfbeta_share:.2f}，"
-            f"超过预注册上限 {request.max_abs_dfbeta_share}"
+            f"单点影响过大：删掉最有影响的一个观测，斜率移动 {dfbetas:.2f} 个标准误，"
+            f"超过预注册上限 {request.max_abs_dfbetas}"
         )
     if two_way["variance_negative"]:
         blocked.append("cluster 方差非正：cluster 结构不足以支撑推断")

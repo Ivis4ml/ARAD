@@ -160,15 +160,27 @@ def cluster_n_eff(groups: list) -> dict:
 
 
 def influence_on_slope(x: list[float], resid: list[float], top_k: int = 5) -> dict:
-    """一步删除对斜率的影响（DFBETA）。报告 top-k 与其占斜率的比例。"""
+    """一步删除对斜率的影响（DFBETA）。报告 top-k、最大杠杆与最大 DFBETA。
+
+    同时给出**只依赖回归元的**最大杠杆 `max_leverage`。它是 DFBETA 里不含残差
+    的那一半，因此在读标签之前就可算：一个点的杠杆接近 1，意味着回归元的全部变异
+    几乎都来自这一个点，无论标签是什么，斜率都由它决定。
+    实测三条真实特征的最大杠杆为 0.022 / 0.607 / 0.119，量级差别很大。
+
+    这里**不给出 DFBETA 与斜率的比值**：`|DFBETA| / |β̂|` 在 β̂ → 0 时发散，
+    因此它在「根本没有效应」时最大，而那时并不存在任何被单点主导的结论。
+    标准化要用斜率的标准误（Belsley-Kuh-Welsch 的 DFBETAS），由调用方给出标准误后计算。
+    """
     n = len(x)
     xbar = mean(x)
     sxx = sum((xi - xbar) ** 2 for xi in x)
     if sxx <= 0:
         raise ValueError("回归元没有变异")
     deltas = []
+    leverage = []
     for i in range(n):
         h = 1.0 / n + (x[i] - xbar) ** 2 / sxx
+        leverage.append(h)
         denom = sxx * (1.0 - h)
         deltas.append(((x[i] - xbar) * resid[i] / denom) if denom > 0 else float("inf"))
     order = sorted(range(n), key=lambda i: -abs(deltas[i]))[:top_k]
@@ -177,6 +189,7 @@ def influence_on_slope(x: list[float], resid: list[float], top_k: int = 5) -> di
         "top_indices": order,
         "top_dfbeta": [deltas[i] for i in order],
         "max_abs_dfbeta": max((abs(d) for d in deltas), default=0.0),
+        "max_leverage": max(leverage, default=0.0),
     }
 
 
