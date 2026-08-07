@@ -315,3 +315,19 @@ def test_a_leaking_context_degrades_to_evidence_instead_of_killing_the_episode(r
         role=LedgerRole.EVALUATOR, study_id="s0")]
     assert kinds == ["context_blocked"]
     assert queue.service_state()["state"] == "running"
+
+
+def test_a_null_verdict_archives_evidence_and_does_not_schedule_a_new_version(rig):
+    """否定结论是**完成的结论**，归档即可。
+
+    若 null 触发 `create_new_version`，搜索的走向就由结果决定了 —— 那正是本系统
+    在提案器一侧刻意避免的事。要不要让 null 走与 blocked 不同的调度，是一次调度
+    语义变更（决定 0005 明确留给后续票），不是在这里顺手加一个分支。
+    """
+    outcome, _ = run_one(rig, [a_proposal_json()])
+    assert outcome.verdict == "null", "本装置在收益型标签上给出的是零结果"
+    ledger, _ = rig
+    recorded = [e["payload"] for e in ledger.read_events(role=LedgerRole.EVALUATOR)
+                if e["event_type"] == "verdict_recorded"]
+    assert recorded[0]["next_action"] == "archive_evidence"
+    assert recorded[0]["next_action"] != "create_new_version"
