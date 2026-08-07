@@ -193,3 +193,9 @@ ol.beats .what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 .mechanism figcaption code { font-size: var(--t-small); font-weight: 600;
                              overflow-wrap: anywhere; }
 .mechanism .foot-note { margin-top: var(--s2); }
+
+table.matrix td { text-align: center; font-size: var(--t-micro); padding: 5px 7px;
+                  font-variant-numeric: tabular-nums; }
+table.matrix th.rowhead { text-align: left; font-weight: 500; font-size: var(--t-micro);
+                          white-space: nowrap; background: var(--panel); }
+table.matrix thead th { text-align: center; }

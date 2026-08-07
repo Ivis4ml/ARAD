@@ -108,6 +108,11 @@ class EvaluationRequest:
     #: 仓位规则。sign_unit：按 prediction 的符号取单位多空。规则必须显式记录，
     #: 否则"这条收益序列是怎么来的"不可回放。
     position_rule: str = "sign_unit"
+    #: 分位组合的两端。多空组合与超额收益按它计算 —— 这是因子研究里的常规口径，
+    #: 与 sign_unit 度量的不是同一件事：前者问「最极端的两端是否真的不同」，
+    #: 后者问「符号是否指对方向」。
+    top_quantile: float = 0.05
+    bottom_quantile: float = 0.05
     preregistered_exclusions: dict[str, str] = field(default_factory=dict)
     cost_model_declared: bool = False
     placebo_draws: int = 200
@@ -144,6 +149,8 @@ class EvaluationRequest:
                 "target_name": self.target_name,
                 "label_rule": self.label_rule,
                 "position_rule": self.position_rule,
+                "top_quantile": self.top_quantile,
+                "bottom_quantile": self.bottom_quantile,
                 "periods_per_year": self.periods_per_year,
                 "authoritative_keys": sorted(self.authoritative_keys),
                 "preregistered_exclusions": dict(sorted(self.preregistered_exclusions.items())),
@@ -354,6 +361,19 @@ def _performance(request: EvaluationRequest, x: list[float], y: list[float]) -> 
     out = stats.sharpe(returns, periods_per_year=request.periods_per_year)
     out.update(stats.moments(returns))
     out["position_rule"] = request.position_rule
+    # 分位组合与 sign_unit 一起**always 记录**，不是二选一：两者是同一次 outcome 读取
+    # 的两种汇总，不构成两次检验。事后挑好看的那个才是选择偏差，因此两个都留在证据里。
+    quantile = stats.quantile_portfolio(
+        x, y, top=request.top_quantile, bottom=request.bottom_quantile,
+    )
+    if quantile.get("defined"):
+        active = quantile.pop("active_returns")
+        quantile["sharpe"] = stats.sharpe(
+            active, periods_per_year=request.periods_per_year,
+        )["sharpe"]
+    else:
+        quantile.pop("active_returns", None)
+    out["quantile_portfolio"] = quantile
     out["periods_per_year_declared"] = request.periods_per_year
     out["periods_per_year_derived"] = _derive_periods_per_year(request)
     out["periods_note"] = (

@@ -37,12 +37,13 @@ from ..atlas.app import render_app
 from ..atlas.project import project
 from ..atlas.sources import data_freshness
 from ..evaluation.kernel import EvaluationRequest, EvaluationRow
-from ..features.interpreter import INTERPRETER_VERSION, BarSeries, evaluate_series
-from ..features.spec import FeatureSpec, Source
+from ..features.interpreter import INTERPRETER_VERSION, BarSeries, NotInterpretable, evaluate_series
+from ..features.spec import FeatureSpec, Source, Step
 from ..harness.audit import AuditInput
 from ..harness.context import DeclaredBias, assemble_proposer_context
 from ..harness.episode import run_episode
 from ..memory.ledger import EvidenceLedger
+from ..memory.ledger import Role as LedgerRole
 from ..orchestrator.queue import DurableQueue
 from ..providers.base import EpisodeBudget, Provider
 from ..providers.claude_cli import ClaudeCliProvider
@@ -461,6 +462,45 @@ def _audit_input(sc: dict, visible: dict, target_record: dict):
     return build
 
 
+def signal_correlations(ledger, sc: dict, rows: list[dict]) -> dict:
+    """把这一族试过的全部特征放在同一批决策时点上两两求相关。
+
+    **这一步不碰任何标签，因此不读 outcome，不进统计分母。**它回答的是
+    「这些想法是不是同一个想法」—— 而同族变体高度相关时，零假设带的独立性假设
+    最不成立。这张表就是「带偏严」那句告诫的量化形式。
+    """
+    from ..evaluation import stats
+    from ..features.spec import FeatureSpec
+
+    seen: dict[str, FeatureSpec] = {}
+    for event in ledger.read_events(role=LedgerRole.HUMAN):
+        if event["event_type"] != "feature_spec_locked":
+            continue
+        payload = event["payload"]
+        usable = {k: v for k, v in payload.items() if k in FeatureSpec.model_fields}
+        usable["steps"] = [Step(**step) for step in payload["steps"]]
+        spec = FeatureSpec(**usable)
+        seen.setdefault(spec.feature_id, spec)
+
+    decision_times = [r["decision_time"] for r in rows]
+    series: dict[str, list[float]] = {}
+    for name, spec in seen.items():
+        try:
+            values, _ = evaluate_series(spec, decision_times, sc["series"])
+        except NotInterpretable:
+            continue
+        defined = [v if v is not None else float("nan") for v in values]
+        if any(math.isfinite(v) for v in defined):
+            series[name] = defined
+    if len(series) < 2:
+        return {"defined": False, "reason": "可求值的特征少于两个", "features": len(series)}
+    out = stats.correlation_matrix(series)
+    out["defined"] = True
+    out["decision_points"] = len(decision_times)
+    out["effective_signals"] = stats.effective_independent_signals(out["matrix"])
+    return out
+
+
 def run_service_demo(
     *,
     ledger_path: str,
@@ -492,10 +532,17 @@ def run_service_demo(
             audit_input=_audit_input(sc, visible, record),
             seed_task={}, max_rounds=max_rounds, now=now,
         )
+        # 相关矩阵：只比信号之间，不读 outcome
+        correlations = signal_correlations(ledger, sc, rows)
+        ledger.append("signal_correlation", correlations)
         projection = project(ledger, family=FAMILY, service=queue.service_state())
         paths = render_app(projection, atlas_dir, freshness=data_freshness(manifest_dir))
         return {
             "service": result.summary(),
+            "signal_correlation": {
+                k: correlations.get(k) for k in ("defined", "method", "names",
+                                                 "mean_abs_offdiagonal")
+            },
             "denominators": ledger.denominators(FAMILY),
             "ledger_events": ledger.require_intact(),
             "atlas": paths,

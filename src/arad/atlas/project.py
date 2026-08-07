@@ -77,6 +77,7 @@ class AtlasProjection:
     key_moments: list[dict] = field(default_factory=list)
     service_notes: list[dict] = field(default_factory=list)
     search_verdict: dict | None = None
+    signal_matrix: dict | None = None
     service: dict | None = None
     atlas_version: str = ATLAS_VERSION
 
@@ -96,6 +97,7 @@ class AtlasProjection:
             "key_moments": self.key_moments,
             "service_notes": self.service_notes,
             "search_verdict": self.search_verdict,
+            "signal_matrix": self.signal_matrix,
             "curve_metrics": list(CURVE_METRICS),
         }
 
@@ -242,6 +244,7 @@ BEAT_STAGES: dict[str, tuple[str, str]] = {
     "provider_repair": ("failure", "模型首次输出不合规，已按修复提示重试"),
     "invalid_proposal": ("failure", "提案缺必填字段"),
     "provider_error": ("failure", "provider 调用故障"),
+    "signal_correlation": ("matrix", "信号相关矩阵：这些想法是不是同一个想法（不读 outcome）"),
     "episode_ended": ("episode", "Episode 结束"),
 }
 
@@ -503,6 +506,12 @@ def _search_verdict(
     }
 
 
+def _signal_matrix(events: list[dict]) -> dict | None:
+    """信号相关矩阵。**它不读 outcome**，因此不进统计分母，也不改变任何判决。"""
+    hits = [e["payload"] for e in events if e["event_type"] == "signal_correlation"]
+    return hits[-1] if hits else None
+
+
 def _service_notes(events: list[dict]) -> list[dict]:
     """服务级事件：为什么停、是否请求人工复核。"""
     return [
@@ -627,6 +636,7 @@ def project(
     notes = _service_notes(events)
     return AtlasProjection(
         search_verdict=_search_verdict(lineage, denominators, notes, verdicts),
+        signal_matrix=_signal_matrix(events),
         chain=chain,
         lineage=lineage,
         replay=replay,

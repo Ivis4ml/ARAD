@@ -137,6 +137,22 @@ export type Projection = {
   lineage: Chain[]
   replay: Beat[]
   key_moments: Array<{ label: string; beat: number; why: string }>
+  signal_matrix: {
+    defined: boolean
+    method?: string
+    names: string[]
+    matrix: number[][]
+    mean_abs_offdiagonal: number
+    decision_points?: number
+    effective_signals?: {
+      defined: boolean
+      n_signals: number
+      effective_independent_signals: number
+      eigenvalues_top: number[]
+      method: string
+      note: string
+    }
+  } | null
   search_verdict: {
     headline: string
     metric: string

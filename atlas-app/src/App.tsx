@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Projection } from './types'
 import { Overview } from './Overview'
 import { Evolution } from './Evolution'
+import { Matrix } from './Matrix'
 import { Replay } from './Replay'
 import { Process } from './Process'
 import { StudyPanel } from './StudyPanel'
@@ -11,6 +12,7 @@ import { VerdictChip } from './Value'
 const TABS = [
   { id: 'replay', label: '回放' },
   { id: 'evolution', label: '演化' },
+  { id: 'matrix', label: '矩阵' },
   { id: 'overview', label: '总览' },
   { id: 'process', label: '过程' },
   { id: 'snapshots', label: '快照' },
@@ -52,6 +54,7 @@ export function App({ p }: { p: Projection }) {
         <div className="col">
           {tab === 'replay' && <Replay p={p} />}
           {tab === 'evolution' && <Evolution p={p} />}
+          {tab === 'matrix' && <Matrix p={p} />}
           {tab === 'overview' && <Overview p={p} />}
           {tab === 'process' && <Process p={p} />}
           {tab === 'snapshots' && (

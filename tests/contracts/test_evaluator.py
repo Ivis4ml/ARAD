@@ -431,3 +431,74 @@ def test_the_annualisation_factor_is_derived_from_the_actual_decision_times():
     # 造数每 6 小时一个决策点 -> 每年约 1461 个
     assert perf["periods_per_year_derived"] > 1000
     assert perf["periods_per_year_declared"] == 252.0
+
+
+# ---------------------------------------------------------------- 分位组合与相关矩阵
+
+
+def test_the_quantile_portfolio_bets_only_on_the_two_extremes():
+    """与 sign_unit 度量的不是同一件事：它问「最极端的两端是否真的不同」。"""
+    pred = [float(i) for i in range(200)]
+    label = [0.01 if i >= 190 else (-0.01 if i < 10 else 0.0) for i in range(200)]
+    q = stats.quantile_portfolio(pred, label, top=0.05, bottom=0.05)
+    assert q["defined"] is True
+    assert q["n_long"] == 10 and q["n_short"] == 10
+    assert q["long_mean"] == pytest.approx(0.01)
+    assert q["short_mean"] == pytest.approx(-0.01)
+    assert q["long_short_spread"] == pytest.approx(0.02)
+
+
+def test_excess_is_measured_against_the_sample_mean_not_against_zero():
+    """本仓库没有资金成本模型，把参照当零会高估超额。"""
+    pred = list(range(100))
+    label = [0.05] * 100          # 全样本收益恒定，任何分位都不该有超额
+    q = stats.quantile_portfolio([float(p) for p in pred], label)
+    assert q["benchmark_mean"] == pytest.approx(0.05)
+    assert q["long_excess"] == pytest.approx(0.0)
+    assert q["short_excess"] == pytest.approx(0.0)
+
+
+def test_a_quantile_portfolio_is_undefined_rather_than_guessed_on_thin_samples():
+    assert stats.quantile_portfolio([1.0, 2.0], [0.1, 0.2])["defined"] is False
+
+
+def test_the_evaluation_records_both_position_rules_never_one_of_them():
+    """两者是同一次 outcome 读取的两种汇总；事后挑好看的那个才是选择偏差。"""
+    rows, labels = make_rows()
+    request = a_request(rows, label_is_return=True, target_name="sc_ret_next_session",
+                        label_rule="entry_to_close")
+    perf = evaluate(request, labels, role="evaluator")["effects"]["performance"]
+    assert perf["position_rule"] == "sign_unit"
+    assert "quantile_portfolio" in perf
+    assert perf["quantile_portfolio"]["defined"] is True
+
+
+def test_effective_signals_counts_independent_ideas_not_variants():
+    """自检必须包含边界：这三个案例分别抓出过两个真实缺陷。"""
+    ident = [[1.0 if i == j else 0.0 for j in range(5)] for i in range(5)]
+    collinear = [[1.0] * 5 for _ in range(5)]
+    near = [[1.0, 0.99], [0.99, 1.0]]
+    assert stats.effective_independent_signals(ident)[
+        "effective_independent_signals"] == pytest.approx(5.0, abs=1e-6)
+    # 整数特征值处的浮点噪声曾让这一项算出 2.0
+    assert stats.effective_independent_signals(collinear)[
+        "effective_independent_signals"] == pytest.approx(1.0, abs=1e-6)
+    # Li & Ji 的估计量在这里给出 2.00，即把高度相关的两个信号当成两次独立检验
+    assert stats.effective_independent_signals(near)[
+        "effective_independent_signals"] < 1.1
+
+
+def test_the_correlation_matrix_is_symmetric_with_a_unit_diagonal():
+    m = stats.correlation_matrix({
+        "a": [1.0, 2.0, 3.0, 4.0, 5.0],
+        "b": [2.0, 4.0, 6.0, 8.0, 10.0],
+        "c": [5.0, 1.0, 4.0, 2.0, 3.0],
+    })
+    n = len(m["names"])
+    for i in range(n):
+        assert m["matrix"][i][i] == pytest.approx(1.0)
+        for j in range(n):
+            assert m["matrix"][i][j] == pytest.approx(m["matrix"][j][i])
+    # a 与 b 是同一个想法的两种写法
+    ia, ib = m["names"].index("a"), m["names"].index("b")
+    assert m["matrix"][ia][ib] == pytest.approx(1.0)

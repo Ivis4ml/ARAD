@@ -316,3 +316,162 @@ def sharpe(returns: list[float], *, periods_per_year: float) -> dict:
         "n": n,
         "note": "pre-cost：未扣交易成本与容量约束，不得据此声明可交易性",
     }
+
+
+def quantile_portfolio(
+    prediction: list[float],
+    label: list[float],
+    *,
+    top: float = 0.05,
+    bottom: float = 0.05,
+) -> dict:
+    """分位组合：信号最高的一段做多、最低的一段做空，其余不持仓。
+
+    **与 sign_unit 的区别不是口味问题。**sign_unit 对信号的符号下注，因此它度量的是
+    「符号是否指对方向」；分位组合只在信号最极端的两端下注，度量的是「排在最前和最后
+    的那些时点是否真的不同」。后者才是因子研究里说的多空组合，也才谈得上超额收益。
+
+    单品种时序上，「超额」的参照是**同期全样本均值**（等权持有一切时点的收益），
+    不是无风险利率：本仓库没有资金成本模型，把它当零会高估。
+    全部 pre-cost：换手与冲击都不在其中。
+    """
+    n = len(prediction)
+    if n < 20 or not 0 < top <= 0.5 or not 0 < bottom <= 0.5:
+        return {"defined": False, "reason": "观测过少或分位设定非法", "n": n}
+    order = sorted(range(n), key=lambda i: prediction[i])
+    k_bottom = max(1, int(n * bottom))
+    k_top = max(1, int(n * top))
+    shorts = order[:k_bottom]
+    longs = order[-k_top:]
+    if set(longs) & set(shorts):
+        return {"defined": False, "reason": "多空两端重叠：观测太少或信号取值过于集中",
+                "n": n}
+    long_ret = mean([label[i] for i in longs])
+    short_ret = mean([label[i] for i in shorts])
+    benchmark = mean(label)
+    spread = long_ret - short_ret
+    # 逐期的多空组合收益序列：只有被选中的时点有暴露，其余为零
+    weights = [0.0] * n
+    for i in longs:
+        weights[i] = 1.0 / len(longs)
+    for i in shorts:
+        weights[i] = -1.0 / len(shorts)
+    leg = [w * label[i] * (len(longs) + len(shorts)) / 2 for i, w in enumerate(weights)]
+    active = [v for v, w in zip(leg, weights, strict=True) if w != 0.0]
+    return {
+        "defined": True,
+        "n": n,
+        "top_quantile": top,
+        "bottom_quantile": bottom,
+        "n_long": len(longs),
+        "n_short": len(shorts),
+        "long_mean": long_ret,
+        "short_mean": short_ret,
+        "benchmark_mean": benchmark,
+        "long_short_spread": spread,
+        "long_excess": long_ret - benchmark,
+        "short_excess": benchmark - short_ret,
+        "active_returns": active,
+        "note": (
+            "pre-cost 多空分位组合。超额的参照是同期全样本均值，不是无风险利率 —— "
+            "本仓库没有资金成本模型，把它当零会高估"
+        ),
+    }
+
+
+def correlation_matrix(series: dict[str, list[float]], *, method: str = "spearman") -> dict:
+    """一组信号两两之间的相关系数。
+
+    因子研究里这张表回答的是「这些想法是不是同一个想法」。同族变体高度相关时，
+    多重检验的独立性假设最不成立，而零假设带正是按独立算的 —— 这张表就是那条
+    「它偏严」的告诫的量化形式。
+    """
+    names = sorted(series)
+    fn = spearman if method == "spearman" else pearson
+    rows = []
+    for a in names:
+        row = []
+        for b in names:
+            xs, ys = series[a], series[b]
+            pairs = [(x, y) for x, y in zip(xs, ys, strict=False)
+                     if math.isfinite(x) and math.isfinite(y)]
+            row.append(fn([p[0] for p in pairs], [p[1] for p in pairs])
+                       if len(pairs) >= 3 else float("nan"))
+        rows.append(row)
+    off = [rows[i][j] for i in range(len(names)) for j in range(len(names))
+           if i != j and math.isfinite(rows[i][j])]
+    return {
+        "method": method,
+        "names": names,
+        "matrix": rows,
+        "mean_abs_offdiagonal": mean([abs(v) for v in off]) if off else float("nan"),
+        "note": (
+            "同族变体高度相关时，零假设带的独立性假设最不成立。"
+            "这张表是「带偏严」那句告诫的量化形式"
+        ),
+    }
+
+
+def _jacobi_eigenvalues(matrix: list[list[float]], sweeps: int = 60) -> list[float]:
+    """对称矩阵的特征值（Jacobi 旋转）。纯 Python，不引 numpy。"""
+    n = len(matrix)
+    a = [row[:] for row in matrix]
+    for _ in range(sweeps):
+        off = math.sqrt(sum(a[i][j] ** 2 for i in range(n) for j in range(n) if i != j))
+        if off < 1e-12:
+            break
+        for p in range(n - 1):
+            for q in range(p + 1, n):
+                if abs(a[p][q]) < 1e-15:
+                    continue
+                theta = (a[q][q] - a[p][p]) / (2 * a[p][q])
+                t = (1 if theta >= 0 else -1) / (abs(theta) + math.sqrt(theta * theta + 1))
+                c = 1 / math.sqrt(t * t + 1)
+                s = t * c
+                for k in range(n):
+                    akp, akq = a[k][p], a[k][q]
+                    a[k][p] = c * akp - s * akq
+                    a[k][q] = s * akp + c * akq
+                for k in range(n):
+                    apk, aqk = a[p][k], a[q][k]
+                    a[p][k] = c * apk - s * aqk
+                    a[q][k] = s * apk + c * aqk
+    return sorted((a[i][i] for i in range(n)), reverse=True)
+
+
+def effective_independent_signals(matrix: list[list[float]]) -> dict:
+    """一组相关信号相当于多少个**独立信号**。
+
+    用参与率（特征谱的有效模数）：`n_eff = (Σλ)² / Σλ²`。
+    完全独立时等于 n，完全共线时等于 1，两个 ρ=0.99 的信号给出 1.01。
+
+    **先试过 Li & Ji 的特征值法，自检没通过就换掉了**：那个估计量对两个 ρ=0.99 的
+    信号给出 2.00，也就是把高度相关的两个信号仍当作两次独立检验 —— 它**低估**相关性
+    问题，而这里需要的恰恰是不低估。（它为 SNP 那种高维场景设计，低维下行为不同。）
+
+    **这是关于「信号」的陈述，不是关于「检验次数」的陈述。**零假设带按检验独立绘制
+    因而偏严；但特征与检验并非一一对应（同一个特征可能被检验多次），把两者混为一谈
+    会把带压得过低。因此这里只给出这个数并说明它的含义，不据此重绘任何东西。
+    """
+    n = len(matrix)
+    if n < 2:
+        return {"defined": False, "reason": "少于两个信号", "n_signals": n}
+    clean = [[v if math.isfinite(v) else (1.0 if i == j else 0.0)
+              for j, v in enumerate(row)] for i, row in enumerate(matrix)]
+    eig = [max(0.0, v) for v in _jacobi_eigenvalues(clean)]
+    total = math.fsum(eig)
+    sq = math.fsum(v * v for v in eig)
+    if sq <= 0:
+        return {"defined": False, "reason": "特征谱退化", "n_signals": n}
+    n_eff = (total * total) / sq
+    return {
+        "defined": True,
+        "n_signals": n,
+        "effective_independent_signals": min(float(n), max(1.0, n_eff)),
+        "eigenvalues_top": [round(v, 4) for v in eig[:5]],
+        "method": "participation ratio of the correlation eigenspectrum",
+        "note": (
+            "这是关于**信号**的陈述，不是关于检验次数的陈述。零假设带按检验独立绘制"
+            "因而偏严，但特征与检验并非一一对应，不得据此重绘那条带"
+        ),
+    }
