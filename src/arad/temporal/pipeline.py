@@ -7,6 +7,7 @@ import glob
 import json
 import os
 from datetime import date
+from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -48,11 +49,11 @@ from .manifest import (
 from .replay import build_checklist, render_markdown, stratified_sample
 from .sessions import PRODUCTS
 from .targets import (
-    TARGET_SPECS,
     build_session_bars,
     build_target_table,
     no_trade_counts,
     segment_counts,
+    specs_for,
 )
 
 ASSUMPTIONS = [
@@ -147,7 +148,8 @@ def build_targets(
     episode_grain: str,
 ) -> dict[str, pa.Table]:
     wanted, owned, roll_days = _dominant_view(dominant, calendar)
-    per_spec: dict[str, list[pa.Table]] = {spec.name: [] for spec in TARGET_SPECS}
+    specs = specs_for(product.product)
+    per_spec: dict[str, list[pa.Table]] = {spec.name: [] for spec in specs}
     for contract in sorted(wanted):
         bars = _minute_bars_for_contract(data_dir, contract, wanted[contract])
         if bars is None:
@@ -155,7 +157,7 @@ def build_targets(
         sessions = build_session_bars(
             bars, product=product, prev_lookup=calendar.prev_or_none
         )
-        for spec in TARGET_SPECS:
+        for spec in specs:
             table = build_target_table(
                 sessions,
                 spec,
@@ -187,9 +189,38 @@ def build_targets(
     }
 
 
+def _with_product(cfg: dict, product_override: str | None) -> dict:
+    """把配置绑到某个品种。产物目录随之改名，避免多品种互相覆盖。
+
+    三个入口（build / replay / verify）必须共用这一条：`spine_build` 会调用
+    `spine_replay(config_path, ...)`，后者重新读同一份配置。只在 build 里覆盖的话，
+    回放清单会用配置里的品种命名，于是 au 的构建写出了
+    `sc_replay_checklist_sc_ret_next_session.json`，**覆盖掉 SC 的清单**（实测）。
+    """
+    if not product_override:
+        return cfg
+    if product_override not in PRODUCTS:
+        raise KeyError(
+            f"未登记的品种 {product_override!r}；已登记 {len(PRODUCTS)} 个：拒绝猜测"
+        )
+    return {
+        **cfg,
+        "product": product_override,
+        "output": {**cfg["output"],
+                   "data_dir": str(Path(cfg["output"]["data_dir"]).parent
+                                   / product_override)},
+    }
+
+
 def spine_build(config_path: str, *, force: bool = False, workers: int | None = None,
-                limit_days: int | None = None) -> int:
-    cfg = load_config(config_path)
+                limit_days: int | None = None, product_override: str | None = None) -> int:
+    """构建一个品种的 spine。
+
+    `product_override` 让同一份配置服务任意品种（M8.1 之后 `PRODUCTS` 有 72 个）：
+    产物目录随之改为 `<data_dir 的父目录>/<品种>`，避免多品种互相覆盖。
+    为 72 个品种各写一份 yaml 只是把同一件事抄 72 遍。
+    """
+    cfg = _with_product(load_config(config_path), product_override)
     product = PRODUCTS[cfg["product"]]
     data_dir = cfg["output"]["data_dir"]
     controls_dir = cfg["output"]["controls_dir"]
@@ -279,7 +310,7 @@ def spine_build(config_path: str, *, force: bool = False, workers: int | None = 
         episode_grain=cfg["episode"]["grain"],
     )
     target_records: list[TargetRecord] = []
-    for spec in TARGET_SPECS:
+    for spec in specs_for(product.product):
         table = targets.get(spec.name)
         record = TargetRecord(**spec.record())
         if table is not None:
@@ -436,6 +467,7 @@ def spine_build(config_path: str, *, force: bool = False, workers: int | None = 
         manifest_fingerprint=manifest.fingerprint,
         cls_series=cls_series,
         brent_series=brent_series,
+        product_override=product_override,
     )
 
     failed = [f for f in findings if f.severity == Severity.ERROR]
@@ -451,15 +483,17 @@ def spine_replay(
     manifest_fingerprint: str | None = None,
     cls_series: PitSeries | None = None,
     brent_series: PitSeries | None = None,
+    product_override: str | None = None,
 ) -> int:
-    cfg = load_config(config_path)
+    cfg = _with_product(load_config(config_path), product_override)
     product = PRODUCTS[cfg["product"]]
     data_dir = cfg["output"]["data_dir"]
     manifest_dir = cfg["output"]["manifest_dir"]
     # 人工回放清单是 M2 的人工核验产物。**承载可交易主张的 target 必须各有一份** ——
     # 只给第一个 spec 出清单，等于让唯一带 tradable_claim 的目标没有可手工核对的样本，
     # 而后置条件只验 value == log(exit/entry)，验不出 entry 取的是不是该取的那一笔。
-    specs = [s for s in TARGET_SPECS if s.tradable_claim] or [TARGET_SPECS[0]]
+    bound = specs_for(product.product)
+    specs = [s for s in bound if s.tradable_claim] or [bound[0]]
 
     if manifest_fingerprint is None:
         with open(

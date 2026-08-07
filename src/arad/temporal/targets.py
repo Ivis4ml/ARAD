@@ -17,7 +17,7 @@ diagnostic-only：`sc_open_gap_absorption` —— 同期开盘跳空在开盘后
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from itertools import pairwise
 
@@ -191,6 +191,23 @@ RET_NEXT_SESSION = TargetSpec(
 )
 
 TARGET_SPECS = (RV_NEXT_SESSION, RET_NEXT_SESSION, OPEN_GAP_ABSORPTION)
+
+
+def specs_for(product: str) -> tuple[TargetSpec, ...]:
+    """把模板 target 绑到某个品种上。
+
+    模板名以 `sc_` 开头是历史原因（M2 只做 SC）。多品种下**目标名必须带品种**：
+    否则 au 的目标表叫 `sc_ret_next_session`，模型无法区分「预测 au 的下一 session
+    收益」与「预测 sc 的」，而 M8.2 那道守卫比对的正是这个名字。
+    product 为 'sc' 时返回原样，因此既有产物与指纹不变。
+    """
+    if product == "sc":
+        return TARGET_SPECS
+    return tuple(
+        replace(spec, name=f"{product}_{spec.name[3:]}")
+        if spec.name.startswith("sc_") else spec
+        for spec in TARGET_SPECS
+    )
 
 
 @dataclass

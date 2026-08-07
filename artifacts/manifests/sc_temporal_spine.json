@@ -1,7 +1,7 @@
 {
   "spine_id": "sc-temporal-spine",
   "code_version": "0.1.0",
-  "generated_at": "2026-08-06T15:41:35.462071+00:00",
+  "generated_at": "2026-08-07T18:34:11.767430+00:00",
   "config_digest": "40e3b70830a020596f1e71989a877d1183ef950b30016f7664b8472066f917ae",
   "inputs": {
     "commodity_tick": {

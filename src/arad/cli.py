@@ -84,6 +84,8 @@ def main(argv: list[str] | None = None) -> int:
         if name == "build":
             p.add_argument("--force", action="store_true", help="忽略 sidecar 强制重建每一天")
             p.add_argument("--workers", type=int, default=None)
+            p.add_argument("--product", default=None,
+                           help="覆盖配置里的品种；产物落在 data/spine/<品种>/")
             p.add_argument("--limit-days", type=int, default=None, help="只构建最近 N 个交易日（冒烟用）")
 
     pmi = sub.add_parser("pm-index", help="Polymarket 只读普查与 PIT Market Index（M2.5）")
@@ -178,6 +180,7 @@ def main(argv: list[str] | None = None) -> int:
                 force=args.force,
                 workers=args.workers,
                 limit_days=args.limit_days,
+                product_override=args.product,
             )
         if args.spine_cmd == "replay":
             return spine_replay(args.config)
