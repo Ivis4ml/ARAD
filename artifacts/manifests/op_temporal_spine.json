@@ -1,0 +1,412 @@
+{
+  "spine_id": "op-temporal-spine",
+  "code_version": "0.1.0",
+  "generated_at": "2026-08-07T19:18:06.469039+00:00",
+  "config_digest": "eb22102709265484dd6c738e6f1839b49cad199160950e165b8d083f30e6fc83",
+  "inputs": {
+    "commodity_tick": {
+      "fingerprint": "9274edb0b7ffbda77f452921e4b9099772f92cf2a57dea9e7fa304514d756fde",
+      "source_snapshot_digest": "7852e168131679aa21a4a9dcb1eaa75d01278d541406b3b20b23e1f220a13e2f",
+      "scanner_version": "0.2.0"
+    },
+    "cls_telegraph": {
+      "fingerprint": "75a41c172ef67a10d18db9aff686ea2a1595c2fa334e6d362851bcf660959ab7",
+      "source_snapshot_digest": "2a2418f159858ec0eeb3d659fe0c5a51c2ad6c26d867e5f1037d76c59723857e",
+      "scanner_version": "0.2.0"
+    },
+    "polymarket_tape": {
+      "fingerprint": "3d14332d44631c22eae943e84b4a1f9ee58a6017e7617fae91df7335f81a4dd2",
+      "source_snapshot_digest": "ab281d5d20706fa3e5d19089ceb9dcaa81fc5991f76b810d0d760459f9d49e64",
+      "scanner_version": "0.2.0"
+    }
+  },
+  "calendar": {
+    "source": "archive:/Users/xinyu/Code/AR-Polymarket/chinese-commodity",
+    "trading_days": 909,
+    "first_day": "20221101",
+    "last_day": "20260730",
+    "fingerprint": "ca468fa2f7654b5613b0aa48b8a29fe832543e07ecf50df2d60f24c623262a04"
+  },
+  "session_table": {
+    "product": "op",
+    "reference": "日盘几何沿用 SC 的权威参照（上海国际能源交易中心交易时间规则）：09:00-10:15、10:30-11:30、13:30-15:00，集合竞价 08:55-08:59。夜盘收盘 23:00 与本品种的类成员资格由**原始 tick 实测归纳**（M8.1：跨 2022 至 2026 采样 16 个交易日、88 个品种，每个 (品种, 日) 取该日最大的合约文件，只读 UpdateTime 求包络），**不是交易所公告**。开盘时刻不取实测值：集合竞价窗口内没有 tick，实测首笔是竞价成交打印而非开盘。",
+    "sessions": [
+      {
+        "name": "night",
+        "seq": 0,
+        "anchor": "prev_trading_day",
+        "auction_start": "20:55:00",
+        "open": "21:00:00",
+        "close": "23:00:00",
+        "close_next_day": false,
+        "segments": [
+          {
+            "name": "n0",
+            "start": "21:00:00",
+            "end": "23:00:00",
+            "end_next_day": false
+          }
+        ]
+      },
+      {
+        "name": "day",
+        "seq": 1,
+        "anchor": "trading_day",
+        "auction_start": "08:55:00",
+        "open": "09:00:00",
+        "close": "15:00:00",
+        "close_next_day": false,
+        "segments": [
+          {
+            "name": "d0",
+            "start": "09:00:00",
+            "end": "10:15:00",
+            "end_next_day": false
+          },
+          {
+            "name": "d1",
+            "start": "10:30:00",
+            "end": "11:30:00",
+            "end_next_day": false
+          },
+          {
+            "name": "d2",
+            "start": "13:30:00",
+            "end": "15:00:00",
+            "end_next_day": false
+          }
+        ]
+      }
+    ],
+    "product_reference": "时段表见 sessions.reference。合约乘数与最小变动价位未声明：它们不进入任何计算，权威规格属取数流程，需单独授权。",
+    "multiplier": null,
+    "tick_size": null,
+    "exchange": ""
+  },
+  "dominant_rule": {
+    "version": "t1-volume-open_interest-monotone-v1",
+    "metric": "volume",
+    "tie_break": "open_interest",
+    "monotone_delivery": true,
+    "information_rule": "只使用严格早于目标交易日的日频面板；喂入当日数据必须报错"
+  },
+  "targets": [
+    {
+      "name": "op_rv_next_session",
+      "kind": "primary",
+      "description": "决策 cutoff（session 开盘前 execution_lag 秒）之后，下一个 SC session 的已实现波动：同一连续竞价 segment 内相邻 1 分钟 bar 对数收益的平方和开方。集合竞价 bar 与跨 segment、跨 session 的价格变化不计入。**tradable_claim=False**：本数据集里没有 SC 的波动率工具，已实现波动是一个正的量级而不是可捕获的收益，因此它不承载可交易主张。原值为 True 属记录错误，2026-08-06 更正。",
+      "execution_lag_seconds": 60,
+      "tradable_claim": false,
+      "params": {
+        "min_returns": 2
+      },
+      "label_rule": "full_session",
+      "rows": 424,
+      "fingerprint": "910b9fdef0dfad9a0def1119d70f0acb47f140ab41c8f9d47540e53f7be426ba",
+      "sample_segments": {
+        "historical_validation": 149,
+        "contaminated_audit": 275
+      },
+      "sample_segments_valued": {
+        "historical_validation": 147,
+        "contaminated_audit": 271
+      },
+      "no_trade_reasons": {
+        "no_ticks": 6
+      }
+    },
+    {
+      "name": "op_ret_next_session",
+      "kind": "primary",
+      "description": "决策 cutoff 之后，下一个 SC session 从**入场时刻到收盘**的对数收益。入场时刻为开盘后 1 分钟，入场价取该分钟最后一笔（约 09:00:59），不是这一分钟的第一笔 —— 决策到成交需要时间，取本分钟最后一笔是保守的一侧。集合竞价成交价不参与，因此**开盘跳空不在本目标的主张之内**。入场或收盘价落在涨跌停上时判为无定义：那一刻买不进或卖不出。这是本数据集中第一个 label 本身即有符号收益的目标，Sharpe 因此才有定义。",
+      "execution_lag_seconds": 60,
+      "tradable_claim": true,
+      "params": {
+        "entry_offset_minutes": 1
+      },
+      "label_rule": "entry_to_close",
+      "rows": 424,
+      "fingerprint": "3494ad015e2299600695625743cd352e40dfa2e80a71f989b4f02502574394a1",
+      "sample_segments": {
+        "historical_validation": 149,
+        "contaminated_audit": 275
+      },
+      "sample_segments_valued": {
+        "historical_validation": 147,
+        "contaminated_audit": 271
+      },
+      "no_trade_reasons": {
+        "no_ticks": 6
+      }
+    },
+    {
+      "name": "op_open_gap_absorption",
+      "kind": "diagnostic_only",
+      "description": "同期开盘跳空吸收：开盘跳空在开盘后 K 分钟内被反向抹去的比例。开盘价对决策时点而言不可执行，本目标只验证信息是否在开盘处到达，不作可交易 alpha 主张，也不得用于 Production 升级。",
+      "execution_lag_seconds": 60,
+      "tradable_claim": false,
+      "params": {
+        "k_minutes": 30,
+        "min_abs_gap": 0.0005
+      },
+      "label_rule": "first_k_minutes",
+      "rows": 424,
+      "fingerprint": "2d3df9cc705ddf2c55e7aa3c5e05268d5523e3b0c2d1552050fe7f551d86ccc1",
+      "sample_segments": {
+        "historical_validation": 149,
+        "contaminated_audit": 275
+      },
+      "sample_segments_valued": {
+        "historical_validation": 30,
+        "contaminated_audit": 83
+      },
+      "no_trade_reasons": {
+        "gap_below_threshold": 299,
+        "no_ticks": 6,
+        "no_prev_close": 6
+      }
+    }
+  ],
+  "control_contracts": [
+    {
+      "source_id": "cls_telegraph",
+      "root_uri": "/Users/xinyu/Code/AR-Polymarket/Crawler/cls-data/data/output",
+      "availability_rule": "feature availability_time = 文件名日期 + Time（Asia/Shanghai）+ 声明的采集延迟；本票采用采集延迟 60 秒",
+      "timezone": "Asia/Shanghai",
+      "banned_fields": [
+        "Comments",
+        "Reads",
+        "Shares"
+      ],
+      "provisional_fields": [],
+      "audited_override_reason": "",
+      "notes": "热度三列在合同层硬拒绝，物化视图中也不存在该列"
+    },
+    {
+      "source_id": "intl_brent",
+      "root_uri": "/Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/intl/brent_daily.csv",
+      "availability_rule": "日 D 的收盘价在 D+1 06:00 Asia/Shanghai 之后才可用；该规则晚于 ICE 结算（伦敦 19:30）与美市收盘的任何合理换算时点",
+      "timezone": "Asia/Shanghai（由报价日推导，原文件无时区）",
+      "banned_fields": [],
+      "provisional_fields": [
+        "value"
+      ],
+      "audited_override_reason": "M2 as-of 演示：brent_daily.csv 只有日期与数值，发布时点未经来源方核实；采用保守规则 D+1 06:00 Asia/Shanghai，晚于 ICE 结算与美市收盘的任何合理时点。核实来源与发布时刻属于 acquisition 流程，需人工授权。",
+      "notes": "声明式合同，非扫描产物；发布时点核实属 acquisition 流程"
+    }
+  ],
+  "deprecated_sources": [
+    {
+      "source_id": "pm_cn_registry_v3",
+      "root_uri": "/Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket/features/cn_registry_v3.parquet",
+      "status": "deprecated_quarantined",
+      "decided_at": "2026-08-05",
+      "decided_by": "human",
+      "reason": "cn_registry_v3.parquet 已于 2026-08-05 由人类裁决弃用并隔离，不得作为市场来源、市场映射或任何研究输入，也不得进入 M3 evaluator 或 M4 Study。三条理由：(1) 成员资格是全窗口筛选（累计名义额需达 10 万美元），在决策时点不可知，存在幸存者偏差；(2) theme/product/sigma 是前一代系统的语义映射种子，未过 PIT、语义与 provenance 审计；(3) 覆盖仅 2026-01-04 至 2026-07-13，整段位于 contaminated audit 区间。替代方案是从原始 tape 推导的 PIT Market Index。如需把它当作被隔离的 QA 参照，必须显式传入 quarantine_ack 并把理由记入账本。",
+      "replacement": "从原始 Polymarket tape 推导的 PIT Market Index：存在性由首笔公开成交决定，流动性资格由过去窗口决定，两者分离",
+      "allowed_use": "仅可作为被隔离的只读 QA 对照：需显式传入具体理由，返回 QuarantinedSource 而非 PitSeries，类型上无法进入 PIT 查询路径。M3 账本尚不存在，不宣称已记账",
+      "forbidden_use": "市场来源、市场语义映射、任何研究输入、M3 evaluator、M4 Study"
+    }
+  ],
+  "datasets": [
+    {
+      "name": "bars_1min",
+      "path": "data/spine/op/bars_1min",
+      "rows": 631952,
+      "fingerprint": "b4c68b11a8b370455ead3ae7453f2c51d19bba1d8904e54ef73120a58eb32b14",
+      "partitions": 213,
+      "note": "按交易日分区；指纹为逐日逻辑内容指纹的确定性合并"
+    },
+    {
+      "name": "bars_daily",
+      "path": "data/spine/op/bars_daily",
+      "rows": 2426,
+      "fingerprint": "9d76061fee88f85b5ccb81bcd125c10f0fff2f1ad27c1ebaedacc646fba185d5",
+      "partitions": 213,
+      "note": ""
+    },
+    {
+      "name": "dominant",
+      "path": "data/spine/op/dominant.parquet",
+      "rows": 213,
+      "fingerprint": "351e2e622bac8b8f0a5e36f055d923d27639e5e1a843ec23e1b9106cd03bdddd",
+      "partitions": 0,
+      "note": ""
+    },
+    {
+      "name": "controls_cls",
+      "path": "data/spine/controls/cls.parquet",
+      "rows": 562548,
+      "fingerprint": "4a06f8ff931c204b7f2487a80b36dcc99083d96b94c74558ff30e57a1a4ac0a2",
+      "partitions": 0,
+      "note": "指纹只覆盖日期列，正文不进指纹以控制成本"
+    },
+    {
+      "name": "controls_brent",
+      "path": "data/spine/controls/brent.parquet",
+      "rows": 933,
+      "fingerprint": "9e8f1c428f7f94ec4dce6b0999155efd55bba56da1dbf5321197ca78b0420089",
+      "partitions": 0,
+      "note": ""
+    }
+  ],
+  "coverage": {
+    "trading_days_built": 213,
+    "ticks_read": 25764084,
+    "contracts_seen": 19,
+    "dominant_contracts": 9,
+    "roll_days": 8
+  },
+  "findings": [
+    {
+      "severity": "info",
+      "code": "sessions.observed_envelope",
+      "message": "全史实测 session 首末秒包络与声明时段表的比对结果",
+      "evidence": {
+        "observed": {
+          "day_close_sod": {
+            "min": 54000,
+            "max": 54000,
+            "days": 213
+          },
+          "day_open_sod": {
+            "min": 32340,
+            "max": 32340,
+            "days": 213
+          },
+          "night_open_sod": {
+            "min": 75540,
+            "max": 75540,
+            "days": 206
+          }
+        },
+        "declared": {
+          "night_open_sod": [
+            "20:55:00",
+            "21:00:00"
+          ],
+          "night_close_sod": [
+            null,
+            "23:00:00"
+          ],
+          "day_open_sod": [
+            "08:55:00",
+            "09:00:00"
+          ],
+          "day_close_sod": [
+            null,
+            "15:00:00"
+          ]
+        }
+      }
+    },
+    {
+      "severity": "info",
+      "code": "ticks.out_of_session_minutes",
+      "message": "时段表之外 tick 的分钟分布（按出现的交易日数排序）",
+      "evidence": {
+        "top_minutes": [
+          {
+            "time": "15:16",
+            "days": 32
+          },
+          {
+            "time": "15:17",
+            "days": 26
+          },
+          {
+            "time": "15:18",
+            "days": 21
+          },
+          {
+            "time": "15:14",
+            "days": 18
+          },
+          {
+            "time": "15:19",
+            "days": 15
+          },
+          {
+            "time": "15:15",
+            "days": 13
+          },
+          {
+            "time": "15:20",
+            "days": 12
+          },
+          {
+            "time": "15:13",
+            "days": 10
+          }
+        ]
+      }
+    },
+    {
+      "severity": "info",
+      "code": "ticks.out_of_session_rows",
+      "message": "存在声明时段表之外的 tick（例如收盘后结算快照），已标记且不进入 bar",
+      "evidence": {
+        "trading_days": 209,
+        "rows": 2386,
+        "first_days": [
+          "20250910",
+          "20250911",
+          "20250912",
+          "20250915",
+          "20250916"
+        ]
+      }
+    },
+    {
+      "severity": "info",
+      "code": "dominant.alias_agreement",
+      "message": "t-1 主力规则与来源主力连续别名的一致率（QA 对照，不作依赖）",
+      "evidence": {
+        "compared": 212,
+        "agreed": 203,
+        "agreement_rate": 0.9575471698113207,
+        "first_disagreement_days": [
+          20260527,
+          20260528,
+          20260529,
+          20260601,
+          20260629,
+          20260630,
+          20260701,
+          20260728,
+          20260729
+        ]
+      }
+    },
+    {
+      "severity": "warning",
+      "code": "controls.pm_registry_deprecated",
+      "message": "cn_registry_v3.parquet 已弃用并隔离，不再作为市场来源或研究输入；Polymarket 侧的市场身份与点时资格改由 PIT Market Index 提供",
+      "evidence": {
+        "source": "/Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket/features/cn_registry_v3.parquet",
+        "decided_at": "2026-08-05",
+        "replacement": "pm_market_index"
+      }
+    }
+  ],
+  "assumptions": [
+    "RV 只取同一连续竞价 segment 内相邻 1 分钟 bar 的对数收益；跨 segment 与跨 session 的价格变化不计入。",
+    "集合竞价 bar 单独成 bar 并排除在 RV 收益序列之外；开盘跳空由 diagnostic target 单独度量。",
+    "session 开盘价：集合竞价有成交时取竞价成交价，否则取第一根连续竞价 bar 的开盘价。",
+    "跳空的前一收盘价必须来自同一合约的上一个 session；换月导致缺前一 session 时记为 no-trade。",
+    "execution_lag 取 60 秒，决策时点 = session 开盘前 60 秒；label 窗口自开盘起算。",
+    "Episode 缺省按交易日成组（夜盘与日盘同属一个 Episode）。",
+    "样本段按 label 结束时点归段；forward 只在给出 freeze_at 与 embargo 时才可能出现，不写死日期。",
+    "Brent 采用保守可用规则 D+1 06:00 Asia/Shanghai，字段标为 provisional，消费需受审计 override。",
+    "财联社可用时间 = 发布时刻 + 60 秒采集延迟（保守参数，记入 manifest）。"
+  ],
+  "blockers": [
+    "cn_registry_v3.parquet 的市场覆盖仅 2026-01-04 至 2026-07-13，整段落在 contaminated audit 区间；以该登记表为唯一市场来源的 Study（含 M4 tracer bullet 的 Polymarket 腿）只能得到 contaminated 结论。该起点是来源脚本 select_polymarket_markets.py 里写死的分析窗口，不是 Polymarket 数据的限制（daily_aligned 回溯至 2022-11-21）；窗口起点与 curve_daily.parquet 的 2026-01-05 一致，约束来自前一代系统期货侧的日频数据可得性，而 M2 已把 SC 期货补到 2022-11-01。2022-2025 的市场发现可从 daily_aligned 重建，属 M5 范围。",
+    "登记表的成员资格是全窗口筛选（要求窗口内累计名义额达到 10 万美元），在任一决策时点不可知，因此市场选择存在幸存者偏差；admit_ts 只把准入时刻点时化，修不掉选样偏差。M5 的市场发现必须给出点时化的成员资格规则。",
+    "Polymarket 逐笔 belief 序列未物化：venue_class 与 is_relay 在 M1 manifest 中为 provisional，未完成 relay 剔除与 unknown venue 隔离前物化会重复计入名义额。属 M5 范围。",
+    "brent_daily.csv 的来源方与发布时刻未核实，当前用保守规则替代；核实属 acquisition 流程，需人工授权。",
+    "Alpha-Data curve_daily.parquet 仅覆盖 2026-01-05 至 2026-07-13，只能作该窗口的独立交叉核对，无法覆盖 discovery 与 historical validation 段的日频等价性检查。",
+    "郑商所 Turnover 口径与日内倒退的全品种普查仍为 provisional（M1 遗留）；SC 属 INE，本票未触及该问题。"
+  ],
+  "fingerprint": "c1ec9cff561e8ddad9ac638551146bd26b9cf321cc64f1eee8932dffd5bd9caf"
+}

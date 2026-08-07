@@ -1,0 +1,33 @@
+{
+  "card_version": "0.1.0",
+  "codegen_version": "0.1.0",
+  "feature_id": "pm_ceasefire_p_state_innovation_12h_30d",
+  "content_id": "adcec46e4b2aa801d2465445f847afa5b7f274027f4e7ff6c4a07ec3968e4591",
+  "family": "demo_sc_price_volume",
+  "status": "sealed_survived",
+  "taxonomy_clean": false,
+  "mechanism": "上海原油期货（SC）的已实现波动率主要由中东供给中断风险的到达与消解驱动。Polymarket 的 cand:ceasefire 族（头部词 ceasefire / hamas / cancelled / still / extended，共 410 个市场，名义成交 7.9 亿 USDC）标的是停火能否达成、能否延续、是否被取消，其归一后的概率是该地区冲突强度预期的直接价格化度量，而不是注意力强度的代理量。该概率先于 SC 价格的理由是时段与结构错开：Polymarket 连续交易、无涨跌停、参与者可以对事件本身而非对油价定价，SC 每日只在中国时段开市，同一批停火进展信息只能在下一个交易时段进入 SC 的价格与波动。据此提出的是一个方向确定的状态假设，而非到达强度假设：当停火概率相对其自身三十日基线上行时，地缘风险状态在缓解，供给中断类新信息的到达率与油价的条件方差随之下降，因此下一 session 的已实现波动率更低；概率下行则相反。注意这与「信息到达抬高波动率」的强度假设是两条可分辨的机制：强度假设预测概率向任一方向移动都抬高波动率，本假设预测的是符号，二者只有在本特征的斜率显著为负时才由本轮证据分开。",
+  "failure_condition": "以下任一情形出现时该特征在该时点无定义，应排除该决策点而不是记为零：（一）决策时点前十二小时内该族没有任何小时桶，短窗均值无定义；（二）决策时点减去三十日早于该族覆盖起点 2023-01-16，因此 discovery 段（2022-11-02 至 2024-12-31，共 1040 行）中约前三分之一的行必然无值，可用行数约为 690，任何按 1040 行给出的显著性都是错的；（三）该族约 21264 个小时桶分布于三年半区间，存在稀疏段，若三十日基线窗口内的有效小时数过少，基线本身由少数几个桶决定，创新量反映的是市场生命周期而非停火预期的变化。以下情形使特征有定义但结论不可用：（四）该族聚合的 410 个市场若在某段时间内由单一停火事件主导，概率水平接近零或一并长期停滞，创新量趋近于零且方差塌缩；（五）归一到 outcome_seq==1 一侧的语义若与「停火达成或延续」不一致，特征符号与声明的经济含义相反。",
+  "formula": [
+    "ceasefire_p_state_innovation = 均值( pm_market.cand:ceasefire:p , 窗口 [t−12时, t) ) − 同算子(窗口 [t−30日, t) )",
+    "输出 = ceasefire_p_state_innovation"
+  ],
+  "code": "\"\"\"pm_ceasefire_p_state_innovation_12h_30d\n\n机制：cand:ceasefire 族归一概率在决策时点前十二小时的均值，减去同一算子在前三十日上的均值。十二小时的选择使相邻两个决策时点（SC 日盘 15:00 收盘与夜盘次日 02:30 收盘，间隔约 11.5 与 12.5 小时）的取数窗口几乎不重叠，避免由窗口重叠人为制造的序列相关；三十日基线吸收该族因市场组成更替与平台成交规模变化带来的慢速漂移，使取值表示「停火概率相对近一个月的水平偏离」。取值为正表示地缘风险状态在缓解，据本机制应对应下一 session 更低的已实现波动率。算子取均值而非 last：last 在长短两个窗口上会读到同一个最近取值，创新量恒为零。\n\n失败条件：以下任一情形出现时该特征在该时点无定义，应排除该决策点而不是记为零：（一）决策时点前十二小时内该族没有任何小时桶，短窗均值无定义；（二）决策时点减去三十日早于该族覆盖起点 2023-01-16，因此 discovery 段（2022-11-02 至 2024-12-31，共 1040 行）中约前三分之一的行必然无值，可用行数约为 690，任何按 1040 行给出的显著性都是错的；（三）该族约 21264 个小时桶分布于三年半区间，存在稀疏段，若三十日基线窗口内的有效小时数过少，基线本身由少数几个桶决定，创新量反映的是市场生命周期而非停火预期的变化。以下情形使特征有定义但结论不可用：（四）该族聚合的 410 个市场若在某段时间内由单一停火事件主导，概率水平接近零或一并长期停滞，创新量趋近于零且方差塌缩；（五）归一到 outcome_seq==1 一侧的语义若与「停火达成或延续」不一致，特征符号与声明的经济含义相反。\n\n**本文件由 `arad.features.codegen` 从冻结规格确定性生成，请勿手改。**\n规格内容身份 adcec46e4b2aa801d2465445f847afa5b7f274027f4e7ff6c4a07ec3968e4591\n生成器 0.1.0；改规格才能改代码，两者不可能不一致。\n\nPIT：每个窗口的右端点一律**不含**决策时点，offset 只能非负。\n无定义返回 None，绝不返回 0 —— 返回 0 会被下游当成「没有信号」，那是伪造。\n本特征最早触及 30日 前的数据；该深度未整段落在序列覆盖范围内时判为无定义。\n\"\"\"\n\nfrom __future__ import annotations\n\nimport math\nfrom bisect import bisect_left\nfrom datetime import datetime, timedelta\n\nREQUIRED_LOOKBACK_SECONDS = 2592000\n\n\ndef _window(times, values, end, seconds):\n    \"\"\"取 [end - seconds, end) 内的值。**end 一律不含**，这是 PIT 的关键。\"\"\"\n    lo = bisect_left(times, end - timedelta(seconds=seconds))\n    hi = bisect_left(times, end)\n    return values[lo:hi]\n\n\ndef _agg(op, xs):\n    if not xs:\n        return None\n    if op == \"last\":\n        return xs[-1]\n    if op == \"mean\":\n        return math.fsum(xs) / len(xs)\n    if op == \"sum\":\n        return math.fsum(xs)\n    if op == \"count\":\n        return float(len(xs))\n    if op == \"min\":\n        return min(xs)\n    if op == \"max\":\n        return max(xs)\n    if op == \"std\":\n        if len(xs) < 2:\n            return None\n        m = math.fsum(xs) / len(xs)\n        return math.sqrt(math.fsum((x - m) ** 2 for x in xs) / (len(xs) - 1))\n    raise ValueError(op)\n\n\ndef _ok(v):\n    \"\"\"非有限值一律当作无定义：NaN 传下去会让比较式的闸门全部取假地通过。\"\"\"\n    return v is not None and math.isfinite(v)\n\n\ndef compute(decision_time: datetime, series: dict, coverage_start=None):\n    \"\"\"在一个决策时点上求值。无定义返回 None。\"\"\"\n    # 覆盖准入：回看深度必须整段落在序列覆盖范围内，否则同一份规格在完整\n    # 序列与其截断副本上会给出不同的数，而没有任何记录能看出差别\n    if coverage_start is not None and (\n        decision_time - timedelta(seconds=REQUIRED_LOOKBACK_SECONDS)\n        < coverage_start\n    ):\n        return None\n    t_ceasefire_p_state_innovation, x_ceasefire_p_state_innovation = series[\"pm_market.cand:ceasefire:p\"]\n    end_ceasefire_p_state_innovation = decision_time - timedelta(seconds=0)\n    v_ceasefire_p_state_innovation = _agg(\"mean\", _window(t_ceasefire_p_state_innovation, x_ceasefire_p_state_innovation, end_ceasefire_p_state_innovation, 43200))\n    far_ceasefire_p_state_innovation = _agg(\"mean\", _window(t_ceasefire_p_state_innovation, x_ceasefire_p_state_innovation, end_ceasefire_p_state_innovation, 2592000))\n    v_ceasefire_p_state_innovation = (v_ceasefire_p_state_innovation - far_ceasefire_p_state_innovation) if _ok(v_ceasefire_p_state_innovation) and _ok(far_ceasefire_p_state_innovation) else None\n    if v_ceasefire_p_state_innovation is not None and not math.isfinite(v_ceasefire_p_state_innovation):\n        v_ceasefire_p_state_innovation = None\n    return v_ceasefire_p_state_innovation\n",
+  "required_lookback_seconds": 2592000,
+  "sources": [
+    "pm_market"
+  ],
+  "discovery": {
+    "t_stat": -2.0492340558292153,
+    "ic_spearman": -0.08819545004596728,
+    "rows": 683,
+    "study_id": "run4-study-4"
+  },
+  "sealed": {
+    "t_stat": -1.0338778318034818,
+    "ic_spearman": -0.044598070603598126,
+    "rows": 476,
+    "segment": "historical_validation"
+  },
+  "meaning": "机制：上海原油期货（SC）的已实现波动率主要由中东供给中断风险的到达与消解驱动。Polymarket 的 cand:ceasefire 族（头部词 ceasefire / hamas / cancelled / still / extended，共 410 个市场，名义成交 7.9 亿 USDC）标的是停火能否达成、能否延续、是否被取消，其归一后的概率是该地区冲突强度预期的直接价格化度量，而不是注意力强度的代理量。该概率先于 SC 价格的理由是时段与结构错开：Polymarket 连续交易、无涨跌停、参与者可以对事件本身而非对油价定价，SC 每日只在中国时段开市，同一批停火进展信息只能在下一个交易时段进入 SC 的价格与波动。据此提出的是一个方向确定的状态假设，而非到达强度假设：当停火概率相对其自身三十日基线上行时，地缘风险状态在缓解，供给中断类新信息的到达率与油价的条件方差随之下降，因此下一 session 的已实现波动率更低；概率下行则相反。注意这与「信息到达抬高波动率」的强度假设是两条可分辨的机制：强度假设预测概率向任一方向移动都抬高波动率，本假设预测的是符号，二者只有在本特征的斜率显著为负时才由本轮证据分开。 发现段上斜率的 t 值为 -2.049，IC（时序秩相关）-0.0882，提交观测 683 行。 封闭段（只开一次）上 t 值 -1.034，与发现段同号，提交观测 476 行。 结论：在时间上的样本外保住了符号与量级。 注意，分类法不干净：候选机制族的归纳语料覆盖了本段，机制的选择并不独立于结果，样本外也救不了这一点（决定 0004）。真正干净的检验只能在归纳切点之后的数据上做。 成本与容量模型尚未建立（属 M5），因此本因子在任何情况下都不得取 candidate；以上全部为 pre-cost。"
+}

@@ -1,0 +1,34 @@
+{
+  "card_version": "0.1.0",
+  "codegen_version": "0.1.0",
+  "feature_id": "sc_prev_day_return_rank_pct_2d_over_90d",
+  "content_id": "69f87bfde2959951d73cf2bd765bb0689ffd620152b3cbf57e8e5f61b9d54a7b",
+  "family": "demo_sc_price_volume",
+  "status": "sealed_failed",
+  "taxonomy_clean": true,
+  "mechanism": "上一交易日 SC 主力合约的累计对数收益是一段已经完成的定价冲击。SC 的日盘与夜盘之间有境外时段的信息流入，境内持仓以保证金约束下的短线资金为主，因此单个 session 的大幅同向移动里包含相当比例的流动性成本与仓位调整压力，而不全是对基本面的持久重估。这部分非基本面成分在紧邻的下一 session 被反向吸收，故上一交易日涨幅越大，下一 session 的收益越低。信息的时间次序是显式的：特征只读取决策时点之前已经结束的 session 的收益，标签是同一条收益序列的下一个取值，序列点的时间戳取 session 结束时刻，决策时点严格晚于所用的全部序列点。因此本提案是一个界定清楚的一阶序列相关检验，不存在同期信息进入特征。作用于下一 session 收益，是因为上述吸收过程发生在紧邻的一个 session 之内，再往后冲击已被消化。",
+  "failure_condition": "若 172800 秒回看窗口内没有任何已结束的 session，该决策时点无定义；若参考样本被长假截断到少于 40 个互异取值，该点同样无定义。以上两种无定义只取决于特征与历史数据，与标签无关。若分位排名与下一 session 的对数收益之间不存在负向关系，则本特征被证伪。",
+  "formula": [
+    "ret_prev_day = 求和( commodity_bar.log_return , 窗口 [t−2日, t) )",
+    "ret_prev_day_rank = ( #{s < ret_prev_day(t)} + ½·#{s = ret_prev_day(t)} ) / n，其中 s 取自 ret_prev_day 在 t−k×1日（k=1..90）上的取值，互异取值不足 40 个则无定义；取值域 [0,1]",
+    "输出 = ret_prev_day_rank"
+  ],
+  "code": "\"\"\"sc_prev_day_return_rank_pct_2d_over_90d\n\n机制：上一交易日累计对数收益在其自身过去 90 天分布中的分位排名，度量近期已完成的同向定价冲击的相对强度\n\n失败条件：若 172800 秒回看窗口内没有任何已结束的 session，该决策时点无定义；若参考样本被长假截断到少于 40 个互异取值，该点同样无定义。以上两种无定义只取决于特征与历史数据，与标签无关。若分位排名与下一 session 的对数收益之间不存在负向关系，则本特征被证伪。\n\n**本文件由 `arad.features.codegen` 从冻结规格确定性生成，请勿手改。**\n规格内容身份 69f87bfde2959951d73cf2bd765bb0689ffd620152b3cbf57e8e5f61b9d54a7b\n生成器 0.1.0；改规格才能改代码，两者不可能不一致。\n\nPIT：每个窗口的右端点一律**不含**决策时点，offset 只能非负。\n无定义返回 None，绝不返回 0 —— 返回 0 会被下游当成「没有信号」，那是伪造。\n本特征最早触及 92日 前的数据；该深度未整段落在序列覆盖范围内时判为无定义。\n\"\"\"\n\nfrom __future__ import annotations\n\nimport math\nfrom bisect import bisect_left\nfrom datetime import datetime, timedelta\n\nREQUIRED_LOOKBACK_SECONDS = 7948800\n\n\ndef _window(times, values, end, seconds):\n    \"\"\"取 [end - seconds, end) 内的值。**end 一律不含**，这是 PIT 的关键。\"\"\"\n    lo = bisect_left(times, end - timedelta(seconds=seconds))\n    hi = bisect_left(times, end)\n    return values[lo:hi]\n\n\ndef _agg(op, xs):\n    if not xs:\n        return None\n    if op == \"last\":\n        return xs[-1]\n    if op == \"mean\":\n        return math.fsum(xs) / len(xs)\n    if op == \"sum\":\n        return math.fsum(xs)\n    if op == \"count\":\n        return float(len(xs))\n    if op == \"min\":\n        return min(xs)\n    if op == \"max\":\n        return max(xs)\n    if op == \"std\":\n        if len(xs) < 2:\n            return None\n        m = math.fsum(xs) / len(xs)\n        return math.sqrt(math.fsum((x - m) ** 2 for x in xs) / (len(xs) - 1))\n    raise ValueError(op)\n\n\ndef _ok(v):\n    \"\"\"非有限值一律当作无定义：NaN 传下去会让比较式的闸门全部取假地通过。\"\"\"\n    return v is not None and math.isfinite(v)\n\n\ndef _at_ret_prev_day(at: datetime, series: dict):\n    \"\"\"在任意过去时刻求 ret_prev_day 的值。参考分布要用它。\"\"\"\n    t, x = series[\"commodity_bar.log_return\"]\n    end = at - timedelta(seconds=0)\n    v_ret_prev_day = _agg(\"sum\", _window(t, x, end, 172800))\n    return v_ret_prev_day\n\ndef compute(decision_time: datetime, series: dict, coverage_start=None):\n    \"\"\"在一个决策时点上求值。无定义返回 None。\"\"\"\n    # 覆盖准入：回看深度必须整段落在序列覆盖范围内，否则同一份规格在完整\n    # 序列与其截断副本上会给出不同的数，而没有任何记录能看出差别\n    if coverage_start is not None and (\n        decision_time - timedelta(seconds=REQUIRED_LOOKBACK_SECONDS)\n        < coverage_start\n    ):\n        return None\n    t_ret_prev_day, x_ret_prev_day = series[\"commodity_bar.log_return\"]\n    end_ret_prev_day = decision_time - timedelta(seconds=0)\n    v_ret_prev_day = _agg(\"sum\", _window(t_ret_prev_day, x_ret_prev_day, end_ret_prev_day, 172800))\n    v_ret_prev_day = v_ret_prev_day if _ok(v_ret_prev_day) else None\n    if v_ret_prev_day is not None and not math.isfinite(v_ret_prev_day):\n        v_ret_prev_day = None\n    # rank_pct：与 zscore 同一张采样网格，只是归一方式不同\n    samples_ret_prev_day_rank = []\n    for k in range(1, 90 + 1):\n        past = decision_time - timedelta(seconds=k * 86400)\n        s = _at_ret_prev_day(past, series)\n        if _ok(s):\n            samples_ret_prev_day_rank.append(s)\n    distinct_ret_prev_day_rank = len(set(samples_ret_prev_day_rank))\n    if not _ok(v_ret_prev_day) or distinct_ret_prev_day_rank < 40:\n        v_ret_prev_day_rank = None\n    else:\n        below = sum(1 for s in samples_ret_prev_day_rank if s < v_ret_prev_day)\n        tied = sum(1 for s in samples_ret_prev_day_rank if s == v_ret_prev_day)\n        v_ret_prev_day_rank = (below + 0.5 * tied) / len(samples_ret_prev_day_rank)\n    if v_ret_prev_day_rank is not None and not math.isfinite(v_ret_prev_day_rank):\n        v_ret_prev_day_rank = None\n    return v_ret_prev_day_rank\n",
+  "required_lookback_seconds": 7948800,
+  "sources": [
+    "commodity_bar"
+  ],
+  "discovery": {
+    "t_stat": -1.4126912709261479,
+    "ic_spearman": -0.040228425824990095,
+    "rows": 823,
+    "study_id": "run4-study-2"
+  },
+  "sealed": {
+    "t_stat": 0.38825810523858756,
+    "ic_spearman": 0.038261147035974205,
+    "rows": 321,
+    "segment": "historical_validation"
+  },
+  "meaning": "机制：上一交易日 SC 主力合约的累计对数收益是一段已经完成的定价冲击。SC 的日盘与夜盘之间有境外时段的信息流入，境内持仓以保证金约束下的短线资金为主，因此单个 session 的大幅同向移动里包含相当比例的流动性成本与仓位调整压力，而不全是对基本面的持久重估。这部分非基本面成分在紧邻的下一 session 被反向吸收，故上一交易日涨幅越大，下一 session 的收益越低。信息的时间次序是显式的：特征只读取决策时点之前已经结束的 session 的收益，标签是同一条收益序列的下一个取值，序列点的时间戳取 session 结束时刻，决策时点严格晚于所用的全部序列点。因此本提案是一个界定清楚的一阶序列相关检验，不存在同期信息进入特征。作用于下一 session 收益，是因为上述吸收过程发生在紧邻的一个 session 之内，再往后冲击已被消化。 发现段上斜率的 t 值为 -1.413，IC（时序秩相关）-0.0402，提交观测 823 行。 封闭段（只开一次）上 t 值 +0.388，与发现段反号，提交观测 321 行。 结论：「在样本外没有保住」。这是一个完整的否定结论，不是运行失败 ——发现段上的强度来自搜索本身。 成本与容量模型尚未建立（属 M5），因此本因子在任何情况下都不得取 candidate；以上全部为 pre-cost。"
+}

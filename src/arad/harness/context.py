@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..features.spec import Op, Source, StepKind
+from ..memory.induction import proposal_memory
 from ..memory.ledger import EvidenceLedger
 from ..memory.ledger import Role as LedgerRole
 from ..providers.base import Role, assert_blinded
@@ -211,6 +212,8 @@ def assemble_proposer_context(
             "known_biases": [b.__dict__ for b in menu_biases],
         },
         "history": blinded_history(ledger, family),
+        # 第 0 层与第 1 层记忆（M9）。第 2 层（结果侧的归纳）对提案器永久关闭。
+        "memory": proposal_memory(ledger, family),
         "budget": budget_facts,
         "blockers": blockers,
         "learned_semantic_mismatches": [
@@ -273,6 +276,49 @@ def render_proposer_prompt(facts: dict, biases: list[DeclaredBias]) -> str:
             "",
         ]
         lines += [f"- `{m['code']}`：{m['explanation']}" for m in learned]
+        lines.append("")
+    mem = facts.get("memory") or {}
+    tried = mem.get("tried_features") or []
+    price = mem.get("price_of_one_more_test") or {}
+    lines += [
+        "## 检验是有价格的",
+        "",
+        (
+            f"本族已花掉 **{price.get('tests_spent', 0)} 次**检验。"
+            f"噪声地板现在是 **{price.get('floor_now', 0)}**，"
+            f"你再提一个会被评价的假设，它变成 **{price.get('floor_after_one_more', 0)}**。"
+        ),
+        "",
+        (
+            "地板是 |t| 必须越过的水平，按已花掉的检验次数抬升。"
+            "**它对已有的与将来的全部结论同时生效** —— 多问一次，之前问过的每一个"
+            "也要按更高的标准重读。因此不确定值不值得检验时，"
+            "产出一条原语缺口声明或一条更锐的可证伪条件，比多花一次检验更有价值。"
+        ),
+        "",
+    ]
+    if tried:
+        lines += [
+            f"## 你此前写过的 {len(tried)} 条规格（不含任何结果）",
+            "",
+            "**不要重复其中任何一条。**重复一次要付一次地板抬升，而换来的是已经有的答案。",
+            "",
+        ]
+        lines += [
+            f"- `{t['feature_id']}`：{t['shape']}\n  机制：{t['mechanism'][:110]}"
+            for t in tried
+        ]
+        lines.append("")
+    gaps = mem.get("declared_primitive_gaps") or []
+    if gaps:
+        lines += [
+            "## 你此前声明过的原语缺口",
+            "",
+        ]
+        lines += [
+            f"- 缺 `{g.get('missing_primitive', '?')}`：{str(g.get('mechanism', ''))[:90]}"
+            for g in gaps
+        ]
         lines.append("")
     lines += [
         "## 结构化事实",

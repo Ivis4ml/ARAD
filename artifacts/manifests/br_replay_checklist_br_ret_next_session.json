@@ -1,0 +1,1659 @@
+{
+  "target_name": "br_ret_next_session",
+  "product": "br",
+  "seed": 20260805,
+  "sample_size": 30,
+  "spine_fingerprint": "21b87fccef71330f55e89cf41c9e6d80de761d79b03a2b25cc27640bfba83996",
+  "entries": [
+    {
+      "index": 0,
+      "product": "br",
+      "contract": "br2401",
+      "trading_day": 20230905,
+      "session_name": "day",
+      "decision_time": "2023-09-05T08:59:00+08:00",
+      "execution_time": "2023-09-05T09:01:00+08:00",
+      "label_start": "2023-09-05T09:01:00+08:00",
+      "label_end": "2023-09-05T15:00:00+08:00",
+      "episode_id": "br:20230905",
+      "sample_segment": "discovery",
+      "target_value": -0.002430134853291782,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 222,
+      "entry_price": 14420.000000000002,
+      "exit_price": 14385.000000000002,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2023-09-04T23:00:00+08:00",
+          "lead_seconds": 35940,
+          "bar_start": "2023-09-04T22:59:00+08:00",
+          "close": 14350.000000000002,
+          "session_name": "night"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2023-09-04T15:00:00.500000+08:00",
+          "lead_seconds": 64739,
+          "trading_day": 20230904,
+          "close": 13680.000000000002
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2023-09-05T08:54:11+08:00",
+          "lead_seconds": 289,
+          "title": "",
+          "labels": "港股动态 港股通"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2023-09-05T06:00:00+08:00",
+          "lead_seconds": 10740,
+          "quote_date": "2023-09-04",
+          "value": 90.42
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 1,
+      "product": "br",
+      "contract": "br2401",
+      "trading_day": 20230918,
+      "session_name": "night",
+      "decision_time": "2023-09-15T20:59:00+08:00",
+      "execution_time": "2023-09-15T21:01:00+08:00",
+      "label_start": "2023-09-15T21:01:00+08:00",
+      "label_end": "2023-09-15T23:00:00+08:00",
+      "episode_id": "br:20230918",
+      "sample_segment": "discovery",
+      "target_value": -0.005055987657457726,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 13880.000000000002,
+      "exit_price": 13810.000000000002,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2023-09-15T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2023-09-15T14:59:00+08:00",
+          "close": 13860.000000000002,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2023-09-15T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20230915,
+          "close": 13860.000000000002
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2023-09-15T20:56:11+08:00",
+          "lead_seconds": 169,
+          "title": "【苹果iPhone 15 Pro系列在中国延迟交付最高达4-5周】",
+          "labels": "苹果产业链"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2023-09-15T06:00:00+08:00",
+          "lead_seconds": 53940,
+          "quote_date": "2023-09-14",
+          "value": 95.2
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 2,
+      "product": "br",
+      "contract": "br2401",
+      "trading_day": 20231109,
+      "session_name": "night",
+      "decision_time": "2023-11-08T20:59:00+08:00",
+      "execution_time": "2023-11-08T21:01:00+08:00",
+      "label_start": "2023-11-08T21:01:00+08:00",
+      "label_end": "2023-11-08T23:00:00+08:00",
+      "episode_id": "br:20231109",
+      "sample_segment": "discovery",
+      "target_value": -0.0035622440202592084,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 12655.000000000002,
+      "exit_price": 12610.000000000002,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2023-11-08T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2023-11-08T14:59:00+08:00",
+          "close": 12695.000000000002,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2023-11-08T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20231108,
+          "close": 12695.000000000002
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2023-11-08T20:58:27+08:00",
+          "lead_seconds": 33,
+          "title": "【盈方微：拟筹划购买华信科及World Style 49%股权 股票停牌】",
+          "labels": "A股公告速递"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2023-11-08T06:00:00+08:00",
+          "lead_seconds": 53940,
+          "quote_date": "2023-11-07",
+          "value": 83.43
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 3,
+      "product": "br",
+      "contract": "br2402",
+      "trading_day": 20231205,
+      "session_name": "night",
+      "decision_time": "2023-12-04T20:59:00+08:00",
+      "execution_time": "2023-12-04T21:01:00+08:00",
+      "label_start": "2023-12-04T21:01:00+08:00",
+      "label_end": "2023-12-04T23:00:00+08:00",
+      "episode_id": "br:20231205",
+      "sample_segment": "discovery",
+      "target_value": -0.005052642328077333,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 11905.000000000002,
+      "exit_price": 11845.000000000002,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2023-12-04T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2023-12-04T14:59:00+08:00",
+          "close": 11915.000000000002,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2023-12-04T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20231204,
+          "close": 11915.000000000002
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2023-12-04T20:55:10+08:00",
+          "lead_seconds": 230,
+          "title": "【“有人买近5万倍单注彩票中2亿多”？江西福彩：还无法核实】",
+          "labels": "彩票"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2023-12-02T06:00:00+08:00",
+          "lead_seconds": 226740,
+          "quote_date": "2023-12-01",
+          "value": 78.72
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 4,
+      "product": "br",
+      "contract": "br2402",
+      "trading_day": 20231208,
+      "session_name": "night",
+      "decision_time": "2023-12-07T20:59:00+08:00",
+      "execution_time": "2023-12-07T21:01:00+08:00",
+      "label_start": "2023-12-07T21:01:00+08:00",
+      "label_end": "2023-12-07T23:00:00+08:00",
+      "episode_id": "br:20231208",
+      "sample_segment": "discovery",
+      "target_value": 0.0017006806820174724,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 11750.000000000002,
+      "exit_price": 11770.000000000002,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2023-12-07T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2023-12-07T14:59:00+08:00",
+          "close": 11740.000000000002,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2023-12-07T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20231207,
+          "close": 11740.000000000002
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2023-12-07T20:57:43+08:00",
+          "lead_seconds": 77,
+          "title": "【本轮巴以冲突已致双方超1.86万人死亡】",
+          "labels": "中东冲突"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2023-12-07T06:00:00+08:00",
+          "lead_seconds": 53940,
+          "quote_date": "2023-12-06",
+          "value": 74.33
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 5,
+      "product": "br",
+      "contract": "br2404",
+      "trading_day": 20240312,
+      "session_name": "night",
+      "decision_time": "2024-03-11T20:59:00+08:00",
+      "execution_time": "2024-03-11T21:01:00+08:00",
+      "label_start": "2024-03-11T21:01:00+08:00",
+      "label_end": "2024-03-11T23:00:00+08:00",
+      "episode_id": "br:20240312",
+      "sample_segment": "discovery",
+      "target_value": -0.007962127371358967,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 13240.000000000002,
+      "exit_price": 13135.000000000002,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-03-11T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2024-03-11T14:59:00+08:00",
+          "close": 13240.000000000002,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-03-11T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20240311,
+          "close": 13240.000000000002
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2024-03-11T20:54:43+08:00",
+          "lead_seconds": 257,
+          "title": "【通用电气能源与Montana Technologies成立合资企业】",
+          "labels": "环球市场情报"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2024-03-09T06:00:00+08:00",
+          "lead_seconds": 226740,
+          "quote_date": "2024-03-08",
+          "value": 84.29
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 6,
+      "product": "br",
+      "contract": "br2407",
+      "trading_day": 20240515,
+      "session_name": "night",
+      "decision_time": "2024-05-14T20:59:00+08:00",
+      "execution_time": "2024-05-14T21:01:00+08:00",
+      "label_start": "2024-05-14T21:01:00+08:00",
+      "label_end": "2024-05-14T23:00:00+08:00",
+      "episode_id": "br:20240515",
+      "sample_segment": "discovery",
+      "target_value": 0.0037850158738145377,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 13185.000000000002,
+      "exit_price": 13235.000000000002,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-05-14T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2024-05-14T14:59:00+08:00",
+          "close": 13205.000000000002,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-05-14T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20240514,
+          "close": 13205.000000000002
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2024-05-14T20:57:11+08:00",
+          "lead_seconds": 109,
+          "title": "【美国PPI超预期后美债收益率攀升 市场下调降息预期】",
+          "labels": "经济数据及解读 美国宏观速递 美联储动态 环球市场情报"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2024-05-14T06:00:00+08:00",
+          "lead_seconds": 53940,
+          "quote_date": "2024-05-13",
+          "value": 83.18
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 7,
+      "product": "br",
+      "contract": "br2407",
+      "trading_day": 20240605,
+      "session_name": "night",
+      "decision_time": "2024-06-04T20:59:00+08:00",
+      "execution_time": "2024-06-04T21:01:00+08:00",
+      "label_start": "2024-06-04T21:01:00+08:00",
+      "label_end": "2024-06-04T23:00:00+08:00",
+      "episode_id": "br:20240605",
+      "sample_segment": "discovery",
+      "target_value": 0.00666552195971034,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 14205.000000000002,
+      "exit_price": 14300.000000000002,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-06-04T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2024-06-04T14:59:00+08:00",
+          "close": 14255.000000000002,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-06-04T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20240604,
+          "close": 14255.000000000002
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2024-06-04T20:57:56+08:00",
+          "lead_seconds": 64,
+          "title": "",
+          "labels": "环球市场情报"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2024-06-04T06:00:00+08:00",
+          "lead_seconds": 53940,
+          "quote_date": "2024-06-03",
+          "value": 76.45
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 8,
+      "product": "br",
+      "contract": "br2408",
+      "trading_day": 20240710,
+      "session_name": "day",
+      "decision_time": "2024-07-10T08:59:00+08:00",
+      "execution_time": "2024-07-10T09:01:00+08:00",
+      "label_start": "2024-07-10T09:01:00+08:00",
+      "label_end": "2024-07-10T15:00:00+08:00",
+      "episode_id": "br:20240710",
+      "sample_segment": "discovery",
+      "target_value": -0.006128721941373387,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 222,
+      "entry_price": 14730.0,
+      "exit_price": 14640.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-07-09T23:00:00+08:00",
+          "lead_seconds": 35940,
+          "bar_start": "2024-07-09T22:59:00+08:00",
+          "close": 14740.0,
+          "session_name": "night"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-07-09T15:00:00.500000+08:00",
+          "lead_seconds": 64739,
+          "trading_day": 20240709,
+          "close": 15055.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2024-07-10T08:51:26+08:00",
+          "lead_seconds": 454,
+          "title": "【两市融资余额减少4.14亿元】",
+          "labels": "期货市场情报 融资融券 盘面直播"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2024-07-10T06:00:00+08:00",
+          "lead_seconds": 10740,
+          "quote_date": "2024-07-09",
+          "value": 86.48
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 9,
+      "product": "br",
+      "contract": "br2408",
+      "trading_day": 20240712,
+      "session_name": "day",
+      "decision_time": "2024-07-12T08:59:00+08:00",
+      "execution_time": "2024-07-12T09:01:00+08:00",
+      "label_start": "2024-07-12T09:01:00+08:00",
+      "label_end": "2024-07-12T15:00:00+08:00",
+      "episode_id": "br:20240712",
+      "sample_segment": "discovery",
+      "target_value": -0.009488380233205721,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 222,
+      "entry_price": 14825.0,
+      "exit_price": 14685.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-07-11T23:00:00+08:00",
+          "lead_seconds": 35940,
+          "bar_start": "2024-07-11T22:59:00+08:00",
+          "close": 14840.0,
+          "session_name": "night"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-07-11T15:00:00.500000+08:00",
+          "lead_seconds": 64739,
+          "trading_day": 20240711,
+          "close": 14770.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2024-07-12T08:58:47+08:00",
+          "lead_seconds": 13,
+          "title": "【两市融资余额较上一日增加28.77亿元】",
+          "labels": "期货市场情报 融资融券 盘面直播"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2024-07-12T06:00:00+08:00",
+          "lead_seconds": 10740,
+          "quote_date": "2024-07-11",
+          "value": 86.49
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 10,
+      "product": "br",
+      "contract": "br2410",
+      "trading_day": 20240827,
+      "session_name": "day",
+      "decision_time": "2024-08-27T08:59:00+08:00",
+      "execution_time": "2024-08-27T09:01:00+08:00",
+      "label_start": "2024-08-27T09:01:00+08:00",
+      "label_end": "2024-08-27T15:00:00+08:00",
+      "episode_id": "br:20240827",
+      "sample_segment": "discovery",
+      "target_value": 0.012401700761581527,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 222,
+      "entry_price": 14825.0,
+      "exit_price": 15010.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-08-26T23:00:00+08:00",
+          "lead_seconds": 35940,
+          "bar_start": "2024-08-26T22:59:00+08:00",
+          "close": 14825.0,
+          "session_name": "night"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-08-26T15:00:00.500000+08:00",
+          "lead_seconds": 64739,
+          "trading_day": 20240826,
+          "close": 14810.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2024-08-27T08:55:48+08:00",
+          "lead_seconds": 192,
+          "title": "",
+          "labels": "太空探索"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2024-08-24T06:00:00+08:00",
+          "lead_seconds": 269940,
+          "quote_date": "2024-08-23",
+          "value": 80.34
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 11,
+      "product": "br",
+      "contract": "br2411",
+      "trading_day": 20240920,
+      "session_name": "day",
+      "decision_time": "2024-09-20T08:59:00+08:00",
+      "execution_time": "2024-09-20T09:01:00+08:00",
+      "label_start": "2024-09-20T09:01:00+08:00",
+      "label_end": "2024-09-20T15:00:00+08:00",
+      "episode_id": "br:20240920",
+      "sample_segment": "discovery",
+      "target_value": -0.01127831503770719,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 222,
+      "entry_price": 16050.0,
+      "exit_price": 15870.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-09-19T23:00:00+08:00",
+          "lead_seconds": 35940,
+          "bar_start": "2024-09-19T22:59:00+08:00",
+          "close": 16050.0,
+          "session_name": "night"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-09-19T15:00:00.500000+08:00",
+          "lead_seconds": 64739,
+          "trading_day": 20240919,
+          "close": 16125.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2024-09-20T08:57:04+08:00",
+          "lead_seconds": 116,
+          "title": "【T-Mobile CEO：苹果iPhone16销量优于iPhone15】",
+          "labels": "消费电子"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2024-09-20T06:00:00+08:00",
+          "lead_seconds": 10740,
+          "quote_date": "2024-09-19",
+          "value": 75.93
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 12,
+      "product": "br",
+      "contract": "br2411",
+      "trading_day": 20241022,
+      "session_name": "day",
+      "decision_time": "2024-10-22T08:59:00+08:00",
+      "execution_time": "2024-10-22T09:01:00+08:00",
+      "label_start": "2024-10-22T09:01:00+08:00",
+      "label_end": "2024-10-22T15:00:00+08:00",
+      "episode_id": "br:20241022",
+      "sample_segment": "discovery",
+      "target_value": 0.016702533367160984,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 222,
+      "entry_price": 15140.0,
+      "exit_price": 15395.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-10-21T23:00:00+08:00",
+          "lead_seconds": 35940,
+          "bar_start": "2024-10-21T22:59:00+08:00",
+          "close": 15135.0,
+          "session_name": "night"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-10-21T15:00:00.500000+08:00",
+          "lead_seconds": 64739,
+          "trading_day": 20241021,
+          "close": 15205.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2024-10-22T08:58:06+08:00",
+          "lead_seconds": 54,
+          "title": "【PC、智能手机需求不振致DRAM价格1年5个月来首降】",
+          "labels": "半导体芯片 存储芯片"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2024-10-22T06:00:00+08:00",
+          "lead_seconds": 10740,
+          "quote_date": "2024-10-21",
+          "value": 73.29
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 13,
+      "product": "br",
+      "contract": "br2501",
+      "trading_day": 20241114,
+      "session_name": "night",
+      "decision_time": "2024-11-13T20:59:00+08:00",
+      "execution_time": "2024-11-13T21:01:00+08:00",
+      "label_start": "2024-11-13T21:01:00+08:00",
+      "label_end": "2024-11-13T23:00:00+08:00",
+      "episode_id": "br:20241114",
+      "sample_segment": "discovery",
+      "target_value": 0.0011011195827182571,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 13615.0,
+      "exit_price": 13630.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-11-13T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2024-11-13T14:59:00+08:00",
+          "close": 13570.0,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2024-11-13T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20241113,
+          "close": 13570.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2024-11-13T20:53:51+08:00",
+          "lead_seconds": 309,
+          "title": "【港交所：台风影响下交易市场平台将正常全面运作】",
+          "labels": "港交所动态"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2024-11-13T06:00:00+08:00",
+          "lead_seconds": 53940,
+          "quote_date": "2024-11-12",
+          "value": 72.56
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 14,
+      "product": "br",
+      "contract": "br2502",
+      "trading_day": 20250113,
+      "session_name": "night",
+      "decision_time": "2025-01-10T20:59:00+08:00",
+      "execution_time": "2025-01-10T21:01:00+08:00",
+      "label_start": "2025-01-10T21:01:00+08:00",
+      "label_end": "2025-01-10T23:00:00+08:00",
+      "episode_id": "br:20250113",
+      "sample_segment": "historical_validation",
+      "target_value": 0.03677415090678162,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 13615.0,
+      "exit_price": 14125.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-01-10T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2025-01-10T14:59:00+08:00",
+          "close": 13600.0,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-01-10T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20250110,
+          "close": 13600.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2025-01-10T20:53:57+08:00",
+          "lead_seconds": 303,
+          "title": "",
+          "labels": "环球市场情报"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2025-01-10T06:00:00+08:00",
+          "lead_seconds": 53940,
+          "quote_date": "2025-01-09",
+          "value": 78.44
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 15,
+      "product": "br",
+      "contract": "br2504",
+      "trading_day": 20250305,
+      "session_name": "night",
+      "decision_time": "2025-03-04T20:59:00+08:00",
+      "execution_time": "2025-03-04T21:01:00+08:00",
+      "label_start": "2025-03-04T21:01:00+08:00",
+      "label_end": "2025-03-04T23:00:00+08:00",
+      "episode_id": "br:20250305",
+      "sample_segment": "historical_validation",
+      "target_value": -0.0043795690440215,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 13730.0,
+      "exit_price": 13670.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-03-04T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2025-03-04T14:59:00+08:00",
+          "close": 13765.0,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-03-04T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20250304,
+          "close": 13765.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2025-03-04T20:53:47+08:00",
+          "lead_seconds": 313,
+          "title": "",
+          "labels": "环球市场情报 期货市场情报 原油市场动态 海外大宗商品 沙特"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2025-03-04T06:00:00+08:00",
+          "lead_seconds": 53940,
+          "quote_date": "2025-03-03",
+          "value": 72.85
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 16,
+      "product": "br",
+      "contract": "br2506",
+      "trading_day": 20250509,
+      "session_name": "night",
+      "decision_time": "2025-05-08T20:59:00+08:00",
+      "execution_time": "2025-05-08T21:01:00+08:00",
+      "label_start": "2025-05-08T21:01:00+08:00",
+      "label_end": "2025-05-08T23:00:00+08:00",
+      "episode_id": "br:20250509",
+      "sample_segment": "historical_validation",
+      "target_value": 0.006137678189207145,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 11370.0,
+      "exit_price": 11440.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-05-08T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2025-05-08T14:59:00+08:00",
+          "close": 11370.0,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-05-08T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20250508,
+          "close": 11370.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2025-05-08T20:53:36+08:00",
+          "lead_seconds": 324,
+          "title": "【水利部珠江委：云南、广西等地旱情得到缓解】",
+          "labels": "水利"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2025-05-08T06:00:00+08:00",
+          "lead_seconds": 53940,
+          "quote_date": "2025-05-07",
+          "value": 60.31
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 17,
+      "product": "br",
+      "contract": "br2506",
+      "trading_day": 20250516,
+      "session_name": "night",
+      "decision_time": "2025-05-15T20:59:00+08:00",
+      "execution_time": "2025-05-15T21:01:00+08:00",
+      "label_start": "2025-05-15T21:01:00+08:00",
+      "label_end": "2025-05-15T23:00:00+08:00",
+      "episode_id": "br:20250516",
+      "sample_segment": "historical_validation",
+      "target_value": 0.00651999049728118,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 12230.0,
+      "exit_price": 12310.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-05-15T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2025-05-15T14:59:00+08:00",
+          "close": 12260.0,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-05-15T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20250515,
+          "close": 12260.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2025-05-15T20:56:23+08:00",
+          "lead_seconds": 157,
+          "title": "【航新科技：原控股股东柳少娟拟减持不超3%公司股份】",
+          "labels": "A股公告速递"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2025-05-15T06:00:00+08:00",
+          "lead_seconds": 53940,
+          "quote_date": "2025-05-14",
+          "value": 65.91
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 18,
+      "product": "br",
+      "contract": "br2509",
+      "trading_day": 20250812,
+      "session_name": "day",
+      "decision_time": "2025-08-12T08:59:00+08:00",
+      "execution_time": "2025-08-12T09:01:00+08:00",
+      "label_start": "2025-08-12T09:01:00+08:00",
+      "label_end": "2025-08-12T15:00:00+08:00",
+      "episode_id": "br:20250812",
+      "sample_segment": "historical_validation",
+      "target_value": 0.007640105075009784,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 222,
+      "entry_price": 11735.0,
+      "exit_price": 11825.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-08-11T23:00:00+08:00",
+          "lead_seconds": 35940,
+          "bar_start": "2025-08-11T22:59:00+08:00",
+          "close": 11720.0,
+          "session_name": "night"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-08-11T15:00:00.500000+08:00",
+          "lead_seconds": 64739,
+          "trading_day": 20250811,
+          "close": 11785.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2025-08-12T08:52:43+08:00",
+          "lead_seconds": 377,
+          "title": "【德国7月破产企业数量同比大幅增加】",
+          "labels": "环球市场情报"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2025-08-12T06:00:00+08:00",
+          "lead_seconds": 10740,
+          "quote_date": "2025-08-11",
+          "value": 67.36
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 19,
+      "product": "br",
+      "contract": "br2510",
+      "trading_day": 20250915,
+      "session_name": "night",
+      "decision_time": "2025-09-12T20:59:00+08:00",
+      "execution_time": "2025-09-12T21:01:00+08:00",
+      "label_start": "2025-09-12T21:01:00+08:00",
+      "label_end": "2025-09-12T23:00:00+08:00",
+      "episode_id": "br:20250915",
+      "sample_segment": "historical_validation",
+      "target_value": -0.0038768086462335023,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 11630.0,
+      "exit_price": 11585.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-09-12T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2025-09-12T14:59:00+08:00",
+          "close": 11615.0,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-09-12T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20250912,
+          "close": 11615.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2025-09-12T20:50:21+08:00",
+          "lead_seconds": 519,
+          "title": "【国产离子回旋加热系统研制成功】",
+          "labels": "TMT行业观察 RFID"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2025-09-12T06:00:00+08:00",
+          "lead_seconds": 53940,
+          "quote_date": "2025-09-11",
+          "value": 67.25
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 20,
+      "product": "br",
+      "contract": "br2511",
+      "trading_day": 20250919,
+      "session_name": "day",
+      "decision_time": "2025-09-19T08:59:00+08:00",
+      "execution_time": "2025-09-19T09:01:00+08:00",
+      "label_start": "2025-09-19T09:01:00+08:00",
+      "label_end": "2025-09-19T15:00:00+08:00",
+      "episode_id": "br:20250919",
+      "sample_segment": "historical_validation",
+      "target_value": 0.0,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 222,
+      "entry_price": 11445.0,
+      "exit_price": 11445.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-09-18T23:00:00+08:00",
+          "lead_seconds": 35940,
+          "bar_start": "2025-09-18T22:59:00+08:00",
+          "close": 11425.0,
+          "session_name": "night"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-09-18T15:00:00.500000+08:00",
+          "lead_seconds": 64739,
+          "trading_day": 20250918,
+          "close": 11415.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2025-09-19T08:49:35+08:00",
+          "lead_seconds": 565,
+          "title": "【两市融资余额减少26.28亿元】",
+          "labels": "盘面直播 融资融券"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2025-09-19T06:00:00+08:00",
+          "lead_seconds": 10740,
+          "quote_date": "2025-09-18",
+          "value": 67.83
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 21,
+      "product": "br",
+      "contract": "br2511",
+      "trading_day": 20250922,
+      "session_name": "night",
+      "decision_time": "2025-09-19T20:59:00+08:00",
+      "execution_time": "2025-09-19T21:01:00+08:00",
+      "label_start": "2025-09-19T21:01:00+08:00",
+      "label_end": "2025-09-19T23:00:00+08:00",
+      "episode_id": "br:20250922",
+      "sample_segment": "historical_validation",
+      "target_value": 0.0,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 11495.0,
+      "exit_price": 11495.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-09-19T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2025-09-19T14:59:00+08:00",
+          "close": 11445.0,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-09-19T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20250919,
+          "close": 11445.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2025-09-19T20:57:51+08:00",
+          "lead_seconds": 69,
+          "title": "【创意信息：2022年年报、2023年半年报多计营业收入 9月23日起股票简称变",
+          "labels": "A股公告速递"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2025-09-19T06:00:00+08:00",
+          "lead_seconds": 53940,
+          "quote_date": "2025-09-18",
+          "value": 67.83
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 22,
+      "product": "br",
+      "contract": "br2602",
+      "trading_day": 20251209,
+      "session_name": "day",
+      "decision_time": "2025-12-09T08:59:00+08:00",
+      "execution_time": "2025-12-09T09:01:00+08:00",
+      "label_start": "2025-12-09T09:01:00+08:00",
+      "label_end": "2025-12-09T15:00:00+08:00",
+      "episode_id": "br:20251209",
+      "sample_segment": "historical_validation",
+      "target_value": -0.006200830743843107,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 222,
+      "entry_price": 10515.0,
+      "exit_price": 10450.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-12-08T23:00:00+08:00",
+          "lead_seconds": 35940,
+          "bar_start": "2025-12-08T22:59:00+08:00",
+          "close": 10520.0,
+          "session_name": "night"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-12-08T15:00:00.500000+08:00",
+          "lead_seconds": 64739,
+          "trading_day": 20251208,
+          "close": 10530.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2025-12-09T08:58:19+08:00",
+          "lead_seconds": 41,
+          "title": "",
+          "labels": "环球市场情报"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2025-12-09T06:00:00+08:00",
+          "lead_seconds": 10740,
+          "quote_date": "2025-12-08",
+          "value": 63.3
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 23,
+      "product": "br",
+      "contract": "br2602",
+      "trading_day": 20251218,
+      "session_name": "night",
+      "decision_time": "2025-12-17T20:59:00+08:00",
+      "execution_time": "2025-12-17T21:01:00+08:00",
+      "label_start": "2025-12-17T21:01:00+08:00",
+      "label_end": "2025-12-17T23:00:00+08:00",
+      "episode_id": "br:20251218",
+      "sample_segment": "historical_validation",
+      "target_value": -0.0013492244007652732,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 11125.0,
+      "exit_price": 11110.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-12-17T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2025-12-17T14:59:00+08:00",
+          "close": 11160.0,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2025-12-17T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20251217,
+          "close": 11160.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2025-12-17T20:58:46+08:00",
+          "lead_seconds": 14,
+          "title": "【光启技术：乐山无人机基地预计明年一季度投产】",
+          "labels": "互动平台精选"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2025-12-17T06:00:00+08:00",
+          "lead_seconds": 53940,
+          "quote_date": "2025-12-16",
+          "value": 59.93
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 24,
+      "product": "br",
+      "contract": "br2603",
+      "trading_day": 20260114,
+      "session_name": "night",
+      "decision_time": "2026-01-13T20:59:00+08:00",
+      "execution_time": "2026-01-13T21:01:00+08:00",
+      "label_start": "2026-01-13T21:01:00+08:00",
+      "label_end": "2026-01-13T23:00:00+08:00",
+      "episode_id": "br:20260114",
+      "sample_segment": "contaminated_audit",
+      "target_value": 0.0008193363834024275,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 12200.0,
+      "exit_price": 12210.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2026-01-13T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2026-01-13T14:59:00+08:00",
+          "close": 12000.0,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2026-01-13T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20260113,
+          "close": 12000.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2026-01-13T20:53:46+08:00",
+          "lead_seconds": 314,
+          "title": "",
+          "labels": "港股IPO动态"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2026-01-13T06:00:00+08:00",
+          "lead_seconds": 53940,
+          "quote_date": "2026-01-12",
+          "value": 65.4
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 25,
+      "product": "br",
+      "contract": "br2603",
+      "trading_day": 20260119,
+      "session_name": "night",
+      "decision_time": "2026-01-16T20:59:00+08:00",
+      "execution_time": "2026-01-16T21:01:00+08:00",
+      "label_start": "2026-01-16T21:01:00+08:00",
+      "label_end": "2026-01-16T23:00:00+08:00",
+      "episode_id": "br:20260119",
+      "sample_segment": "contaminated_audit",
+      "target_value": -0.004224763360308494,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 11860.0,
+      "exit_price": 11810.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2026-01-16T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2026-01-16T14:59:00+08:00",
+          "close": 11815.0,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2026-01-16T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20260116,
+          "close": 11815.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2026-01-16T20:57:39+08:00",
+          "lead_seconds": 81,
+          "title": "",
+          "labels": "美股动态"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2026-01-16T06:00:00+08:00",
+          "lead_seconds": 53940,
+          "quote_date": "2026-01-15",
+          "value": 66.16
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 26,
+      "product": "br",
+      "contract": "br2603",
+      "trading_day": 20260204,
+      "session_name": "day",
+      "decision_time": "2026-02-04T08:59:00+08:00",
+      "execution_time": "2026-02-04T09:01:00+08:00",
+      "label_start": "2026-02-04T09:01:00+08:00",
+      "label_end": "2026-02-04T15:00:00+08:00",
+      "episode_id": "br:20260204",
+      "sample_segment": "contaminated_audit",
+      "target_value": -0.005243457706420256,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 222,
+      "entry_price": 13385.0,
+      "exit_price": 13315.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2026-02-03T23:00:00+08:00",
+          "lead_seconds": 35940,
+          "bar_start": "2026-02-03T22:59:00+08:00",
+          "close": 13365.0,
+          "session_name": "night"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2026-02-03T15:00:00.500000+08:00",
+          "lead_seconds": 64739,
+          "trading_day": 20260203,
+          "close": 13185.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2026-02-04T08:58:25+08:00",
+          "lead_seconds": 35,
+          "title": "",
+          "labels": "期货市场情报"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2026-02-04T06:00:00+08:00",
+          "lead_seconds": 10740,
+          "quote_date": "2026-02-03",
+          "value": 70.01
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 27,
+      "product": "br",
+      "contract": "br2605",
+      "trading_day": 20260420,
+      "session_name": "night",
+      "decision_time": "2026-04-17T20:59:00+08:00",
+      "execution_time": "2026-04-17T21:01:00+08:00",
+      "label_start": "2026-04-17T21:01:00+08:00",
+      "label_end": "2026-04-17T23:00:00+08:00",
+      "episode_id": "br:20260420",
+      "sample_segment": "contaminated_audit",
+      "target_value": 0.005743474627065713,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 119,
+      "entry_price": 15625.0,
+      "exit_price": 15715.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2026-04-17T15:00:00+08:00",
+          "lead_seconds": 21540,
+          "bar_start": "2026-04-17T14:59:00+08:00",
+          "close": 15950.0,
+          "session_name": "day"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2026-04-17T15:00:00.500000+08:00",
+          "lead_seconds": 21539,
+          "trading_day": 20260417,
+          "close": 15950.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2026-04-17T20:58:27+08:00",
+          "lead_seconds": 33,
+          "title": "【深圳市发改委与澳门特区政府低空经济发展工作组开展低空经济交流】",
+          "labels": "TMT行业观察 民航机场 快递物流 无人机 低空经济"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2026-04-17T06:00:00+08:00",
+          "lead_seconds": 53940,
+          "quote_date": "2026-04-16",
+          "value": 116.63
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 28,
+      "product": "br",
+      "contract": "br2609",
+      "trading_day": 20260702,
+      "session_name": "day",
+      "decision_time": "2026-07-02T08:59:00+08:00",
+      "execution_time": "2026-07-02T09:01:00+08:00",
+      "label_start": "2026-07-02T09:01:00+08:00",
+      "label_end": "2026-07-02T15:00:00+08:00",
+      "episode_id": "br:20260702",
+      "sample_segment": "contaminated_audit",
+      "target_value": -0.011965954741612274,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 222,
+      "entry_price": 11770.0,
+      "exit_price": 11630.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2026-07-01T23:00:00+08:00",
+          "lead_seconds": 35940,
+          "bar_start": "2026-07-01T22:59:00+08:00",
+          "close": 11815.0,
+          "session_name": "night"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2026-07-01T15:00:00.500000+08:00",
+          "lead_seconds": 64739,
+          "trading_day": 20260701,
+          "close": 11825.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2026-06-18T04:43:20+08:00",
+          "lead_seconds": 1224940,
+          "title": "【伊朗方面披露美伊谅解备忘录文本内容】",
+          "labels": "中东冲突"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2026-07-02T06:00:00+08:00",
+          "lead_seconds": 10740,
+          "quote_date": "2026-07-01",
+          "value": 69.24
+        }
+      ],
+      "unavailable_sources": []
+    },
+    {
+      "index": 29,
+      "product": "br",
+      "contract": "br2609",
+      "trading_day": 20260716,
+      "session_name": "day",
+      "decision_time": "2026-07-16T08:59:00+08:00",
+      "execution_time": "2026-07-16T09:01:00+08:00",
+      "label_start": "2026-07-16T09:01:00+08:00",
+      "label_end": "2026-07-16T15:00:00+08:00",
+      "episode_id": "br:20260716",
+      "sample_segment": "contaminated_audit",
+      "target_value": -0.0018178518003673606,
+      "no_trade": false,
+      "no_trade_reason": null,
+      "n_returns": 222,
+      "entry_price": 13765.0,
+      "exit_price": 13740.0,
+      "features": [
+        {
+          "feature": "sc_bar_1min_close",
+          "source": "commodity_tick",
+          "availability_time": "2026-07-15T23:00:00+08:00",
+          "lead_seconds": 35940,
+          "bar_start": "2026-07-15T22:59:00+08:00",
+          "close": 13760.0,
+          "session_name": "night"
+        },
+        {
+          "feature": "sc_bar_daily_close",
+          "source": "commodity_tick",
+          "availability_time": "2026-07-15T15:00:00.500000+08:00",
+          "lead_seconds": 64739,
+          "trading_day": 20260715,
+          "close": 13880.0
+        },
+        {
+          "feature": "cls_last_telegraph",
+          "source": "cls_telegraph",
+          "availability_time": "2026-06-18T04:43:20+08:00",
+          "lead_seconds": 2434540,
+          "title": "【伊朗方面披露美伊谅解备忘录文本内容】",
+          "labels": "中东冲突"
+        },
+        {
+          "feature": "brent_last_close",
+          "source": "intl_brent",
+          "availability_time": "2026-07-14T06:00:00+08:00",
+          "lead_seconds": 183540,
+          "quote_date": "2026-07-13",
+          "value": 81.62
+        }
+      ],
+      "unavailable_sources": []
+    }
+  ]
+}

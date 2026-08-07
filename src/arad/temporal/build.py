@@ -297,12 +297,17 @@ def _session_verification_findings(
         for minute in env.get("outside_minutes", []):
             outside_minutes[minute] = outside_minutes.get(minute, 0) + 1
 
+    # 无夜盘的品种没有 night session。原实现无条件调 `table.session("night")`，
+    # 因此 17 个无夜盘品种（AP CJ PK RS SF SM UR bb fb jd lc lg lh pd ps pt si）
+    # 在这里硬失败。实测 39/70 成功时，失败集恰好是「无夜盘 17 个 + 郑商所 14 个」。
     declared = {
-        "night_open_sod": (table.session("night").auction_start, table.session("night").open),
-        "night_close_sod": (None, table.session("night").close),
         "day_open_sod": (table.session("day").auction_start, table.session("day").open),
         "day_close_sod": (None, table.session("day").close),
     }
+    if any(sess.name == "night" for sess in table.sessions):
+        night = table.session("night")
+        declared["night_open_sod"] = (night.auction_start, night.open)
+        declared["night_close_sod"] = (None, night.close)
     observed_summary = {}
     for key, values in sorted(extremes.items()):
         lo, hi = min(values), max(values)

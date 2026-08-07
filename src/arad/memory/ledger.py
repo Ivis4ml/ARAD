@@ -139,6 +139,12 @@ PROPOSER_VISIBLE_FIELDS: dict[str, tuple[str, ...]] = {
         "mechanism", "missing_primitive", "why_existing_primitives_insufficient",
     ),
     "study_created": ("study_id", "parent_study_id", "change_summary"),
+    # 第 0 层记忆（M9）：模型**自己写过的规格**。这些在读任何 outcome 之前就已存在，
+    # 因此泄漏为零是按构造成立的。给它看，是为了让它不必重复已经问过的问题 ——
+    # 重复一次要付一次地板抬升。`content_id` 必须在，去重靠它。
+    "feature_spec_locked": ("feature_id", "mechanism", "steps", "output_step",
+                            "failure_condition", "required_lookback_seconds",
+                            "sources", "content_id", "spec_version"),
     "episode_started": ("episode_id", "family"),
     "episode_ended": ("episode_id", "rounds", "ended_because"),
 }
@@ -232,6 +238,29 @@ class EvidenceLedger:
         return digest
 
     # ------------------------------------------------------------ 读取
+
+    #: 提案器可以跨 Study 读取的事件类型（M9 第 0 层记忆）。**只有这两种。**
+    #:
+    #: 全量 `read_events` 对提案器是禁止的，这条边界不能靠"在调用方小心一点"绕过 ——
+    #: `audit.py` 开头记着的教训正是「绝不走 read_events」。因此这里开一个**窄口子**，
+    #: 由账本自己强制：只放这两种事件，逐字段过白名单，并**丢弃 study_id**
+    #: （study_id 是事件的列而不是 payload 字段，payload 白名单管不到它，
+    #: 留着它提案器就能把规格与判决一一对上，那正是要挡的东西）。
+    CROSS_STUDY_MEMORY_EVENTS = ("feature_spec_locked", "primitive_gap_declared")
+
+    def proposer_memory(self, event_type: str) -> list[dict]:
+        """跨 Study 的第 0 层记忆。只返回盲化投影，且不带 study_id。"""
+        if event_type not in self.CROSS_STUDY_MEMORY_EVENTS:
+            raise CapabilityDenied(
+                f"{event_type!r} 不在提案器可跨 Study 读取的名单里"
+                f"（只有 {list(self.CROSS_STUDY_MEMORY_EVENTS)}）"
+            )
+        import json as _json
+
+        rows = self._conn.execute(
+            "SELECT payload FROM events WHERE event_type = ? ORDER BY seq", (event_type,)
+        ).fetchall()
+        return [_project_for_role(event_type, _json.loads(r["payload"])) for r in rows]
 
     def read_events(self, *, role: Role, study_id: str | None = None) -> list[dict]:
         """按角色读取事件。proposer 拿不到效果字段。"""

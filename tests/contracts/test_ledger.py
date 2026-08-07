@@ -434,3 +434,50 @@ def test_a_null_verdict_is_not_exempt_from_having_read_the_outcome(ledger):
     with pytest.raises(SnapshotIncomplete) as exc:
         require_complete(collect_snapshot(events, ledger.denominators("fam")))
     assert "outcome_reads" in str(exc.value)
+
+
+# ---------------------------------------------------------------- 第 0 层记忆（M9）
+
+
+def test_the_proposer_can_read_its_own_past_specs_but_nothing_else(ledger):
+    """跨 Study 的记忆只开两种事件，且由账本强制，不由调用方自觉。"""
+    for kind in ("feature_spec_locked", "primitive_gap_declared"):
+        assert ledger.proposer_memory(kind) == []
+    for kind in ("evaluation_result", "verdict_recorded", "outcome_read"):
+        with pytest.raises(CapabilityDenied):
+            ledger.proposer_memory(kind)
+
+
+def test_the_memory_carries_no_study_id_and_no_effects(ledger):
+    """带上 study_id，提案器就能把规格与判决一一对上 —— 那正是要挡的东西。
+
+    `study_id` 是事件的**列**而不是 payload 字段，payload 白名单管不到它，
+    因此必须由 `proposer_memory` 显式丢弃。
+    """
+    ledger.append(
+        "feature_spec_locked",
+        {"feature_id": "f1", "mechanism": "m", "steps": [],
+         "output_step": "w", "failure_condition": "c", "sources": ["pm_market"],
+         "content_id": "abc", "spec_version": "0.3.0",
+         "t_stat": 9.9, "slope": 0.5},          # 评价机字段混进来也必须被丢掉
+        study_id="s-secret",
+    )
+    got = ledger.proposer_memory("feature_spec_locked")
+    assert len(got) == 1
+    assert "study_id" not in got[0]
+    for leak in ("t_stat", "slope"):
+        assert leak not in got[0]
+    assert got[0]["content_id"] == "abc"
+
+
+def test_the_price_of_one_more_test_is_only_a_function_of_n(ledger):
+    """报价只依赖已花掉的检验次数，不含任何结果。"""
+    from arad.memory.induction import search_price
+
+    before = search_price(ledger, "fam")
+    assert before["tests_spent"] == 0
+    ledger.record_outcome_read("t1", "fam", "s1")
+    after = search_price(ledger, "fam")
+    assert after["tests_spent"] == 1
+    assert after["floor_after_one_more"] > after["floor_now"]
+    assert before["floor_after_one_more"] == pytest.approx(after["floor_now"])
