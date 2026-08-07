@@ -212,3 +212,11 @@ def test_the_card_carries_the_generated_code_and_the_formula():
     assert payload["code"].startswith('"""')
     assert payload["formula"][-1].startswith("输出 =")
     assert payload["content_id"] == SPECS["window"].content_id
+
+
+def test_the_meaning_text_carries_no_markdown_markers():
+    """这段话同时进 .md 与 app 的纯文本段落，后者会把 `**` 原样显示。已犯过四次。"""
+    for d_t, s_t, clean in ((-1.7, 1.4, True), (3.0, 2.5, False), (1.0, None, True)):
+        text = a_card(d_t, s_t, clean=clean).meaning()
+        assert "**" not in text, text
+        assert "`" not in text

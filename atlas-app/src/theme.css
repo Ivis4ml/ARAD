@@ -199,3 +199,10 @@ table.matrix td { text-align: center; font-size: var(--t-micro); padding: 5px 7p
 table.matrix th.rowhead { text-align: left; font-weight: 500; font-size: var(--t-micro);
                           white-space: nowrap; background: var(--panel); }
 table.matrix thead th { text-align: center; }
+
+pre.code { background: #131a22; color: #d7e0ea; font-family: var(--mono);
+  font-size: 12.5px; line-height: 1.65; padding: var(--s4); border-radius: 10px;
+  overflow-x: auto; margin: var(--s2) 0 0; }
+.runbar { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center;
+  font-size: var(--t-small); }
+.runbar select { max-width: 320px; }

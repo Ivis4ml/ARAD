@@ -52,6 +52,17 @@ open artifacts/atlas_service/index.html
 下一版由**变异**产生，方向由**盲化的语义诊断**给出，不靠任何写死的变体表。
 停滞时写 `human_review_required` 并停下 ——「该不该继续找」是人的判断。
 
+### 零点五、独立 app（看历史、并排比较、读因子卡）
+
+```bash
+.venv/bin/python -m arad.cli episode service --max-rounds 30 --run-id run_a
+.venv/bin/python -m arad.cli atlas serve --runs runs --port 8770
+open http://127.0.0.1:8770/
+```
+
+只读 API，只绑本机，没有任何写入路径（POST 一律 405，路径穿越在读取层挡掉）。
+单文件那条路保留：`--out <目录>` 生成的 index.html 自带数据，不需要服务器。
+
 ### 一、跑一遍研究循环并出 Atlas
 
 ```bash
@@ -105,7 +116,7 @@ cp dist/index.html ../src/arad/atlas/app_shell.html
 
 ```bash
 .venv/bin/ruff check .
-.venv/bin/python -m pytest tests/ -q     # 当前基线：571 项通过
+.venv/bin/python -m pytest tests/ -q     # 当前基线：613 项通过
 ```
 
 ### 数据准备（只在首次或数据更新后）
@@ -124,7 +135,7 @@ cp dist/index.html ../src/arad/atlas/app_shell.html
 2. 取 `docs/ENGINEERING_PROMPT.md`，把其中 `<CURRENT_TICKET>` 替换为
    `docs/tickets/M12-pm-semantic-mapping.md` 的全文，作为实现会话的任务提示词；
 3. 环境：`uv venv && uv pip install -e ".[dev]"`；验收命令统一为
-   `ruff check .` 与 `python -m pytest tests/ -q`（当前基线：571 项测试通过）；
+   `ruff check .` 与 `python -m pytest tests/ -q`（当前基线：613 项测试通过）；
    数据审计入口 `python -m arad.cli data-audit`，
    Temporal Spine 入口 `python -m arad.cli spine build|replay|verify`，
    Polymarket 普查与索引入口 `python -m arad.cli pm-index build|metadata-audit`
@@ -164,7 +175,7 @@ cp dist/index.html ../src/arad/atlas/app_shell.html
   盲化上下文组装、反馈格式化与 Search Episode 驱动；
 - `src/arad/atlas/` 与 `atlas-app/`：只读投影与 React 演化视图；
 - `src/arad/cli.py`：`data-audit`、`spine`、`pm-index`、`study`、`episode`、`atlas`；
-  `tests/contracts/`：571 项合同与回归测试；
+  `tests/contracts/`：613 项合同与回归测试；
 - 依赖（`pyproject.toml`，`uv.lock` 锁定）：pydantic、pyyaml、pyarrow；
   开发依赖 pytest、ruff。Python 3.11 以上。
 

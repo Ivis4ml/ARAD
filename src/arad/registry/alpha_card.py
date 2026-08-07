@@ -62,7 +62,12 @@ class AlphaCard:
         )
 
     def meaning(self) -> str:
-        """一段话说清楚这个因子最终意味着什么。**由证据拼装，不写任何未测的东西。**"""
+        """一段话说清楚这个因子最终意味着什么。由证据拼装，不写任何未测的东西。
+
+        **正文里不得出现 markdown 标记。**这段话同时进 `.md` 文件与 app 的纯文本
+        段落，后者会把 `**粗体**` 原样显示给人看 —— 这个错已经犯过四次，
+        因此有一条测试钉住它。强调一律用「」。
+        """
         d, s = self.discovery, self.sealed
         parts = [f"机制：{self.mechanism}"]
         dt = d.get("t_stat")
@@ -83,7 +88,7 @@ class AlphaCard:
             parts.append("封闭段尚未开启，因此没有任何样本外证据。")
         if self.status == "sealed_failed":
             parts.append(
-                "结论：**在样本外没有保住**。这是一个完整的否定结论，不是运行失败 ——"
+                "结论：「在样本外没有保住」。这是一个完整的否定结论，不是运行失败 ——"
                 "发现段上的强度来自搜索本身。"
             )
         elif self.status == "sealed_survived":
@@ -92,7 +97,7 @@ class AlphaCard:
             parts.append("结论：封闭段上定义点太少，判不了，不得据此下任何结论。")
         if not self.taxonomy_clean:
             parts.append(
-                "**注意：分类法不干净。**候选机制族的归纳语料覆盖了本段，"
+                "注意，分类法不干净：候选机制族的归纳语料覆盖了本段，"
                 "机制的选择并不独立于结果，样本外也救不了这一点（决定 0004）。"
                 "真正干净的检验只能在归纳切点之后的数据上做。"
             )

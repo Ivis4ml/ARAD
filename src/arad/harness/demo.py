@@ -35,6 +35,7 @@ import pyarrow.parquet as pq
 
 from ..atlas.app import render_app
 from ..atlas.project import project
+from ..atlas.runs import write_run
 from ..atlas.sources import data_freshness
 from ..evaluation.kernel import EvaluationRequest, EvaluationRow, evaluate
 from ..features.interpreter import INTERPRETER_VERSION, BarSeries, NotInterpretable, evaluate_series
@@ -757,6 +758,8 @@ def run_service_demo(
     atlas_dir: str,
     manifest_dir: str = "artifacts/manifests",
     max_rounds: int = 24,
+    runs_root: str = "runs",
+    run_id: str | None = None,
 ) -> dict:
     """连续研究：一轮接一轮，直到到达外部边界或停滞。不靠任何写死的变体表。"""
     from ..harness.service import AutoProposer, run_service
@@ -829,7 +832,16 @@ def run_service_demo(
         ledger.append("alpha_cards", {"cards": [c["feature_id"] for c in cards]})
         _write_cards(cards, atlas_dir)
         projection = project(ledger, family=FAMILY, service=queue.service_state())
-        paths = render_app(projection, atlas_dir, freshness=data_freshness(manifest_dir))
+        fresh = data_freshness(manifest_dir)
+        paths = render_app(projection, atlas_dir, freshness=fresh)
+        # 同一次运行同时落成 runs/<id>/：单文件那条路保留（不需要服务器），
+        # 运行目录让独立 app 能看历史、能并排比较
+        run_id = run_id or datetime.now(UTC).strftime("run_%Y%m%d_%H%M%S")
+        paths["run"] = write_run(
+            projection, runs_root, run_id,
+            events=ledger.read_events(role=LedgerRole.HUMAN),
+            cards=cards, freshness=fresh,
+        )["run_id"]
         return {
             "service": result.summary(),
             "beam": beam.summary()["members"],

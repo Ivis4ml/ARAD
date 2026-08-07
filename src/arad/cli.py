@@ -142,15 +142,24 @@ def main(argv: list[str] | None = None) -> int:
     svc.add_argument("--atlas", default="artifacts/atlas_service")
     svc.add_argument("--manifests", default="artifacts/manifests")
     svc.add_argument("--max-rounds", type=int, default=24)
+    svc.add_argument("--runs", default="runs")
+    svc.add_argument("--run-id", default=None)
 
     atlas = sub.add_parser("atlas", help="Research Atlas 只读投影（M9）")
     atlas_sub = atlas.add_subparsers(dest="atlas_cmd", required=True)
+    asv = atlas_sub.add_parser("serve", help="只读 API + 独立 app（只绑本机）")
+    asv.add_argument("--runs", default="runs")
+    asv.add_argument("--host", default="127.0.0.1")
+    asv.add_argument("--port", type=int, default=8770)
     ar = atlas_sub.add_parser("render", help="从账本渲染静态站点")
     ar.add_argument("--ledger", default="data/ledger/arad.db")
     ar.add_argument("--queue", default=None, help="可选：读取 Research Service 状态")
     ar.add_argument("--family", default=None, help="只统计某个 experiment family 的分母")
     ar.add_argument("--out", default="artifacts/atlas")
     ar.add_argument("--manifests", default="artifacts/manifests")
+    ar.add_argument("--runs", default=None,
+                    help="同时把这次投影落成 runs/<id>/ 供独立 app 读取")
+    ar.add_argument("--run-id", default=None)
     ar.add_argument("--renderer", default="react", choices=("react", "static"),
                     help="react：单页应用（含演化曲线）；static：服务端渲染的静态页")
 
@@ -242,7 +251,7 @@ def main(argv: list[str] | None = None) -> int:
             result = run_service_demo(
                 ledger_path=args.ledger, queue_path=args.queue, target_path=args.target,
                 atlas_dir=args.atlas, manifest_dir=args.manifests,
-                max_rounds=args.max_rounds,
+                max_rounds=args.max_rounds, runs_root=args.runs, run_id=args.run_id,
             )
             print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
             return 0
@@ -256,6 +265,11 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
         return 0
     if args.cmd == "atlas":
+        if args.atlas_cmd == "serve":
+            from .atlas.server import serve
+
+            serve(args.runs, host=args.host, port=args.port)
+            return 0
         from .atlas.app import render_app
         from .atlas.project import project
         from .atlas.render import render_site
@@ -277,6 +291,17 @@ def main(argv: list[str] | None = None) -> int:
                 else {**render_site(projection, args.out, freshness=fresh),
                       "renderer": "static"}
             )
+        if args.runs:
+            from datetime import UTC, datetime
+
+            from .atlas.runs import write_run
+            from .memory.ledger import Role as _Role
+
+            run_id = args.run_id or datetime.now(UTC).strftime("run_%Y%m%d_%H%M%S")
+            with EvidenceLedger(args.ledger) as led:
+                events = led.read_events(role=_Role.HUMAN)
+            paths["run"] = write_run(projection, args.runs, run_id,
+                                     events=events, freshness=fresh)["run_id"]
         print(json.dumps({**paths, **projection.totals, "chain": projection.chain},
                          ensure_ascii=False, indent=2, default=str))
         return 0
