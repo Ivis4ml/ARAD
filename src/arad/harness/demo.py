@@ -36,10 +36,11 @@ import pyarrow.parquet as pq
 from ..atlas.app import render_app
 from ..atlas.project import project
 from ..atlas.sources import data_freshness
-from ..evaluation.kernel import EvaluationRequest, EvaluationRow
+from ..evaluation.kernel import EvaluationRequest, EvaluationRow, evaluate
 from ..features.interpreter import INTERPRETER_VERSION, BarSeries, NotInterpretable, evaluate_series
 from ..features.spec import FeatureSpec, Source, Step
 from ..harness.audit import AuditInput
+from ..harness.beam import Beam, Candidate, greedy_ensemble
 from ..harness.context import DeclaredBias, assemble_proposer_context
 from ..harness.episode import run_episode
 from ..memory.ledger import EvidenceLedger
@@ -235,17 +236,17 @@ def _key(row: dict) -> str:
     return f"{row['contract']}:{row['trading_day']}:{row['session_name']}"
 
 
-def _read_target(path: str) -> list[dict]:
+def _read_target(path: str, segment: str = SEGMENT) -> list[dict]:
     table = pq.read_table(path, columns=_COLUMNS)
     rows = [
         r for r in table.to_pylist()
-        if r["sample_segment"] == SEGMENT and not r["no_trade"] and r["value"] is not None
+        if r["sample_segment"] == segment and not r["no_trade"] and r["value"] is not None
     ]
     rows.sort(key=lambda r: r["label_end"])
     return rows
 
 
-def _load_sc(target_path: str) -> tuple[list[dict], dict, dict]:
+def _load_sc(target_path: str, segment: str = SEGMENT) -> tuple[list[dict], dict, dict]:
     """读 M2 目标表的 discovery 段，构造 bar 序列、决策点与标签。
 
     **特征序列与标签来自两张不同的表**：特征用已实现波动（正的量级，取对数），
@@ -255,13 +256,13 @@ def _load_sc(target_path: str) -> tuple[list[dict], dict, dict]:
     序列的可用时刻取每个 session 的 `label_end`：已实现波动只有在其窗口结束后才可知。
     决策时点严格晚于所用序列点，PIT 由构造保证，不靠检查。
     """
-    feature_rows = [r for r in _read_target(target_path) if r["value"] > 0]
+    feature_rows = [r for r in _read_target(target_path, segment) if r["value"] > 0]
     label_path = target_path.replace(FEATURE_TARGET, LABEL_TARGET)
     if not os.path.exists(label_path):
         raise FileNotFoundError(
             f"缺少收益型目标表 {label_path}；请先运行 `arad spine build`"
         )
-    label_by_key = {_key(r): r for r in _read_target(label_path)}
+    label_by_key = {_key(r): r for r in _read_target(label_path, segment)}
 
     rows = [r for r in feature_rows if _key(r) in label_by_key]
     return_rows = sorted(label_by_key.values(), key=lambda r: r["label_end"])
@@ -286,7 +287,7 @@ def _load_sc(target_path: str) -> tuple[list[dict], dict, dict]:
         (spans[-1] - spans[0]).total_seconds() / (365.2425 * 86400) if len(spans) > 1 else 0
     )
     visible = {
-        "segment": SEGMENT,
+        "segment": segment,
         "feature_target": FEATURE_TARGET,
         "label_target": LABEL_TARGET,
         "label_is_return": True,
@@ -588,6 +589,99 @@ def signal_correlations(ledger, sc: dict, rows: list[dict]) -> dict:
     return out
 
 
+def _signal_values(ledger, sc: dict, rows: list[dict],
+                   feature_ids: list[str]) -> dict[str, list[float]]:
+    """把指定特征在同一批决策时点上求值。不碰标签。"""
+    from ..features.spec import FeatureSpec
+
+    want = set(feature_ids)
+    specs: dict[str, FeatureSpec] = {}
+    for event in ledger.read_events(role=LedgerRole.HUMAN):
+        if event["event_type"] != "feature_spec_locked":
+            continue
+        payload = event["payload"]
+        if payload["feature_id"] not in want:
+            continue
+        usable = {k: v for k, v in payload.items() if k in FeatureSpec.model_fields}
+        usable["steps"] = [Step(**st) for st in payload["steps"]]
+        specs.setdefault(payload["feature_id"], FeatureSpec(**usable))
+    decision_times = [r["decision_time"] for r in rows]
+    out: dict[str, list[float]] = {}
+    for name, spec in specs.items():
+        try:
+            values, _ = evaluate_series(spec, decision_times, sc["series"])
+        except NotInterpretable:
+            continue
+        out[name] = [v if v is not None else float("nan") for v in values]
+    return out
+
+
+def sealed_pass(
+    ledger, *, target_path: str, families_manifest: str, top_features: list[str],
+    segment: str = "historical_validation",
+) -> list[dict]:
+    """封闭段评估：**每个特征只开一次**。
+
+    取自 LBG 的纪律 —— 预算用尽后封闭段恰好开启一次，提案器全程不接触它。
+    这里把它变成结构性的：同一个 (规格, 段) 想开第二次会被账本拒绝。
+
+    并列记两件事而不是一件：时间上的样本外（任何 target 都成立）与分类法上的干净
+    （对 PM 族当前**不成立**，归纳切点 2026-08-01 覆盖了手上全部三段）。
+    """
+    from ..evaluation.sealed import SealedAlreadyOpened, open_sealed
+    from ..features.spec import FeatureSpec
+
+    rows, sc, visible = _load_sc(target_path, segment)
+    build = _build_evaluation(sc, rows, visible)
+    contaminate = _contamination(visible, families_manifest)
+
+    specs: dict[str, FeatureSpec] = {}
+    for event in ledger.read_events(role=LedgerRole.HUMAN):
+        if event["event_type"] != "feature_spec_locked":
+            continue
+        payload = event["payload"]
+        usable = {k: v for k, v in payload.items() if k in FeatureSpec.model_fields}
+        usable["steps"] = [Step(**st) for st in payload["steps"]]
+        spec = FeatureSpec(**usable)
+        specs.setdefault(spec.feature_id, spec)
+
+    out: list[dict] = []
+    for feature_id in top_features:
+        spec = specs.get(feature_id)
+        if spec is None:
+            continue
+        try:
+            request, labels, detail = build(spec, f"sealed:{feature_id}")
+        except NotInterpretable as exc:
+            out.append({"feature_id": feature_id, "skipped": str(exc)[:120]})
+            continue
+        if request is None:
+            out.append({"feature_id": feature_id, "skipped": "封闭段上定义点过少",
+                        "coverage": detail.get("feature_coverage")})
+            continue
+        result = evaluate(request, labels, role="evaluator")
+        try:
+            verdict = open_sealed(
+                ledger, feature_id=feature_id, segment=segment,
+                result={k: result[k] for k in ("coverage", "effects", "blocked_reasons",
+                                               "suggested_verdict")},
+                contamination=contaminate(spec),
+            )
+        except SealedAlreadyOpened as exc:
+            out.append({"feature_id": feature_id, "refused": str(exc)[:120]})
+            continue
+        out.append({
+            "feature_id": feature_id,
+            "segment": segment,
+            "t_stat": result["effects"]["t_stat"] if result["effects"] else None,
+            "ic_spearman": (result["effects"] or {}).get("ic", {}).get("ic_spearman"),
+            "rows": result["coverage"]["rows_submitted"],
+            "out_of_sample_in_time": verdict.out_of_sample_in_time,
+            "taxonomy_clean": verdict.taxonomy_clean,
+        })
+    return out
+
+
 def run_service_demo(
     *,
     ledger_path: str,
@@ -623,10 +717,53 @@ def run_service_demo(
         # 相关矩阵：只比信号之间，不读 outcome
         correlations = signal_correlations(ledger, sc, rows)
         ledger.append("signal_correlation", correlations)
+
+        # 束：按 reward（越过噪声地板多少）排，不按原始 |t| 排
+        beam = Beam(width=4)
+        proj = project(ledger, family=FAMILY)
+        tests_at = {c["study_id"]: c["tests_so_far"]
+                    for chain in proj.lineage for c in chain["curves"]["abs_t"]}
+        by_study = {st["study_id"]: st for st in proj.studies}
+        for study_id, study in by_study.items():
+            spec_id = next(
+                (e["payload"]["feature_id"]
+                 for e in ledger.read_events(role=LedgerRole.HUMAN, study_id=study_id)
+                 if e["event_type"] == "feature_spec_locked"), None,
+            )
+            if spec_id is None:
+                continue
+            beam.offer(Candidate(
+                feature_id=spec_id, study_id=study_id,
+                value=study["metrics"].get("abs_t"),
+                tests_at_evaluation=tests_at.get(study_id, 1),
+                source=study.get("source", ""),
+            ))
+        ledger.append("beam_state", beam.summary())
+
+        # 封闭段：每个特征只开一次，提案器全程不接触
+        sealed = sealed_pass(
+            ledger, target_path=target_path, families_manifest=FAMILIES_MANIFEST,
+            top_features=[m["feature_id"] for m in beam.summary()["members"]],
+        )
+        ledger.append("sealed_pass", {"entries": sealed})
+
+        # 组合：在**发现段**上贪心前向选（低相关约束），这一步是选择，不是验证
+        members = [m["feature_id"] for m in beam.summary()["members"]]
+        signals = {
+            name: values for name, values in _signal_values(ledger, sc, rows, members).items()
+        }
+        ensemble = greedy_ensemble(
+            signals, [sc["labels"][_key(r)] for r in rows], max_size=3,
+        ) if len(signals) >= 2 else {"constituents": [], "note": "可求值特征少于两个"}
+        ledger.append("ensemble_selected", ensemble)
         projection = project(ledger, family=FAMILY, service=queue.service_state())
         paths = render_app(projection, atlas_dir, freshness=data_freshness(manifest_dir))
         return {
             "service": result.summary(),
+            "beam": beam.summary()["members"],
+            "ensemble": {k: ensemble.get(k) for k in
+                         ("constituents", "trajectory", "score", "rejected_for_correlation")},
+            "sealed": sealed,
             "signal_correlation": {
                 k: correlations.get(k) for k in ("defined", "method", "names",
                                                  "mean_abs_offdiagonal")
