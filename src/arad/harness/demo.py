@@ -409,7 +409,7 @@ def _build_evaluation(sc: dict, rows: list[dict], visible: dict):
 
 
 def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict):
-    menu = _menu(manifest_dir)
+    menu = _menu(manifest_dir, visible)
 
     def assemble(task: dict):
         return assemble_proposer_context(
@@ -444,18 +444,39 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict):
     return assemble
 
 
-def _menu(manifest_dir: str, limit: int = 8) -> list[dict]:
+def _menu(manifest_dir: str, visible: dict | None = None) -> list[dict]:
+    """候选机制族的菜单。
+
+    **只列实际有序列的族。**此前按 manifest 的成交量取前 N 个，其中有些根本没有物化
+    序列，模型提了也求不了值 —— 菜单必须反映真实可用的东西，否则「自主选择」变成
+    在一张有一半是空头支票的表上选。
+
+    每一项带够形成经济假设的信息：token（这个族在讲什么）、市场数与名义额（有多少人
+    在上面下注）、覆盖起点（多早开始有数据）。**不做任何「哪个族关联原油」的暗示** ——
+    那是提案器要下的判断，也是它要被证伪的地方。菜单里同时有体育与加密族，
+    它们是天然的安慰剂对照：若某支球队的关注度「预测」了原油，整个信号都该被怀疑。
+    """
     path = Path(manifest_dir) / "pm_candidate_families.json"
     if not path.exists():
         return []
     doc = json.loads(path.read_text(encoding="utf-8"))
-    families = [f for f in doc.get("families", []) if not f.get("screened_out")]
-    families.sort(key=lambda f: f.get("trades", 0), reverse=True)
-    return [
-        {"family_id": f["family_id"], "head_tokens": f["head_tokens"],
-         "markets": f["markets"], "trades": f["trades"]}
-        for f in families[:limit]
-    ]
+    tokens = {f["family_id"]: f for f in doc.get("families", [])}
+    available = {f["family_id"]: f for f in (visible or {}).get("pm_families", [])}
+    out = []
+    for family_id, series in available.items():
+        meta = tokens.get(family_id, {})
+        out.append({
+            "family_id": family_id,
+            "head_tokens": meta.get("head_tokens", []),
+            "markets": meta.get("markets"),
+            "trades": meta.get("trades"),
+            "notional_usdc": round(series.get("notional", 0.0)),
+            "series_from": series.get("from", "")[:10],
+            "buckets": series.get("buckets"),
+            "fields": [f"{family_id}:{k}" for k in ("p", "notional", "trades")],
+        })
+    out.sort(key=lambda f: -(f["notional_usdc"] or 0))
+    return out
 
 
 def make_provider(kind: str, model: str = "claude-opus-5") -> tuple[Provider, int]:
@@ -760,6 +781,8 @@ def run_service_demo(
     max_rounds: int = 24,
     runs_root: str = "runs",
     run_id: str | None = None,
+    provider_kind: str = "mutator",
+    model: str = "claude-opus-5",
 ) -> dict:
     """连续研究：一轮接一轮，直到到达外部边界或停滞。不靠任何写死的变体表。"""
     from ..harness.service import AutoProposer, run_service
@@ -774,9 +797,13 @@ def run_service_demo(
     record = next(t.record() for t in TARGET_SPECS if t.name == LABEL_TARGET)
     now = datetime.now(UTC)
     with EvidenceLedger(ledger_path) as ledger, DurableQueue(queue_path) as queue:
+        provider = (
+            AutoProposer(target_name=LABEL_TARGET) if provider_kind == "mutator"
+            else ClaudeCliProvider(model_id=model)
+        )
         result = run_service(
             ledger=ledger, queue=queue,
-            provider=AutoProposer(target_name=LABEL_TARGET),
+            provider=provider,
             family=FAMILY, owner="auto-worker",
             assemble=_assembler(ledger, manifest_dir, visible),
             build_evaluation=_build_evaluation(sc, rows, visible),
@@ -843,7 +870,7 @@ def run_service_demo(
             cards=cards, freshness=fresh,
         )["run_id"]
         return {
-            "service": result.summary(),
+            "service": {**result.summary(), "provider": provider_kind},
             "beam": beam.summary()["members"],
             "cards": [{k: c[k] for k in ("feature_id", "status", "taxonomy_clean")}
                       for c in cards],

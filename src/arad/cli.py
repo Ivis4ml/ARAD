@@ -144,6 +144,9 @@ def main(argv: list[str] | None = None) -> int:
     svc.add_argument("--max-rounds", type=int, default=24)
     svc.add_argument("--runs", default="runs")
     svc.add_argument("--run-id", default=None)
+    svc.add_argument("--provider", default="mutator", choices=("mutator", "claude"),
+                     help="mutator 走确定性变异器；claude 让真实模型自主提案（花钱）")
+    svc.add_argument("--model", default="claude-opus-5")
 
     atlas = sub.add_parser("atlas", help="Research Atlas 只读投影（M9）")
     atlas_sub = atlas.add_subparsers(dest="atlas_cmd", required=True)
@@ -252,6 +255,7 @@ def main(argv: list[str] | None = None) -> int:
                 ledger_path=args.ledger, queue_path=args.queue, target_path=args.target,
                 atlas_dir=args.atlas, manifest_dir=args.manifests,
                 max_rounds=args.max_rounds, runs_root=args.runs, run_id=args.run_id,
+                provider_kind=args.provider, model=args.model,
             )
             print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
             return 0
