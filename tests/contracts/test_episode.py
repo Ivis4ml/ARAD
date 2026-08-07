@@ -331,3 +331,48 @@ def test_a_null_verdict_archives_evidence_and_does_not_schedule_a_new_version(ri
                 if e["event_type"] == "verdict_recorded"]
     assert recorded[0]["next_action"] == "archive_evidence"
     assert recorded[0]["next_action"] != "create_new_version"
+
+
+def test_evaluating_a_different_target_than_the_one_declared_is_refused(rig):
+    """被评的 target 必须就是提案预注册的那一个，**在读 outcome 之前**检查。
+
+    实测事故：菜单只告诉模型 `sc_rv_next_session`（已实现波动），而评价机用的标签
+    是 `sc_ret_next_session`（有符号收益）。12 条 Study 全部如此 —— 预注册的是
+    波动幅度的假设，检验的是收益方向，两者的秩相关只有 −0.05。
+    没有这道检查，系统会安静地给出关于**另一个问题**的结论，
+    而证据里两个名字各自都是对的，只是从不相互比对。
+    """
+    from arad.harness.episode import TargetMismatch
+
+    def build(spec, study_id):
+        rows, labels = rows_for(60)
+        request = EvaluationRequest(
+            study_id=study_id, confirmatory_id="c", family=FAMILY, rows=rows,
+            authoritative_keys=[r.row_key for r in rows], cost_model_declared=True,
+            placebo_draws=20, min_returns=10, min_clusters=5,
+            target_name="sc_ret_next_session",      # 与提案声明的不是同一个
+        )
+        return request, labels, {"from": "2022-11-01", "to": "2024-12-31"}
+
+    with pytest.raises(TargetMismatch, match="sc_rv_next_session"):
+        run_one(rig, [a_proposal_json(target="sc_rv_next_session")], builder=build)
+
+
+def test_the_declared_target_is_refused_before_the_outcome_is_read(rig):
+    """检查必须在 `record_outcome_read` 之前：问错了的问题不该消耗多重检验预算。"""
+    from arad.harness.episode import TargetMismatch
+
+    def build(spec, study_id):
+        rows, labels = rows_for(60)
+        request = EvaluationRequest(
+            study_id=study_id, confirmatory_id="c", family=FAMILY, rows=rows,
+            authoritative_keys=[r.row_key for r in rows], cost_model_declared=True,
+            placebo_draws=20, min_returns=10, min_clusters=5,
+            target_name="sc_open_gap_absorption",
+        )
+        return request, labels, {"from": "2022-11-01", "to": "2024-12-31"}
+
+    ledger, _ = rig
+    with pytest.raises(TargetMismatch):
+        run_one(rig, [a_proposal_json(target="sc_rv_next_session")], builder=build)
+    assert ledger.denominators(FAMILY)["statistical_denominator"] == 0

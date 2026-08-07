@@ -51,11 +51,14 @@ from ..providers.base import EpisodeBudget, Provider
 from ..providers.claude_cli import ClaudeCliProvider
 from ..providers.mock import MockProvider
 from ..registry.specs import TaxonomyContamination
+from ..temporal.targets import TARGET_SPECS
+
+
+class UnknownTarget(RuntimeError):
+    """提案声明的 target 没有已物化的目标表。"""
 
 
 def _label_target_record() -> dict:
-    from ..temporal.targets import TARGET_SPECS
-
     return next(t.record() for t in TARGET_SPECS if t.name == LABEL_TARGET)
 
 
@@ -261,12 +264,20 @@ def _load_sc(target_path: str, segment: str = SEGMENT) -> tuple[list[dict], dict
     决策时点严格晚于所用序列点，PIT 由构造保证，不靠检查。
     """
     feature_rows = [r for r in _read_target(target_path, segment) if r["value"] > 0]
-    label_path = target_path.replace(FEATURE_TARGET, LABEL_TARGET)
-    if not os.path.exists(label_path):
+    # **全部**已物化的 target 都载入，由模型在提案里选。此前只载 LABEL_TARGET，
+    # 而菜单又只告诉模型 FEATURE_TARGET，于是模型预注册的是波动幅度的假设，
+    # 系统检验的是收益方向（实测 12 条 Study 全部如此，两者秩相关 −0.05）。
+    labels_by_target: dict[str, dict] = {}
+    for spec in TARGET_SPECS:
+        path = target_path.replace(FEATURE_TARGET, spec.name)
+        if os.path.exists(path):
+            labels_by_target[spec.name] = {_key(r): r for r in _read_target(path, segment)}
+    if LABEL_TARGET not in labels_by_target:
         raise FileNotFoundError(
-            f"缺少收益型目标表 {label_path}；请先运行 `arad spine build`"
+            f"缺少收益型目标表 {target_path.replace(FEATURE_TARGET, LABEL_TARGET)}；"
+            "请先运行 `arad spine build`"
         )
-    label_by_key = {_key(r): r for r in _read_target(label_path, segment)}
+    label_by_key = labels_by_target[LABEL_TARGET]
 
     rows = [r for r in feature_rows if _key(r) in label_by_key]
     return_rows = sorted(label_by_key.values(), key=lambda r: r["label_end"])
@@ -308,6 +319,7 @@ def _load_sc(target_path: str, segment: str = SEGMENT) -> tuple[list[dict], dict
     visible["pm_families"] = pm["families"]
     visible["pm_note"] = pm["note"]
     return rows, {"series": series, "labels": labels,
+                  "labels_by_target": labels_by_target,
                   "periods_per_year": visible["sessions_per_year"]}, visible
 
 
@@ -359,10 +371,19 @@ def _load_pm_series(path: str) -> dict:
 def _build_evaluation(sc: dict, rows: list[dict], visible: dict):
     """返回 harness 需要的 build_evaluation 回调。"""
     series = sc["series"]
-    labels = sc["labels"]
     times = series[(Source.COMMODITY_BAR, "realised_volatility")].times
 
-    def build(spec: FeatureSpec, study_id: str):
+    def build(spec: FeatureSpec, study_id: str, proposal=None):
+        # **标签由提案声明的 target 决定。**此前写死用 LABEL_TARGET，而菜单又只告诉
+        # 模型 FEATURE_TARGET，于是预注册的是波动幅度的假设、检验的是收益方向。
+        target_name = (getattr(proposal, "target", None) or LABEL_TARGET)
+        chosen = sc.get("labels_by_target", {}).get(target_name)
+        if chosen is None:
+            raise UnknownTarget(
+                f"提案声明的 target {target_name!r} 没有已物化的目标表；"
+                f"可用：{sorted(sc.get('labels_by_target', {}))}"
+            )
+        record = next((t.record() for t in TARGET_SPECS if t.name == target_name), None)
         decision_times = [r["decision_time"] for r in rows]
         values, coverage = evaluate_series(spec, decision_times, series)
         eval_rows, authoritative, exclusions = [], [], {}
@@ -389,7 +410,13 @@ def _build_evaluation(sc: dict, rows: list[dict], visible: dict):
                     controls={"trading_day_parity": float(int(row["trading_day"]) % 2)},
                 )
             )
-        detail = {**visible, "feature_coverage": coverage}
+        chosen_labels = {
+            k: v["value"] for k, v in chosen.items() if v.get("value") is not None
+        }
+        eval_rows = [r for r in eval_rows if r.row_key in chosen_labels]
+        authoritative = [k for k in authoritative if k in chosen_labels]
+        detail = {**visible, "feature_coverage": coverage,
+                  "evaluated_target": target_name}
         if len(eval_rows) < 3:
             return None, {}, detail
         request = EvaluationRequest(
@@ -401,17 +428,17 @@ def _build_evaluation(sc: dict, rows: list[dict], visible: dict):
             preregistered_exclusions=exclusions,
             cost_model_declared=False,   # M5 之前没有成本模型；声明为 True 就是伪造
             interpreter_version=INTERPRETER_VERSION,
-            label_is_return=True,
-            target_name=LABEL_TARGET,
-            label_rule="entry_to_close",
+            label_is_return=bool(record and record.get("label_is_return")),
+            target_name=target_name,
+            label_rule=(record or {}).get("label_rule", ""),
             periods_per_year=sc.get("periods_per_year") or 485.3,
         )
-        return request, labels, detail
+        return request, chosen_labels, detail
 
     return build
 
 
-def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict):
+def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dict):
     menu = _menu(manifest_dir, visible)
 
     def assemble(task: dict):
@@ -433,8 +460,16 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict):
                     ),
                 },
             },
-            targets=[{"target": "sc_rv_next_session", "horizon": "next_session",
-                      "universe": "sc_dominant_t1", "segment": SEGMENT}],
+            # **全部已物化的 target 都列出来，由模型自己选。**
+            # 此前只列 sc_rv_next_session，而评价机用的是 sc_ret_next_session：
+            # 模型预注册的是波动幅度的假设，系统检验的是收益方向。
+            # 每一项如实带上 label 语义，选哪个是模型的经济判断。
+            targets=[
+                {**t.record(), "horizon": "next_session",
+                 "universe": "sc_dominant_t1", "segment": SEGMENT}
+                for t in TARGET_SPECS
+                if t.name in sc.get("labels_by_target", {})
+            ],
             menu=menu,
             menu_biases=MENU_BIASES,
             budget_facts={"note": "预算耗尽只结束 Episode，Research Service 不停"},
@@ -556,7 +591,13 @@ def _contamination(visible: dict, families_manifest: str):
 
 
 def _audit_input(sc: dict, visible: dict, target_record: dict):
-    """构造语义审计员的输入。**逐字段从类型化对象取，不是过滤某个 payload。**"""
+    """构造语义审计员的输入。**逐字段从类型化对象取，不是过滤某个 payload。**
+
+    `target_record` 按**提案声明的** target 取，不是按装配方写死的那一个。
+    否则审计员比对的是特征与另一个目标的语义：实测中模型被告知目标是已实现波动、
+    据此提出幅度型特征（对波动目标完全正确），却因为审计员拿的是收益型目标的记录
+    而被判「幅度对方向」，连续七轮。模型是对的，是框架在目标上对它说了假话。
+    """
     wired = frozenset({Source.COMMODITY_BAR.value, Source.PM_MARKET.value})
     span = None
     if visible.get("from") and visible.get("to"):
@@ -566,9 +607,15 @@ def _audit_input(sc: dict, visible: dict, target_record: dict):
         )
 
     def build(feature, proposal):
+        record = target_record
+        declared = getattr(proposal, "target", None)
+        if declared:
+            record = next(
+                (t.record() for t in TARGET_SPECS if t.name == declared), target_record
+            )
         return AuditInput(
             feature=feature,
-            target_record=target_record,
+            target_record=record,
             proposal_direction=proposal.direction,
             falsifiable_condition=proposal.falsifiable_condition,
             wired_sources=wired,
@@ -792,7 +839,6 @@ def run_service_demo(
 ) -> dict:
     """连续研究：一轮接一轮，直到到达外部边界或停滞。不靠任何写死的变体表。"""
     from ..harness.service import AutoProposer, run_service
-    from ..temporal.targets import TARGET_SPECS
 
     if not os.path.exists(target_path):
         raise FileNotFoundError(f"缺少 SC 目标表 {target_path}；请先运行 spine build")
@@ -815,7 +861,7 @@ def run_service_demo(
             ledger=ledger, queue=queue,
             provider=provider,
             family=FAMILY, owner="auto-worker",
-            assemble=_assembler(ledger, manifest_dir, visible),
+            assemble=_assembler(ledger, manifest_dir, visible, sc),
             build_evaluation=_build_evaluation(sc, rows, visible),
             audit_input=_audit_input(sc, visible, record),
             contamination=_contamination(visible, FAMILIES_MANIFEST),
@@ -930,7 +976,7 @@ def run_episode_demo(
             budget=EpisodeBudget(max_calls=12),
             family=FAMILY,
             owner="demo-worker",
-            assemble=_assembler(ledger, manifest_dir, visible),
+            assemble=_assembler(ledger, manifest_dir, visible, sc),
             build_evaluation=_build_evaluation(sc, rows, visible),
             audit_input=_audit_input(sc, visible, _label_target_record()),
             now=now,

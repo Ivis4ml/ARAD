@@ -54,7 +54,15 @@ from .audit import AUDIT_VERSION, audit, render_for_proposer
 from .context import ContextBundle, record_context
 from .feedback import Feedback, format_feedback
 
-EPISODE_VERSION = "0.1.0"
+EPISODE_VERSION = "0.2.0"
+
+
+class TargetMismatch(RuntimeError):
+    """被评的 target 不是提案预注册的那一个。
+
+    刻意抛异常而不是判 blocked：blocked 是一个**关于该 Study 的结论**，
+    而这里根本没有形成过一个可下结论的 Study —— 问的问题与检验的问题不是同一个。
+    """
 
 #: 方向的封闭同义词表。模型自然会写 "positive" 而不是 1，实测三次尝试都栽在这里。
 #: 这不是宽容：映射是封闭的、确定的，账本里记下的仍是规范化后的整数。
@@ -171,6 +179,16 @@ def _record_gap(ledger: EvidenceLedger, family: str, output: ProposalOutput) -> 
     )
     ledger.append("primitive_gap_declared", gap.model_dump(mode="json"))
     return proposal.content_id
+
+
+def _call_build(build_evaluation, feature, study_id, proposal):
+    """兼容两种回调签名：新的收 proposal，旧的不收。"""
+    try:
+        return build_evaluation(feature, study_id, proposal)
+    except TypeError as exc:
+        if "positional argument" not in str(exc):
+            raise
+        return build_evaluation(feature, study_id)
 
 
 def run_round(
@@ -307,7 +325,11 @@ def run_round(
                             detail={"codes": [m.code for m in mismatches]})
 
     try:
-        request_obj, labels, visible = build_evaluation(parsed.feature_spec, study_id)
+        # 把提案一并传下去：被评的 target 必须由**提案声明的那个**决定，
+        # 而不是由装配方写死。回调保持向后兼容（旧签名只收两个参数）。
+        request_obj, labels, visible = _call_build(
+            build_evaluation, parsed.feature_spec, study_id, proposal
+        )
     except NotInterpretable as exc:
         ledger.append("interpretation_gap", {"study_id": study_id, "error": str(exc)[:400]},
                       study_id=study_id)
@@ -339,6 +361,20 @@ def run_round(
                             proposal_id=proposal.content_id,
                             feature_id=parsed.feature_spec.content_id, study_id=study_id,
                             verdict=verdict.verdict.value)
+
+    # 被评的 target 必须就是提案预注册的那一个。**在读 outcome 之前检查。**
+    #
+    # 实测事故：菜单只告诉模型 `sc_rv_next_session`（已实现波动），而评价机用的标签
+    # 是 `sc_ret_next_session`（有符号收益）。12 条 Study 全部如此 —— 预注册的是
+    # 波动幅度的假设，检验的是收益方向，两者的秩相关只有 −0.05。
+    # 没有这道检查，系统会安静地给出关于**另一个问题**的结论，
+    # 而证据里两个名字各自都是对的，只是从不相互比对。
+    if request_obj.target_name and request_obj.target_name != proposal.target:
+        raise TargetMismatch(
+            f"提案预注册的 target 是 {proposal.target!r}，"
+            f"而评价机拿到的标签来自 {request_obj.target_name!r}。"
+            "这会使结论关于另一个问题，拒绝读 outcome"
+        )
 
     for test_id in [f"{study_id}:main"]:
         ledger.record_outcome_read(test_id, family, study_id)
