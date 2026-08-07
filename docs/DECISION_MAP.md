@@ -725,3 +725,13 @@ M8.4（universe 真的解析成品种清单）：`build_evaluation` 此前只装
 `two_way_cluster_se` 的退化条件是任一维少于 2 组，36 ≥ 2，因此
 `cluster_structure_insufficient` 这条出现在此前**每一条**判决里的理由会消失，
 `candidate` 只剩 `cost_model_missing` 一道闸门。
+
+M8.5（universe 进菜单）：`universe_menu()` 列出 52 项（1 个面板 + 51 个单品种），
+每项带成员数、成员清单、成员资格规则与一句说明。面板的说明写明它是唯一能做截面推断的
+形态、且其成员资格是幸存者性质的；`PROPOSAL_OUTPUT_TYPES` 里写明**一次评价只能取一个
+universe** —— 先跑面板再看逐品种、报告其中最好的那个，是事后检验。
+`run_service_demo` 的 `build_evaluation` 带上 `loader=_load_product`，多品种才装得进来。
+
+写这段菜单文字时被 `assert_blinded` 拦下：我在说明里写了「截面 IC」，而 `ic` 是效果字段名。
+**那道检查做得对**，措辞改为「截面推断 / 截面统计量」。这条记在这里，是因为它说明盲化边界
+连提示词的散文都管 —— 而散文正是最容易把效应量带进去的地方。

@@ -127,7 +127,12 @@ PROPOSAL_OUTPUT_TYPES: dict[str, str] = {
     "source": "字符串，取 primitives.sources 之一",
     "target": "字符串，取 targets 里某个 target 的名字",
     "horizon": "字符串，与所选 target 的 horizon 一致",
-    "universe": "字符串，取 data 里声明的 universe",
+    "universe": (
+        "字符串，取 universes 里某一项的 universe 名。"
+        "`full_coverage_panel` 是面板（多品种汇集，截面推断在这里才成立）；"
+        "`<品种>_dominant_t1` 是单品种。**一次评价只能取一个** —— "
+        "先跑面板再看逐品种、报告其中最好的那个，是事后检验"
+    ),
     "direction": (
         "**整数，只能是 1 或 -1**。1 表示特征取值越高、label 越高，-1 表示越低。"
         "不接受 \"positive\" / \"negative\" / \"long\" 这类词，也不接受 0"
@@ -194,6 +199,7 @@ def assemble_proposer_context(
     menu_biases: list[DeclaredBias],
     budget_facts: dict,
     blockers: list[str],
+    universes: list[dict] | None = None,
     learned_mismatches: tuple[str, ...] = (),
 ) -> ContextBundle:
     """组装提案器上下文。渲染后再过一次盲化检查。
@@ -206,6 +212,9 @@ def assemble_proposer_context(
         "task": "提出一个可证伪的研究提案",
         "data": data_facts,
         "targets": targets,
+        # 可选的 universe。选哪个是模型的研究判断：面板与单品种不是同一个对象，
+        # 前者是唯一能做截面推断的形态，后者的品种维恒为一组。
+        "universes": universes or [],
         "primitives": primitive_catalogue(),
         "menu": {
             "candidate_families": menu,

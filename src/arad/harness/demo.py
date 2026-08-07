@@ -436,6 +436,40 @@ def _load_pm_series(path: str) -> dict:
     }
 
 
+def universe_menu() -> list[dict]:
+    """可选的 universe。**只列真有 spine 的**，与机制族菜单同一条原则。
+
+    每一项带够形成判断的信息：成员数、样本行数、以及成员资格是怎么定的。
+    面板与单品种不是同一个研究对象：面板上一次评价是**一次**检验（判决由单一汇总
+    估计量导出），逐品种各评一次是 N 次 —— 两者不得混用，先跑面板再看逐品种、
+    报告其中最好的那个，是事后检验。
+    """
+    built = built_products()
+    panel = universe_members("full_coverage_panel")
+    out = [{
+        "universe": "full_coverage_panel",
+        "products": len(panel),
+        "members": panel,
+        "membership_rule": (
+            f"目标表满 {_FULL_COVERAGE_ROWS} 行的品种。这是**数据可得性**规则，"
+            "与任何结果无关；但它排除了样本期内退市或中途上市的品种，"
+            "这一条是幸存者性质的"
+        ),
+        "note": (
+            "唯一能做截面推断的形态：截面统计量要求同一时点上有多个可排序标的。"
+            "双向 cluster 的品种维在这里才有内容 —— 单品种下它恒为一组并退化"
+        ),
+    }]
+    out += [{
+        "universe": f"{p}_dominant_t1",
+        "products": 1,
+        "members": [p],
+        "membership_rule": "单品种主力视图",
+        "note": "截面统计量无定义；双向 cluster 的品种维退化为一组",
+    } for p in built]
+    return out
+
+
 def _load_product(product: str, segment: str = SEGMENT):
     """按品种装载一份 spine。返回 (pack, rows)，与 `_load_sc` 的形状一致。"""
     feature_target = next(
@@ -595,6 +629,7 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dic
                 if t.name in sc.get("labels_by_target", {})
             ],
             menu=menu,
+            universes=universe_menu(),
             menu_biases=MENU_BIASES,
             budget_facts={"note": "预算耗尽只结束 Episode，Research Service 不停"},
             blockers=[
@@ -986,7 +1021,7 @@ def run_service_demo(
             provider=provider,
             family=FAMILY, owner="auto-worker",
             assemble=_assembler(ledger, manifest_dir, visible, sc),
-            build_evaluation=_build_evaluation(sc, rows, visible),
+            build_evaluation=_build_evaluation(sc, rows, visible, loader=_load_product),
             audit_input=_audit_input(sc, visible, record),
             contamination=_contamination(visible, FAMILIES_MANIFEST),
             seed_task={}, max_rounds=max_rounds, now=now,
@@ -1101,7 +1136,7 @@ def run_episode_demo(
             family=FAMILY,
             owner="demo-worker",
             assemble=_assembler(ledger, manifest_dir, visible, sc),
-            build_evaluation=_build_evaluation(sc, rows, visible),
+            build_evaluation=_build_evaluation(sc, rows, visible, loader=_load_product),
             audit_input=_audit_input(sc, visible, _label_target_record()),
             now=now,
         )
