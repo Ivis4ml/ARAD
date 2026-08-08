@@ -243,16 +243,17 @@ export function Cockpit() {
           </section>
 
           <section className="ck-feed">
-            {(state.recent ?? []).map((r) => (
+            {(state.recent ?? []).map((r, i) => (
               <button key={r.study_id}
+                      style={{ animationDelay: `${Math.min(i * 45, 360)}ms` }}
                       className={`ck-beat ${selected === r.study_id ? 'sel' : ''}`}
                       onClick={() => { followRef.current = false; setSelected(r.study_id) }}>
                 <div className="ck-beat-head">
                   <i className="vdot" style={{ background: V_COLOR[r.verdict ?? ''] ?? '#30363d' }} />
-                  <span className="mono">{r.study_id}</span>
-                  {r.verdict && <span className="ck-chip" style={{ borderColor: V_COLOR[r.verdict] }}>{r.verdict}</span>}
-                  <span className="ck-dim mono small">{r.target} · {r.universe}</span>
+                  <span className="ck-feat mono">{r.feature_id ?? r.study_id}</span>
+                  {r.verdict && <span className="ck-chip" style={{ borderColor: V_COLOR[r.verdict], color: V_COLOR[r.verdict] }}>{r.verdict}</span>}
                 </div>
+                <div className="ck-dim mono ck-meta">{r.study_id} · {r.target} · {r.universe}</div>
                 {r.shape && <div className="mono small ck-shape">{r.shape}</div>}
                 {r.mechanism && <p className="ck-mech">{r.mechanism.slice(0, 180)}…</p>}
                 {r.audit_codes && r.audit_codes.length > 0 && (

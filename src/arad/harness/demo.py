@@ -30,6 +30,7 @@ import os
 from bisect import bisect_left
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pyarrow.parquet as pq
 
@@ -971,7 +972,13 @@ def sealed_pass(
     contaminate = _contamination(visible, families_manifest)
 
     specs: dict[str, FeatureSpec] = {}
+    declared: dict[str, SimpleNamespace] = {}
+    by_study_target: dict[str, SimpleNamespace] = {}
     for event in ledger.read_events(role=LedgerRole.HUMAN):
+        if event["event_type"] == "proposal_locked" and event.get("study_id"):
+            payload = event["payload"]
+            by_study_target[event["study_id"]] = SimpleNamespace(
+                target=payload.get("target"), universe=payload.get("universe"))
         if event["event_type"] != "feature_spec_locked":
             continue
         payload = event["payload"]
@@ -979,6 +986,11 @@ def sealed_pass(
         usable["steps"] = [Step(**st) for st in payload["steps"]]
         spec = FeatureSpec(**usable)
         specs.setdefault(spec.feature_id, spec)
+        # 封存段必须按**该 Study 声明的** target 评。不带 proposal 调 build 会回落到
+        # 默认的收益 target —— 与 M8.2 修掉的是同一个缺陷形状，只是发生在封存路径上：
+        # 声明波动、封存段却按收益评，等于用一次性的封存机会回答模型没问的问题。
+        if event.get("study_id") in by_study_target:
+            declared.setdefault(spec.feature_id, by_study_target[event["study_id"]])
 
     out: list[dict] = []
     for feature_id in top_features:
@@ -986,7 +998,8 @@ def sealed_pass(
         if spec is None:
             continue
         try:
-            request, labels, detail = build(spec, f"sealed:{feature_id}")
+            request, labels, detail = build(
+                spec, f"sealed:{feature_id}", declared.get(feature_id))
         except NotInterpretable as exc:
             out.append({"feature_id": feature_id, "skipped": str(exc)[:120]})
             continue

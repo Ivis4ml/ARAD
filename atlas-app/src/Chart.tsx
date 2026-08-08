@@ -100,20 +100,20 @@ export function Chart({
       {gridY.map((v, i) => (
         <g key={i}>
           <line x1={pad.left} x2={W - pad.right} y1={y(v)} y2={y(v)}
-                stroke="#edf0f4" strokeWidth={1} />
+                className="grid" strokeWidth={1} />
           <text x={pad.left - 8} y={y(v) + 4} textAnchor="end"
-                fontSize={10.5} fill="#5c6773" fontFamily="var(--mono)">
+                fontSize={10.5} className="axis" fontFamily="var(--mono)">
             {num(v, Math.abs(yMax) < 1 ? 3 : 1)}
           </text>
         </g>
       ))}
 
-      {bandPath && <path d={bandPath} fill="#c0392b" fillOpacity={0.07} />}
+      {bandPath && <path d={bandPath} className="band-fill" />}
       {showNullBand && (
-        <path d={line((p) => p.null_threshold, shown)} fill="none" stroke="#c0392b"
+        <path d={line((p) => p.null_threshold, shown)} fill="none" className="band-line"
               strokeWidth={1.5} strokeDasharray="5 4" />
       )}
-      <path d={line((p) => p.running_best, shown)} fill="none" stroke="#17708a"
+      <path d={line((p) => p.running_best, shown)} fill="none" className="best-line"
             strokeWidth={2} strokeLinecap="round" />
 
       {pendingIndex >= 0 && pendingIndex >= shown && (
@@ -156,7 +156,7 @@ export function Chart({
              className={i === shown - 1 ? 'point landed' : 'point'}>
             <circle cx={x(i)} cy={y(p.value)} r={selected === p.study_id ? 7 : 5}
                     fill={VERDICT_FILL[p.verdict] ?? '#5a6270'}
-                    stroke="#fff" strokeWidth={selected === p.study_id ? 2.5 : 1.5} />
+                    className="pt-ring" strokeWidth={selected === p.study_id ? 2.5 : 1.5} />
             <title>
               {`${p.study_id}\n${p.verdict}\n值 ${num(p.value, 4)}\n已读 outcome ${p.tests_so_far} 次` +
                 (p.change_summary ? `\n改动：${p.change_summary}` : '')}
@@ -167,13 +167,13 @@ export function Chart({
 
       {points.map((p, i) => (
         <text key={`x${p.study_id}`} x={x(i)} y={H - pad.bottom + 18} textAnchor="middle"
-              fontSize={10.5} fill={i < shown ? '#5c6773' : '#c2c8d0'}
+              fontSize={10.5} className={i < shown ? 'axis' : 'axis dimmer'}
               fontFamily="var(--mono)"
               fontWeight={selected === p.study_id ? 700 : 400}>
           {i + 1}
         </text>
       ))}
-      <text x={pad.left + innerW / 2} y={H - 10} textAnchor="middle" fontSize={11} fill="#5c6773">
+      <text x={pad.left + innerW / 2} y={H - 10} textAnchor="middle" fontSize={11} className="axis">
         {xCaption ?? '第几版（沿谱系）　·　点开一个点看它的判决快照'}
       </text>
     </svg>

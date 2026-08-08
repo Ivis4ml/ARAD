@@ -426,3 +426,34 @@ body { background: #000; }
 /* 旧视图里写死的浅色收尾 */
 .stage-doc table { color:#f2f2f7; }
 .stage-doc .notice { background:#1c1c1e; border-color:rgba(84,84,88,.36); }
+
+/* ---------------- 图表深色接管：颜色全走类，白描边退役 ---------------- */
+.app svg.curve .grid { stroke:rgba(84,84,88,.36); }
+.app svg.curve .axis { fill:rgba(235,235,245,.45); }
+.app svg.curve .axis.dimmer { fill:rgba(235,235,245,.2); }
+.app svg.curve .band-fill { fill:#f0735e; fill-opacity:.08; }
+.app svg.curve .band-line { stroke:#f0735e; stroke-width:1.6; stroke-dasharray:5 5;
+  filter:drop-shadow(0 0 6px rgba(240,115,94,.35)); }
+.app svg.curve .best-line { stroke:#7fa0ce; stroke-width:2;
+  filter:drop-shadow(0 0 8px rgba(127,160,206,.4));
+  stroke-dasharray:2000; stroke-dashoffset:0; animation:ck-draw 1.2s cubic-bezier(0.22,1,0.36,1); }
+.app svg.curve .pt-ring { stroke:#0d0d0f; }
+.app svg.curve .point circle { transition:r .18s ease, filter .18s ease; }
+.app svg.curve .point:hover circle { filter:drop-shadow(0 0 6px rgba(255,255,255,.35)); }
+@keyframes ck-draw { from { stroke-dashoffset:600; opacity:.3; } to { stroke-dashoffset:0; opacity:1; } }
+/* 浅色文档视图里维持原观感 */
+.stage-doc svg.curve .grid { stroke:rgba(84,84,88,.3); }
+
+/* ---------------- 过程流卡片层级 ---------------- */
+.ck-beat { animation:ck-evt .42s cubic-bezier(0.22,1,0.36,1) backwards; }
+.ck-beat:hover { transform:translateY(-1px); box-shadow:0 4px 16px rgba(0,0,0,.4),
+  0 0 0 0.5px rgba(255,255,255,.06); }
+.ck-beat { transition:background .18s ease, border-color .18s ease,
+  transform .18s ease, box-shadow .18s ease; }
+.ck-feat { font-size:13px; font-weight:600; color:#f2f2f7; overflow-wrap:anywhere; }
+.ck-meta { font-size:10.5px; margin-top:2px; }
+.ck-chip { background:transparent; }
+
+/* 数字变化时轻闪一下 */
+@keyframes ck-flash { 0% { color:#7fa0ce; } 100% { color:inherit; } }
+.ck-stat b, .ck-nums b { animation:ck-flash .8s ease; }
