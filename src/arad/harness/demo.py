@@ -1011,7 +1011,12 @@ def sealed_pass(
     from ..features.spec import FeatureSpec
 
     rows, sc, visible = _load_sc(target_path, segment)
-    build = _build_evaluation(sc, rows, visible)
+    # 面板 universe 的封存评估必须逐品种装载**同一封存段**的 spine。
+    # 此前不传 loader：单品种规格碰巧没事，面板规格会在构造期报
+    # UnknownUniverse —— 但那已经消耗了封条吗？没有：open_sealed 在评估
+    # 之后才写账。仍要修在开封之前 —— 一次不可比的评估同样烧掉封条。
+    build = _build_evaluation(
+        sc, rows, visible, loader=lambda product: _load_product(product, segment))
     contaminate = _contamination(visible, families_manifest)
 
     specs: dict[str, FeatureSpec] = {}
