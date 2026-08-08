@@ -365,7 +365,12 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
     }
 
     if not request.cost_model_declared:
-        blocked.append(("cost_model_missing", "未声明成本模型：不得取 candidate"))
+        blocked.append((
+            "cost_model_missing",
+            # 这是**系统级状态**（M5 未建），不是本条 Study 的缺陷。措辞必须说清，
+            # 否则每条判决都像在责备提案 —— 实测引起过误读。
+            "成本模型未建（系统级，M5）：候选封顶，不影响否定结论",
+        ))
     if placebo["placebo_exceed_rate"] > 0.1:
         blocked.append((
             "placebo_failed",

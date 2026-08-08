@@ -21,7 +21,7 @@ FEEDBACK_VERSION = "0.1.0"
 #: 失败分类白名单。键是分类名，值是识别用的关键片段（不含任何数字）。
 FAILURE_TAXONOMY: dict[str, tuple[str, ...]] = {
     "insufficient_sample": ("低于预注册下限",),
-    "cost_model_missing": ("未声明成本模型",),
+    "cost_model_missing": ("未声明成本模型", "成本模型未建"),
     "placebo_failed": ("置换检验未通过",),
     "single_point_influence": ("单点影响过大",),
     "cluster_structure_insufficient": ("cluster 方差非正", "只有一组"),
@@ -82,7 +82,7 @@ def _guidance(categories: list[str]) -> str:
     if "single_point_influence" in categories:
         return "结论依赖极少数观测：极值不可删除，应换更稳健的构造或更宽的样本"
     if "cost_model_missing" in categories:
-        return "缺成本模型：在 Confirmatory Lock 里声明成本口径"
+        return "成本模型未建是系统级状态（M5），与本条提案无关；无需改动提案"
     return "无阻断分类；若判决仍非 candidate，检查功效预检"
 
 

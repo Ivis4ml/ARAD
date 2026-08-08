@@ -247,9 +247,10 @@ export function Cockpit() {
             </div>
             {nCandidate === 0 && (
               <p className="ck-dim small" style={{ margin: '4px 0 6px' }}>
-                还没有。{state.denominators.statistical_denominator} 次检验全部为
-                null / blocked / underpowered —— 这是诚实的记录，不是界面没显示。
-                离地板最近的三条（点开看它为什么不算）：
+                还没有——而且在成本模型建成（M5）之前，candidate 结构性不可达：
+                这个 0 的一半是系统状态，不是数据结论。
+                {state.denominators.statistical_denominator} 次检验全部为
+                null / blocked / underpowered。离地板最近的三条（点开看它为什么不算）：
               </p>
             )}
             <div className="ck-near">
