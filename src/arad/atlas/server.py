@@ -69,6 +69,14 @@ class AtlasHandler(BaseHTTPRequestHandler):
         if parts[0] != "api":
             self._json({"error": "未知路径"}, 404)
             return
+        if len(parts) == 3 and parts[1] == "live" and parts[2] not in ("beats",):
+            from .live import study_detail
+
+            try:
+                self._json(study_detail(self.ledger_path, parts[2]))
+            except Exception as exc:                       # noqa: BLE001
+                self._json({"error": f"读取账本失败：{exc}"}, 503)
+            return
         if parts[1:] == ["live", "beats"]:
             from .live import live_beats
 

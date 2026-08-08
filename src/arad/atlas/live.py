@@ -133,6 +133,88 @@ def live_beats(ledger_path: str, since: int = 0, limit: int = 400) -> dict:
             "more": bool(beats) and beats[-1]["seq"] < head}
 
 
+def study_detail(ledger_path: str, study_id: str) -> dict:
+    """一个 Study 的全部细节，给右侧产物台。人类视图，因此含评价效应。"""
+    conn = sqlite3.connect(f"file:{ledger_path}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    import json as _json
+
+    try:
+        rows = conn.execute(
+            "SELECT seq, event_type, payload, created_at FROM events"
+            " WHERE study_id = ? ORDER BY seq", (study_id,)
+        ).fetchall()
+    finally:
+        conn.close()
+    if not rows:
+        return {"error": f"没有 Study {study_id!r}"}
+    out: dict = {"study_id": study_id, "timeline": []}
+    for row in rows:
+        payload = _json.loads(row["payload"])
+        kind = row["event_type"]
+        out["timeline"].append({"seq": row["seq"], "event_type": kind,
+                                "at": row["created_at"]})
+        if kind == "proposal_locked":
+            out["proposal"] = {k: payload.get(k) for k in (
+                "mechanism", "target", "universe", "direction",
+                "falsifiable_condition", "rationale")}
+        elif kind == "feature_spec_locked":
+            out["feature"] = {
+                "feature_id": payload.get("feature_id"),
+                "mechanism": payload.get("mechanism"),
+                "failure_condition": payload.get("failure_condition"),
+                "content_id": payload.get("content_id"),
+                "steps": payload.get("steps", []),
+            }
+        elif kind == "semantic_audit":
+            out["audit"] = payload.get("mismatches", [])
+        elif kind == "evaluation_result":
+            eff = payload.get("effects") or {}
+            perf = (eff.get("performance") or {})
+            ic = (eff.get("ic") or {})
+            out["evaluation"] = {
+                "t_stat": eff.get("t_stat"),
+                "ic_spearman": ic.get("ic_spearman"),
+                "sharpe_annualised": perf.get("sharpe_annualised"),
+                "coverage": payload.get("coverage"),
+                "blocked_reasons": payload.get("blocked_reasons", []),
+            }
+        elif kind == "verdict_recorded":
+            out["verdict"] = {k: payload.get(k) for k in
+                              ("verdict", "rationale", "next_action", "decided_at")}
+    return out
+
+
+def all_studies(conn: sqlite3.Connection) -> list[dict]:
+    """全部 Study 的轻量摘要，给左栏导航。倒序（最新在上）。"""
+    import json as _json
+
+    rows = conn.execute(
+        "SELECT study_id, event_type, payload FROM events"
+        " WHERE study_id IS NOT NULL AND event_type IN"
+        "   ('proposal_locked','feature_spec_locked','verdict_recorded','outcome_read')"
+        " ORDER BY seq"
+    ).fetchall()
+    acc: dict[str, dict] = {}
+    order: list[str] = []
+    for row in rows:
+        sid = row["study_id"]
+        if sid not in acc:
+            acc[sid] = {"study_id": sid}
+            order.append(sid)
+        payload = _json.loads(row["payload"])
+        if row["event_type"] == "proposal_locked":
+            acc[sid]["target"] = payload.get("target")
+            acc[sid]["universe"] = payload.get("universe")
+        elif row["event_type"] == "feature_spec_locked":
+            acc[sid]["feature_id"] = payload.get("feature_id")
+        elif row["event_type"] == "outcome_read":
+            acc[sid]["read_outcome"] = True
+        elif row["event_type"] == "verdict_recorded":
+            acc[sid]["verdict"] = payload.get("verdict")
+    return [acc[s] for s in reversed(order)]
+
+
 def _curve(conn: sqlite3.Connection) -> list[dict]:
     """逐次检验的 |t| 与同一时刻的零假设带。**两者永远成对。**
 
@@ -303,6 +385,7 @@ def _project(conn: sqlite3.Connection, family: str, now: datetime) -> dict:
         },
         "curve": _curve(conn),
         "recent": _recent(conn),
+        "studies": all_studies(conn),
         "note": (
             "|t| 与零假设带成对返回，缺一不可：一条随迭代上升的曲线本身就是选择在"
             "纯噪声上必然产出的形状，单看它会系统性地骗人"

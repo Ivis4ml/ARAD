@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Cockpit } from './Cockpit'
 import { Live } from './Live'
 import { Overview } from './Overview'
 import { Evolution } from './Evolution'
@@ -13,6 +14,7 @@ import { Slab } from './Slab'
 import { VerdictChip } from './Value'
 
 const TABS = [
+  { id: 'cockpit', label: '驾驶舱' },
   { id: 'live', label: '实时' },
   { id: 'replay', label: '回放' },
   { id: 'evolution', label: '演化' },
@@ -25,7 +27,7 @@ const TABS = [
 
 export function App({ loaded }: { loaded: Loaded }) {
   const p = loaded.projection
-  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('replay')
+  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('cockpit')
   // 判决区滚出视野后，把它压缩成 tabs 里的一行 —— 结论不该只在第一屏存在
   const [condensed, setCondensed] = useState(false)
   const sentinel = useRef<HTMLDivElement | null>(null)
@@ -69,6 +71,7 @@ export function App({ loaded }: { loaded: Loaded }) {
         </div>
       </nav>
 
+      {tab === 'cockpit' && <main className="full-bleed"><Cockpit /></main>}
       <main>
         <div className="col">
           {tab === 'replay' && <Replay p={p} />}
