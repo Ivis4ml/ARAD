@@ -262,6 +262,7 @@ def main(argv: list[str] | None = None) -> int:
                 atlas_dir=args.atlas, manifest_dir=args.manifests,
                 max_rounds=args.max_rounds, runs_root=args.runs, run_id=args.run_id,
                 provider_kind=args.provider, model=args.model,
+                direction=getattr(args, "direction", None),
             )
             print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
             return 0

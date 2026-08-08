@@ -632,13 +632,15 @@ def _build_evaluation(sc: dict, rows: list[dict], visible: dict,
     return build
 
 
-def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dict):
+def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dict,
+               direction: str | None = None):
     menu = _menu(manifest_dir, visible)
 
     def assemble(task: dict):
         return assemble_proposer_context(
             ledger=ledger,
             family=FAMILY,
+            research_direction=direction,
             data_facts={
                 "sources": data_freshness(manifest_dir),
                 "visible": visible,
@@ -1042,6 +1044,7 @@ def run_service_demo(
     run_id: str | None = None,
     provider_kind: str = "mutator",
     model: str = "claude-opus-5",
+    direction: str | None = None,
 ) -> dict:
     """连续研究：一轮接一轮，直到到达外部边界或停滞。不靠任何写死的变体表。"""
     from ..harness.service import AutoProposer, run_service
@@ -1066,6 +1069,9 @@ def run_service_demo(
         # 归档挪进 finally：此前只在正常结束时写快照，被停掉或崩溃的运行
         # 在下拉里就消失了（实测 run3/7/8/10 无踪、run9 崩溃后无档）。
         # 账本本身始终完整，快照只是它的投影，没有理由只给"善终"的运行拍照。
+        if direction:
+            ledger.append("research_direction_declared",
+                          {"run_id": run_id, "direction": direction})
         result = None
         cards: list[dict] = []
         extras: dict = {}
@@ -1074,7 +1080,7 @@ def run_service_demo(
                 ledger=ledger, queue=queue,
                 provider=provider,
                 family=FAMILY, owner="auto-worker",
-                assemble=_assembler(ledger, manifest_dir, visible, sc),
+                assemble=_assembler(ledger, manifest_dir, visible, sc, direction),
                 build_evaluation=_build_evaluation(sc, rows, visible, loader=_load_product),
                 audit_input=_audit_input(sc, visible, record),
                 contamination=_contamination(visible, FAMILIES_MANIFEST),

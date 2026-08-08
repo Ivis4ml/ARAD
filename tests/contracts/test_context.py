@@ -327,3 +327,29 @@ def test_the_target_menu_carries_no_free_prose():
         # 选目标真正需要的东西必须在
         for needed in ("name", "label_rule", "label_is_return", "tradable_claim"):
             assert needed in entry, (spec.name, needed)
+
+
+def test_research_direction_is_auditable_not_a_backdoor():
+    """人类研究方向是合法输入：整句进上下文，且与私改提示词的区别是**入账**。
+
+    这里钉两件事：给了方向则上下文里逐字出现；没给则该键不存在 ——
+    不允许出现空字符串占位（那会让「没有方向」与「方向为空」不可区分）。
+    """
+    from arad.harness.context import assemble_proposer_context
+    from arad.memory.ledger import EvidenceLedger
+
+    import tempfile
+
+    kw = dict(
+        family="fam", data_facts={"sources": {}},
+        targets=[], menu=[], menu_biases=[],
+        budget_facts={"proposal_denominator": 0, "statistical_denominator": 0},
+        blockers=[],
+    )
+    with tempfile.TemporaryDirectory() as tmp, \
+            EvidenceLedger(f"{tmp}/l.db") as ledger:
+        with_dir = assemble_proposer_context(
+            ledger=ledger, research_direction="标的不限于 sc", **kw)
+        assert with_dir.facts["human_research_direction"] == "标的不限于 sc"
+        without = assemble_proposer_context(ledger=ledger, **kw)
+        assert "human_research_direction" not in without.facts

@@ -208,6 +208,7 @@ def assemble_proposer_context(
     blockers: list[str],
     universes: list[dict] | None = None,
     learned_mismatches: tuple[str, ...] = (),
+    research_direction: str | None = None,
 ) -> ContextBundle:
     """组装提案器上下文。渲染后再过一次盲化检查。
 
@@ -217,6 +218,11 @@ def assemble_proposer_context(
     """
     facts = {
         "task": "提出一个可证伪的研究提案",
+        # 人类给出的研究方向。这是合法的输入通道：研究方向历来由人设定，
+        # 它不含任何效应信息，且启动时整句写入账本（research_direction_declared），
+        # 与私改提示词的区别正在于可审计。为空时不出现在上下文里。
+        **({"human_research_direction": research_direction}
+           if research_direction else {}),
         # 这是项目早就定下的口径（Merge-Plan-2 §3.1），不是对本轮结果的引导：
         # 只用 commodity_bar 的量价特征属 **Baseline Control**，不计入另类因子清单。
         # 不写出来，模型没有理由去残差化 —— 实测 run9 十一个版本里
