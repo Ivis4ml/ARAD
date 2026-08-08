@@ -478,3 +478,6 @@ body { background: #000; }
   animation:none; }
 .ck-near-item.baseline { color:var(--ck-dim); opacity:.75; }
 .ck-seal { color:#ebb45a; font-size:10.5px; }
+.ck-stale-reason { text-decoration:line-through; opacity:.55; }
+.ck-lifted { text-decoration:none; color:#3cc4a8; font-size:10.5px; }
+.ck-projected { color:#3cc4a8; border-left:2px solid #3cc4a8; padding-left:8px; }

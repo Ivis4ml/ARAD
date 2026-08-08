@@ -172,12 +172,25 @@ def study_detail(ledger_path: str, study_id: str) -> dict:
             eff = payload.get("effects") or {}
             perf = (eff.get("performance") or {})
             ic = (eff.get("ic") or {})
+            kinds = payload.get("blocked_reason_kinds")
+            projected = None
+            if isinstance(kinds, list) and "cost_model_missing" in kinds:
+                # 成本闸门已于 2026-08-08 解除（决定 0007）。旧判决是历史事实，
+                # 不改写；这里给出**新制度投影**：把该系统级理由摘除后按失效表重推。
+                from ..evaluation.kernel import derive_verdict
+
+                try:
+                    projected = derive_verdict(
+                        [k for k in kinds if k != "cost_model_missing"])
+                except ValueError:
+                    projected = None
             out["evaluation"] = {
                 "t_stat": eff.get("t_stat"),
                 "ic_spearman": ic.get("ic_spearman"),
                 "sharpe_annualised": perf.get("sharpe_annualised"),
                 "coverage": payload.get("coverage"),
                 "blocked_reasons": payload.get("blocked_reasons", []),
+                "projected_verdict": projected,
             }
         elif kind == "verdict_recorded":
             out["verdict"] = {k: payload.get(k) for k in

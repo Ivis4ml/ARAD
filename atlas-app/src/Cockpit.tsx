@@ -43,7 +43,8 @@ type Detail = {
               content_id?: string; steps?: Record<string, unknown>[] }
   audit?: { code: string; explanation?: string }[]
   evaluation?: { t_stat?: number; ic_spearman?: number; sharpe_annualised?: number
-                 coverage?: Record<string, number>; blocked_reasons?: string[] }
+                 coverage?: Record<string, number>; blocked_reasons?: string[]
+                 projected_verdict?: string | null }
   verdict?: { verdict?: string; rationale?: string; next_action?: string }
   timeline?: { seq: number; event_type: string; at: string }[]
 }
@@ -411,9 +412,23 @@ export function Cockpit() {
                     <div><span className="ck-dim small">行</span><b>{detail.evaluation.coverage?.rows_submitted ?? '—'}</b></div>
                     <div><span className="ck-dim small">品种簇</span><b>{detail.evaluation.coverage?.product_clusters ?? '—'}</b></div>
                   </div>
-                  {(detail.evaluation.blocked_reasons ?? []).map((b, i) => (
-                    <p key={i} className="small ck-dim">· {b}</p>
-                  ))}
+                  {(detail.evaluation.blocked_reasons ?? []).map((b, i) => {
+                    const stale = b.includes('未声明成本模型') || b.includes('成本模型未建')
+                    return (
+                      <p key={i} className={`small ck-dim ${stale ? 'ck-stale-reason' : ''}`}>
+                        · {b}
+                        {stale && <span className="ck-lifted">　← 系统级理由，2026-08-08 已解除（决定 0007）</span>}
+                      </p>
+                    )
+                  })}
+                  {detail.evaluation.projected_verdict &&
+                   detail.evaluation.projected_verdict !== detail.verdict?.verdict && (
+                    <p className="small ck-projected">
+                      新制度投影：摘除已解除的成本理由后，按失效表重推为
+                      <b> {detail.evaluation.projected_verdict}</b>。
+                      旧判决为历史事实，账本不改写。
+                    </p>
+                  )}
                 </section>
               )}
 
