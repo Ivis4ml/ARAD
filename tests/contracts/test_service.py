@@ -224,11 +224,11 @@ def _never_called(*a, **kw):  # pragma: no cover - 没形成提案时不该走�
     raise AssertionError("没有形成提案的一轮不该进入评价")
 
 
-def _run(rig, provider, **kw):
+def _run(rig, provider, assemble=None, **kw):
     ledger, queue = rig
     return run_service(
         ledger=ledger, queue=queue, provider=provider, family=FAMILY, owner="w1",
-        assemble=_assembler(ledger), build_evaluation=_never_called,
+        assemble=assemble or _assembler(ledger), build_evaluation=_never_called,
         audit_input=_never_called, seed_task={}, calls_per_episode=6,
         stall_rounds=3, now=T0, **kw,
     )
@@ -574,3 +574,26 @@ def test_an_unknown_universe_is_refused_not_guessed():
 
     with _pytest.raises(UnknownUniverse):
         universe_members("随便写的")
+
+
+def test_a_run_does_not_pick_up_another_runs_leftover_tasks(rig):
+    """队列是持久的，一次新运行**不得先去替上一次运行干活**。
+
+    实测事故：run8 启动后写出的第一条事件是 `run6-study-9` —— 队列里积着 6 个 ready
+    与 2 个 leased 的旧任务，而认领按 created_at 升序取最早的一个。
+    M7.2 让**标识**唯一了，但没让**认领**按运行范围隔离，于是 24 轮的统计预算
+    会花在陈旧任务上，而它们的载荷带着旧的错配码与旧的谱系。
+    """
+    ledger, queue = rig
+    # 上一次运行留下的可用任务
+    queue.enqueue("old-task-0", "study", {"study_id": "old-study-0"}, now=T0)
+
+    seen: list[str] = []
+
+    def assemble(task):
+        seen.append(task["task_id"])
+        return _assembler(ledger)(task)
+
+    _run(rig, NeverParses(), max_rounds=1, run_id="fresh", assemble=assemble)
+    assert seen == ["fresh-task-0"], f"认领了别的运行的任务：{seen}"
+    assert queue.get("old-task-0")["state"] == "ready", "旧任务应当原封不动留在队列里"

@@ -158,28 +158,38 @@ class DurableQueue:
     # ------------------------------------------------------------ 认领
 
     def claim(
-        self, owner: str, *, lease_seconds: int = 300, now: datetime | None = None
+        self, owner: str, *, lease_seconds: int = 300, now: datetime | None = None,
+        prefix: str | None = None,
     ) -> dict | None:
         """认领一个可运行任务。没有可运行任务时返回 None，**不返回"完成"**。
 
         可运行 = READY，或租约已过期的 LEASED，或唤醒时刻已到的等待状态。
         过期租约可被重新认领，这就是 kill -9 之后任务不丢的机制。
+
+        `prefix` 把认领限制在本次运行的任务上。**没有它，一次新运行会先去替上一次
+        运行干活**：队列是持久的，上一次被停掉时留下的 ready 任务排在更前面，
+        而认领按 created_at 升序取最早的一个。实测 run8 启动后写出的第一条事件
+        是 `run6-study-9` —— M7.2 让**标识**唯一了，但没让**认领**按运行范围隔离，
+        于是 24 轮预算会花在陈旧任务上，而它们的载荷带着旧的错配码与旧的谱系。
         """
         current = datetime.now(UTC) if now is None else now
         stamp = _iso(current)
+        scope = " AND task_id LIKE ?" if prefix else ""
         with self._conn:
             row = self._conn.execute(
-                "SELECT * FROM tasks WHERE"
+                "SELECT * FROM tasks WHERE ("
                 # READY 也要尊重退避：失败重排的任务在 wake_at 之前不可认领
                 " (state = ? AND (wake_at IS NULL OR wake_at <= ?))"
                 " OR (state = ? AND lease_expires_at <= ?)"
                 " OR (state IN (?, ?) AND wake_at IS NOT NULL AND wake_at <= ?)"
+                f" ){scope}"
                 " ORDER BY priority DESC, created_at ASC, task_id ASC LIMIT 1",
                 (
                     TaskState.READY.value, stamp,
                     TaskState.LEASED.value, stamp,
                     TaskState.WAITING_FOR_DATA.value,
                     TaskState.HUMAN_REVIEW_REQUIRED.value, stamp,
+                    *((f"{prefix}%",) if prefix else ()),
                 ),
             ).fetchone()
             if row is None:

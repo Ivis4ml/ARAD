@@ -170,6 +170,9 @@ def run_service(
             family=family, owner=owner, assemble=assemble,
             build_evaluation=build_evaluation, audit_input=audit_input,
             contamination=contamination, max_rounds=1, now=current,
+            # 只认领本次运行的任务。队列是持久的，不限制的话一次新运行会先去替
+            # 上一次运行干活 —— 实测 run8 启动后写出的第一条事件是 run6-study-9。
+            task_prefix=f"{run_id}-task-",
         )
         result.episodes.append(episode.summary())
         result.rounds += len(episode.rounds)

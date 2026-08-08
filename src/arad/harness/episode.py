@@ -203,11 +203,16 @@ def run_round(
     build_evaluation: Any,
     audit_input: Any = None,
     contamination: Any = None,
+    task_prefix: str | None = None,
     now: datetime | None = None,
 ) -> RoundOutcome | None:
-    """跑一轮。没有可运行任务时返回 None（不是"完成"）。"""
+    """跑一轮。没有可运行任务时返回 None（不是"完成"）。
+
+    `task_prefix` 把认领限制在本次运行的任务上：队列是持久的，不加限制时
+    一次新运行会先去替上一次运行干活（实测 run8 的第一条事件是 run6-study-9）。
+    """
     current = now or datetime.now(UTC)
-    task = queue.claim(owner, now=current)
+    task = queue.claim(owner, now=current, prefix=task_prefix)
     if task is None:
         return None
     task_id = task["task_id"]
@@ -415,6 +420,7 @@ def run_episode(
     audit_input: Any = None,
     contamination: Any = None,
     schedule_next: Any = None,
+    task_prefix: str | None = None,
     max_rounds: int = 50,
     now: datetime | None = None,
 ) -> EpisodeResult:
@@ -431,6 +437,7 @@ def run_episode(
     for _ in range(max_rounds):
         try:
             outcome = run_round(
+                task_prefix=task_prefix,
                 queue=queue, ledger=ledger, provider=provider, budget=budget,
                 family=family, owner=owner, assemble=assemble,
                 build_evaluation=build_evaluation, audit_input=audit_input,
