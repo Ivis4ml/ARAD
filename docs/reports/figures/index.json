@@ -1,0 +1,584 @@
+{
+ "auto-study-1": {
+  "file": "auto-study-1.png",
+  "feature_id": "pm_iran_notional_innovation_z",
+  "defined_points": 506,
+  "total_points": 1040
+ },
+ "auto-study-2": {
+  "file": "auto-study-2.png",
+  "feature_id": "pm_geo_attention_share_z_iran_over_be_1d",
+  "defined_points": 520,
+  "total_points": 1040
+ },
+ "auto-study-3": {
+  "file": "auto-study-3.png",
+  "feature_id": "pm_iran_attention_share_z",
+  "defined_points": 520,
+  "total_points": 1040
+ },
+ "auto-study-4": {
+  "file": "auto-study-4.png",
+  "feature_id": "pm_iran_closure_p_innovation",
+  "defined_points": 498,
+  "total_points": 1040
+ },
+ "auto-study-5": {
+  "file": "auto-study-5.png",
+  "feature_id": "rv_innovation_z_1d_vs_14d",
+  "defined_points": 835,
+  "total_points": 1040
+ },
+ "auto-study-6": {
+  "file": "auto-study-6.png",
+  "feature_id": "pm_iran_belief_churn_innov_z",
+  "defined_points": 476,
+  "total_points": 1040
+ },
+ "auto-study-7": {
+  "file": "auto-study-7.png",
+  "feature_id": "cb_rv_short_over_base_z",
+  "defined_points": 879,
+  "total_points": 1040
+ },
+ "auto-study-0": {
+  "file": "auto-study-0.png",
+  "feature_id": "pm_iran_trade_arrival_z",
+  "defined_points": 520,
+  "total_points": 1040
+ },
+ "run3-study-0": {
+  "file": "run3-study-0.png",
+  "feature_id": "sc_directional_efficiency_rank_v1",
+  "defined_points": 395,
+  "total_points": 1040
+ },
+ "run3-study-1": {
+  "file": "run3-study-1.png",
+  "feature_id": "rv_dispersion_ratio_rank_10d",
+  "defined_points": 786,
+  "total_points": 1040
+ },
+ "run3-study-2": {
+  "file": "run3-study-2.png",
+  "feature_id": "sc_sessret_scaled_by_baseline_vol_rankpct",
+  "defined_points": 768,
+  "total_points": 1040
+ },
+ "run3-study-3": {
+  "file": "run3-study-3.png",
+  "feature_id": "sc_vol_scaled_session_reversal_v1",
+  "defined_points": 567,
+  "total_points": 1040
+ },
+ "run3-study-4": {
+  "file": "run3-study-4.png",
+  "feature_id": "sc_vol_scaled_daily_displacement_v1",
+  "defined_points": 910,
+  "total_points": 1040
+ },
+ "run3-study-5": {
+  "file": "run3-study-5.png",
+  "feature_id": "sc_vol_scaled_session_return_rankpct_v1",
+  "defined_points": 808,
+  "total_points": 1040
+ },
+ "run3-study-6": {
+  "file": "run3-study-6.png",
+  "feature_id": "sc_signed_shock_norm_rank_2d",
+  "defined_points": 495,
+  "total_points": 1040
+ },
+ "run3-study-7": {
+  "file": "run3-study-7.png",
+  "feature_id": "pm_iran_notional_innov_rank_90d",
+  "defined_points": 506,
+  "total_points": 1040
+ },
+ "run3-study-8": {
+  "file": "run3-study-8.png",
+  "feature_id": "sc_signed_ret_1d_z",
+  "defined_points": 635,
+  "total_points": 1040
+ },
+ "run4-study-0": {
+  "file": "run4-study-0.png",
+  "feature_id": "sc_upside_share_rank_5d",
+  "defined_points": 901,
+  "total_points": 1040
+ },
+ "run4-study-1": {
+  "file": "run4-study-1.png",
+  "feature_id": "sc_cumret_7d_rank",
+  "defined_points": 868,
+  "total_points": 1040
+ },
+ "run4-study-2": {
+  "file": "run4-study-2.png",
+  "feature_id": "sc_prev_day_return_rank_pct_2d_over_90d",
+  "defined_points": 823,
+  "total_points": 1040
+ },
+ "run4-study-3": {
+  "file": "run4-study-3.png",
+  "feature_id": "sc_session_return_rank_3d_120d",
+  "defined_points": 867,
+  "total_points": 1040
+ },
+ "run4-study-4": {
+  "file": "run4-study-4.png",
+  "feature_id": "pm_ceasefire_p_state_innovation_12h_30d",
+  "defined_points": 683,
+  "total_points": 1040
+ },
+ "run4-study-5": {
+  "file": "run4-study-5.png",
+  "feature_id": "sc_studentised_range_6h_rankpct_120d",
+  "defined_points": 0,
+  "total_points": 1040
+ },
+ "run4-study-6": {
+  "file": "run4-study-6.png",
+  "feature_id": "sc_vol_scaled_drawdown_pct_v1",
+  "defined_points": 878,
+  "total_points": 1040
+ },
+ "run4-study-7": {
+  "file": "run4-study-7.png",
+  "feature_id": "pm_iran_attention_rank_24h_60d",
+  "defined_points": 509,
+  "total_points": 1040
+ },
+ "run4-study-8": {
+  "file": "run4-study-8.png",
+  "feature_id": "sc_cum_ret_5d_rank_pct",
+  "defined_points": 942,
+  "total_points": 1040
+ },
+ "run4-study-9": {
+  "file": "run4-study-9.png",
+  "feature_id": "sc_vol_normalised_drift_rank_3d",
+  "defined_points": 887,
+  "total_points": 1040
+ },
+ "run4-study-10": {
+  "file": "run4-study-10.png",
+  "feature_id": "pm_iran_p_churn_over_sc_rv_1d_rank",
+  "defined_points": 423,
+  "total_points": 1040
+ },
+ "run4-study-11": {
+  "file": "run4-study-11.png",
+  "feature_id": "pm_russia_avg_ticket_rank_1d_120d",
+  "defined_points": 722,
+  "total_points": 1040
+ },
+ "run5-study-0": {
+  "file": "run5-study-0.png",
+  "feature_id": "pm_up_arrival_concentration_6h_over_24h_rank",
+  "defined_points": 134,
+  "total_points": 1040
+ },
+ "run5-study-1": {
+  "file": "run5-study-1.png",
+  "feature_id": "pm_iran_belief_impact_per_notional_rank_1d",
+  "defined_points": 489,
+  "total_points": 1040
+ },
+ "run5-study-2": {
+  "file": "run5-study-2.png",
+  "feature_id": "sc_lowfreq_over_highfreq_vol_rank_2d_180d",
+  "defined_points": 630,
+  "total_points": 1040
+ },
+ "run6-study-0": {
+  "file": "run6-study-0.png",
+  "feature_id": "sc_rv_close_concentration_rank_3h_180d",
+  "defined_points": 0,
+  "total_points": 1040
+ },
+ "run6-study-1": {
+  "file": "run6-study-1.png",
+  "feature_id": "cb_rv_acceleration_1d_rank_180d",
+  "defined_points": 545,
+  "total_points": 1040
+ },
+ "run6-study-2": {
+  "file": "run6-study-2.png",
+  "feature_id": "pm_iran_minus_israel_p_innov_z_12h_60d",
+  "defined_points": 478,
+  "total_points": 1040
+ },
+ "run6-study-3": {
+  "file": "run6-study-3.png",
+  "feature_id": "pm_russia_arrival_burstiness_rank_1d_120d",
+  "defined_points": 646,
+  "total_points": 1040
+ },
+ "run6-study-4": {
+  "file": "run6-study-4.png",
+  "feature_id": "sc_downside_jump_severity_rank_5d_120d",
+  "defined_points": 870,
+  "total_points": 1040
+ },
+ "run6-study-5": {
+  "file": "run6-study-5.png",
+  "feature_id": "cb_terminal_rv_concentration_rank_30m_over_1d_120d",
+  "defined_points": 0,
+  "total_points": 1040
+ },
+ "run6-study-6": {
+  "file": "run6-study-6.png",
+  "feature_id": "pm_ukraine_arrival_minus_own_rv_innov_rank_1d_90d",
+  "defined_points": 610,
+  "total_points": 1040
+ },
+ "run6-study-7": {
+  "file": "run6-study-7.png",
+  "feature_id": "pm_up_closed_window_arrival_rank_6h_off6h_90d",
+  "defined_points": 84,
+  "total_points": 1040
+ },
+ "run6-study-8": {
+  "file": "run6-study-8.png",
+  "feature_id": "pm_ceasefire_belief_churn_resid_own_rv_1d_90d",
+  "defined_points": 626,
+  "total_points": 1040
+ },
+ "run6-study-11": {
+  "file": "run6-study-11.png",
+  "feature_id": "pm_israel_closed_window_arrival_resid_own_rv_6h_off6h_90d",
+  "defined_points": 503,
+  "total_points": 1040
+ },
+ "run7-study-0": {
+  "file": "run7-study-0.png",
+  "feature_id": "sc_sessret_resid_brent_12h_90d",
+  "defined_points": 825,
+  "total_points": 1040
+ },
+ "run7-study-1": {
+  "file": "run7-study-1.png",
+  "feature_id": "pm_russia_escalation_p_innov_resid_brent_12h_30d_90d",
+  "defined_points": 656,
+  "total_points": 1040
+ },
+ "run7-study-2": {
+  "file": "run7-study-2.png",
+  "feature_id": "pm_dip_over_reach_notional_rank_1d_120d",
+  "defined_points": 72,
+  "total_points": 1040
+ },
+ "run7-study-3": {
+  "file": "run7-study-3.png",
+  "feature_id": "pm_iran_belief_settlement_within_range_1d",
+  "defined_points": 556,
+  "total_points": 1040
+ },
+ "run9-study-0": {
+  "file": "run9-study-0.png",
+  "feature_id": "cb_ret_1d_minus_prior_13d_rank_diff_90d",
+  "defined_points": 808,
+  "total_points": 1040
+ },
+ "run9-study-1": {
+  "file": "run9-study-1.png",
+  "feature_id": "pm_ceasefire_terminal_drift_over_churn_rank_12h_90d",
+  "defined_points": 527,
+  "total_points": 1040
+ },
+ "run9-study-2": {
+  "file": "run9-study-2.png",
+  "feature_id": "pm_iran_closed_minus_open_belief_range_rank_6h_90d",
+  "defined_points": 281,
+  "total_points": 1040
+ },
+ "run9-study-3": {
+  "file": "run9-study-3.png",
+  "feature_id": "pm_iran_active_hour_share_1d_over_prior_30d_rank_90d",
+  "defined_points": 504,
+  "total_points": 1040
+ },
+ "run9-study-4": {
+  "file": "run9-study-4.png",
+  "feature_id": "pm_reach_over_dip_breach_odds_tilt_rank_12h_90d",
+  "defined_points": 54,
+  "total_points": 1040
+ },
+ "run9-study-5": {
+  "file": "run9-study-5.png",
+  "feature_id": "pm_ukraine_over_russia_notional_tilt_rank_1d_120d",
+  "defined_points": 679,
+  "total_points": 1040
+ },
+ "run9-study-6": {
+  "file": "run9-study-6.png",
+  "feature_id": "sc_terminal_signed_impulse_rank_30m_120d",
+  "defined_points": 0,
+  "total_points": 1040
+ },
+ "run9-study-7": {
+  "file": "run9-study-7.png",
+  "feature_id": "pm_ceasefire_over_israel_belief_churn_rank_1d_90d",
+  "defined_points": 530,
+  "total_points": 1040
+ },
+ "run9-study-8": {
+  "file": "run9-study-8.png",
+  "feature_id": "pm_ukraine_strike_p_innov_closed_6h_z_30d_90d",
+  "defined_points": 539,
+  "total_points": 1040
+ },
+ "run9-study-9": {
+  "file": "run9-study-9.png",
+  "feature_id": "pm_iran_arrival_accel_same_phase_6h_vs_1d_rank_90d",
+  "defined_points": 178,
+  "total_points": 1040
+ },
+ "run9-study-10": {
+  "file": "run9-study-10.png",
+  "feature_id": "pm_iran_p_innov_x_own_vol_state_over_belief_churn_12h_30d",
+  "defined_points": 488,
+  "total_points": 1040
+ },
+ "run10-study-0": {
+  "file": "run10-study-0.png",
+  "feature_id": "pm_ceasefire_arrival_innov_resid_own_rv_12h_30d_90d",
+  "defined_points": 592,
+  "total_points": 1040
+ },
+ "run10-study-1": {
+  "file": "run10-study-1.png",
+  "feature_id": "pm_iran_p_innov_closed_6h_resid_brent_30d_90d",
+  "defined_points": 360,
+  "total_points": 1040
+ },
+ "run10-study-2": {
+  "file": "run10-study-2.png",
+  "feature_id": "pm_iran_avg_ticket_closed_6h_resid_own_rv_90d",
+  "defined_points": 378,
+  "total_points": 1040
+ },
+ "run10-study-3": {
+  "file": "run10-study-3.png",
+  "feature_id": "pm_iran_minus_ceasefire_net_escalation_resid_brent_12h_30d_90d",
+  "defined_points": 416,
+  "total_points": 1040
+ },
+ "run10-study-4": {
+  "file": "run10-study-4.png",
+  "feature_id": "pm_iran_intrasession_belief_drift_resid_brent_6h_90d",
+  "defined_points": 350,
+  "total_points": 1040
+ },
+ "run11-study-0": {
+  "file": "run11-study-0.png",
+  "feature_id": "pm_iran_money_concentration_max_hour_share_resid_own_rv_1d_90d",
+  "defined_points": 469,
+  "total_points": 1040
+ },
+ "run11-study-1": {
+  "file": "run11-study-1.png",
+  "feature_id": "pm_iran_belief_floor_ratchet_wow_resid_brent_7d_90d",
+  "defined_points": 495,
+  "total_points": 1040
+ },
+ "run11-study-2": {
+  "file": "run11-study-2.png",
+  "feature_id": "pm_iran_closed_money_share_resid_own_rv_6h_over_1d_90d",
+  "defined_points": 378,
+  "total_points": 1040
+ },
+ "run11-study-3": {
+  "file": "run11-study-3.png",
+  "feature_id": "pm_iran_hazard_level_30d_resid_own_rv_90d",
+  "defined_points": 616,
+  "total_points": 1040
+ },
+ "run11-study-4": {
+  "file": "run11-study-4.png",
+  "feature_id": "pm_ceasefire_over_iran_money_tilt_resid_own_rv_1d_90d",
+  "defined_points": 469,
+  "total_points": 1040
+ },
+ "run11-study-5": {
+  "file": "run11-study-5.png",
+  "feature_id": "pm_ceasefire_over_iran_avg_ticket_resid_brent_1d_90d",
+  "defined_points": 468,
+  "total_points": 1040
+ },
+ "run11-study-6": {
+  "file": "run11-study-6.png",
+  "feature_id": "pm_up_direction_belief_dispersion_resid_own_rv_12h_90d",
+  "defined_points": 151,
+  "total_points": 1040
+ },
+ "run13-study-0": {
+  "file": "run13-study-0.png",
+  "feature_id": "pm_launch_over_be_speculative_demand_resid_own_rv_1d_90d",
+  "defined_points": 435,
+  "total_points": 1040
+ },
+ "run13-study-1": {
+  "file": "run13-study-1.png",
+  "feature_id": "pm_dip_barrier_pricing_closed_6h_over_norm_resid_own_rv_90d",
+  "defined_points": 10,
+  "total_points": 1040
+ },
+ "run13-study-2": {
+  "file": "run13-study-2.png",
+  "feature_id": "pm_iran_belief_churn_term_structure_7d_over_30d_resid_own_rv_90d",
+  "defined_points": 509,
+  "total_points": 1040
+ },
+ "run14-study-0": {
+  "file": "run14-study-0.png",
+  "feature_id": "pm_ceasefire_closed_minus_open_arrival_coverage_resid_own_rv_6h_90d",
+  "defined_points": 487,
+  "total_points": 1040
+ },
+ "run14-study-1": {
+  "file": "run14-study-1.png",
+  "feature_id": "pm_out_policy_turnover_belief_range_closed_6h_resid_own_rv_90d",
+  "defined_points": 793,
+  "total_points": 1040
+ },
+ "run14-study-2": {
+  "file": "run14-study-2.png",
+  "feature_id": "pm_iran_closed_window_belief_range_resid_own_rv_6h_off6h_90d",
+  "defined_points": 378,
+  "total_points": 1040
+ },
+ "run15-study-0": {
+  "file": "run15-study-0.png",
+  "feature_id": "pm_a_postseason_arrival_innov_resid_own_rv_12h_30d_90d_placebo",
+  "defined_points": 792,
+  "total_points": 1040
+ },
+ "run15-study-1": {
+  "file": "run15-study-1.png",
+  "feature_id": "pm_iran_avg_ticket_closed_over_open_resid_own_rv_6h_90d",
+  "defined_points": 294,
+  "total_points": 1040
+ },
+ "run15-study-2": {
+  "file": "run15-study-2.png",
+  "feature_id": "pm_ceasefire_p_innov_accel_same_phase_resid_own_rv_12h_30d_90d",
+  "defined_points": 527,
+  "total_points": 1040
+ },
+ "run16-study-0": {
+  "file": "run16-study-0.png",
+  "feature_id": "pm_iran_p_innov_sq_over_churn_resid_own_rv_12h_30d_90d",
+  "defined_points": 419,
+  "total_points": 1040
+ },
+ "run16-study-1": {
+  "file": "run16-study-1.png",
+  "feature_id": "pm_ukraine_minus_russia_belief_range_closed_6h_resid_own_rv_90d",
+  "defined_points": 298,
+  "total_points": 1040
+ },
+ "run16-study-2": {
+  "file": "run16-study-2.png",
+  "feature_id": "pm_a_clinch_closed_window_belief_range_resid_own_rv_6h_off6h_90d_control",
+  "defined_points": 752,
+  "total_points": 1040
+ },
+ "run16-study-3": {
+  "file": "run16-study-3.png",
+  "feature_id": "pm_iran_outstanding_resolution_mass_resid_own_rv_12h_90d",
+  "defined_points": 420,
+  "total_points": 1040
+ },
+ "run16-study-4": {
+  "file": "run16-study-4.png",
+  "feature_id": "pm_ukraine_belief_occupancy_share_resid_own_rv_1d_90d",
+  "defined_points": 632,
+  "total_points": 1040
+ },
+ "run16-study-5": {
+  "file": "run16-study-5.png",
+  "feature_id": "pm_iran_over_israel_money_share_resid_own_rv_1d_90d",
+  "defined_points": 469,
+  "total_points": 1040
+ },
+ "run16-study-6": {
+  "file": "run16-study-6.png",
+  "feature_id": "pm_reach_minus_dip_terminal_drift_resid_brent_12h_90d",
+  "defined_points": 9,
+  "total_points": 1040
+ },
+ "run16-study-7": {
+  "file": "run16-study-7.png",
+  "feature_id": "pm_iran_belief_jump_studentised_range_resid_own_rv_7d_90d",
+  "defined_points": 509,
+  "total_points": 1040
+ },
+ "run16-study-8": {
+  "file": "run16-study-8.png",
+  "feature_id": "pm_iran_closed_minus_open_belief_drift_resid_brent_6h_90d",
+  "defined_points": 269,
+  "total_points": 1040
+ },
+ "run16-study-9": {
+  "file": "run16-study-9.png",
+  "feature_id": "pm_reach_plus_dip_corridor_exit_innov_resid_own_rv_12h_30d_90d",
+  "defined_points": 11,
+  "total_points": 1040
+ },
+ "run16-study-11": {
+  "file": "run16-study-11.png",
+  "feature_id": "pm_iran_peak_hour_ticket_premium_resid_own_rv_1d_90d",
+  "defined_points": 469,
+  "total_points": 1040
+ },
+ "run16-study-12": {
+  "file": "run16-study-12.png",
+  "feature_id": "pm_iran_over_dip_unabsorbed_risk_dev_ratio_resid_own_rv_12h_30d_90d",
+  "defined_points": 11,
+  "total_points": 1040
+ },
+ "run16-study-13": {
+  "file": "run16-study-13.png",
+  "feature_id": "pm_iran_active_hour_coverage_expansion_wow_resid_own_rv_7d_90d",
+  "defined_points": 501,
+  "total_points": 1040
+ },
+ "run16-study-14": {
+  "file": "run16-study-14.png",
+  "feature_id": "pm_israel_closed_share_of_day_belief_range_resid_own_rv_6h_over_1d_90d",
+  "defined_points": 501,
+  "total_points": 1040
+ },
+ "run16-study-15": {
+  "file": "run16-study-15.png",
+  "feature_id": "pm_geo_escalation_breadth_zsum_3theatre_resid_own_rv_12h_30d_90d",
+  "defined_points": 353,
+  "total_points": 1040
+ },
+ "run16-study-16": {
+  "file": "run16-study-16.png",
+  "feature_id": "pm_iran_over_out_arrival_share_dev_resid_own_rv_1d_30d_90d",
+  "defined_points": 469,
+  "total_points": 1040
+ },
+ "run16-study-17": {
+  "file": "run16-study-17.png",
+  "feature_id": "pm_up_closed_window_ticket_premium_over_30d_norm_resid_own_rv_6h_90d",
+  "defined_points": 148,
+  "total_points": 1040
+ },
+ "run16-study-18": {
+  "file": "run16-study-18.png",
+  "feature_id": "pm_iran_belief_drift_agreement_prod_resid_own_rv_12h_adj_90d",
+  "defined_points": 337,
+  "total_points": 1040
+ },
+ "run16-study-19": {
+  "file": "run16-study-19.png",
+  "feature_id": "pm_iran_arrival_intensity_per_active_hour_over_30d_norm_resid_own_rv_1d_90d",
+  "defined_points": 469,
+  "total_points": 1040
+ }
+}

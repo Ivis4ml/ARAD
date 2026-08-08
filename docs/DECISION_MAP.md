@@ -964,3 +964,16 @@ taxonomy_clean 只用区间起点。另在报告第六章列出 12 处实现与�
 同时更正本仓多处「零假设带按 √(2 ln n) 抬升」的说法：那是渐近主项，非 selection.py
 所算（n=10 时渐近式 2.146，实际 1.901）。报告脚本亦补上 study-3 全部数字的快照派生，
 消除「封面声明数字来自快照、散文却硬编码」的自我违约。
+
+M10.7（发表格式报告 + 逐 Study 信号图）：按用户指定的参照
+（Alpha-Data cn_futures_polymarket_ext_round.pdf：ctexart/xelatex、蓝链接、
+摘要加粗关键数、目录、booktabs、结尾复现节）生成 LaTeX 报告
+（scripts/build_report_tex.py，55 页），复用 collect() 快照纪律。
+
+图文并茂的实现（scripts/build_figures.py）：为每一条有冻结规格的 Study 画
+「信号（蓝，左轴）× SC 收盘价（红，右轴）」双轴图，97 张。信号不是回放存档，
+而是**用冻结规格在 discovery 决策网格上重新求值** —— 这本身构成一次可复现性检验。
+价格来自 ret 目标表的 exit_price（_read_target 做了列投影不含价格列，
+图脚本用 pyarrow 直读并按 (contract, trading_day, session) 对齐，对齐率断言 >80%）。
+正文放候选与假象的图，附录 B 收全部 97 张。matplotlib 为绘图新增开发依赖（未入
+pyproject，报告脚本文档内声明）。
