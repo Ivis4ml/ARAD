@@ -335,17 +335,17 @@ def test_research_direction_is_auditable_not_a_backdoor():
     这里钉两件事：给了方向则上下文里逐字出现；没给则该键不存在 ——
     不允许出现空字符串占位（那会让「没有方向」与「方向为空」不可区分）。
     """
+    import tempfile
+
     from arad.harness.context import assemble_proposer_context
     from arad.memory.ledger import EvidenceLedger
 
-    import tempfile
-
-    kw = dict(
-        family="fam", data_facts={"sources": {}},
-        targets=[], menu=[], menu_biases=[],
-        budget_facts={"proposal_denominator": 0, "statistical_denominator": 0},
-        blockers=[],
-    )
+    kw = {
+        "family": "fam", "data_facts": {"sources": {}},
+        "targets": [], "menu": [], "menu_biases": [],
+        "budget_facts": {"proposal_denominator": 0, "statistical_denominator": 0},
+        "blockers": [],
+    }
     with tempfile.TemporaryDirectory() as tmp, \
             EvidenceLedger(f"{tmp}/l.db") as ledger:
         with_dir = assemble_proposer_context(
