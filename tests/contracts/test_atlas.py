@@ -540,13 +540,13 @@ def test_live_projection_tolerates_an_in_flight_study():
     /api/live/projection 一路 503，整个 app 打不开 —— 而有版本在飞恰恰是常态。
     归档路径保持 strict：跑完的运行缺段仍然要刺眼。
     """
+    import tempfile
+
     import pytest as _pytest
 
     from arad.atlas.project import project
     from arad.memory.ledger import EvidenceLedger
     from arad.memory.snapshot import SnapshotIncomplete
-
-    import tempfile
 
     with tempfile.TemporaryDirectory() as tmp, EvidenceLedger(f"{tmp}/l.db") as ledger:
         sid = "s-inflight"
@@ -555,6 +555,9 @@ def test_live_projection_tolerates_an_in_flight_study():
                                           "falsifiable_condition": "f"}, study_id=sid)
         ledger.append("hypothesis_locked", {"study_id": sid}, study_id=sid)
         ledger.append("confirmatory_locked", {"study_id": sid}, study_id=sid)
+        # 投影按 study_created 发现 Study；真实流程里它在冻结之后、评价之前
+        ledger.append("study_created", {"study_id": sid, "parent_study_id": None,
+                                        "change_summary": ""}, study_id=sid)
         with _pytest.raises(SnapshotIncomplete):
             project(ledger, family="fam", strict=True)
         proj = project(ledger, family="fam", strict=False)
