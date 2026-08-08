@@ -217,6 +217,18 @@ def assemble_proposer_context(
     """
     facts = {
         "task": "提出一个可证伪的研究提案",
+        # 这是项目早就定下的口径（Merge-Plan-2 §3.1），不是对本轮结果的引导：
+        # 只用 commodity_bar 的量价特征属 **Baseline Control**，不计入另类因子清单。
+        # 不写出来，模型没有理由去残差化 —— 实测 run9 十一个版本里
+        # residualise 用了 0 次，而其中已经出现过分母是已实现波动、目标也是
+        # 已实现波动的构造（那重新发现的是波动率聚集，不是另类数据的 alpha）。
+        "what_counts_as_a_finding": (
+            "只用 commodity_bar 的量价特征属 Baseline Control，本身不计入另类因子清单。"
+            "另类数据（pm_market）的主张必须是**它之上的增量**：若一个特征的预测力在"
+            "控制掉商品自身的波动持续性或国际油价之后就消失，那它没有增量。"
+            "用 residualise 把 Baseline Control 减掉，剩下的才是本项目要找的东西。"
+            "把量价特征作为对照提出来也是有价值的产出，但要在 rationale 里说明它是对照"
+        ),
         "data": data_facts,
         "targets": targets,
         # 可选的 universe。选哪个是模型的研究判断：面板与单品种不是同一个对象，

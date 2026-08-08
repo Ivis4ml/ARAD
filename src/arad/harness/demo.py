@@ -649,8 +649,11 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dic
             menu_biases=MENU_BIASES,
             budget_facts={"note": "预算耗尽只结束 Episode，Research Service 不停"},
             blockers=[
-                "解释器目前只接入 commodity_bar；pm_market 与 cls_telegraph 尚未接入",
+                # 这条此前写着「pm_market 尚未接入」，而它在 M5.2 就接入了，
+                # 菜单同时列着 30 个族 —— 提示词自相矛盾。陈述现状，不留旧话。
+                "已接入 commodity_bar 与 pm_market；cls_telegraph 尚未接入",
                 "无成本与容量模型（属 M5），因此本轮不可能取 candidate",
+                "residualise 的控制序列目前只有 brent 与 own_realised_volatility 两条",
             ],
             # 累积的语义错配码。任务载荷是唯一对所有 provider 都成立的通路：
             # provider 属性那条路只有确定性变异器走得通
