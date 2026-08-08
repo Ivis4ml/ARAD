@@ -32,6 +32,8 @@ type LiveState = {
   price: { tests_spent: number; floor_now: number; floor_after_one_more: number }
   curve: CurvePt[]; recent: Recent[]; studies: StudySummary[]
   thinking?: { active: boolean; chars?: number; tail?: string }
+  seals?: Record<string, { t: number | null; ic: number | null }>
+  cost_model?: { declared: boolean; version?: string }
 }
 type Detail = {
   study_id: string
@@ -155,7 +157,7 @@ export function Cockpit() {
   const best = withVal.reduce<CurvePt & { value: number } | null>(
     (a, c) => (a === null || c.value > a.value ? c : a), null)
   const nearest = [...withVal].sort(
-    (a, b) => (b.value - b.null_threshold) - (a.value - a.null_threshold)).slice(0, 3)
+    (a, b) => (b.value - b.null_threshold) - (a.value - a.null_threshold)).slice(0, 5)
   const nCandidate = state.verdicts.candidate ?? 0
 
   return (
@@ -247,20 +249,32 @@ export function Cockpit() {
             </div>
             {nCandidate === 0 && (
               <p className="ck-dim small" style={{ margin: '4px 0 6px' }}>
-                还没有——而且在成本模型建成（M5）之前，candidate 结构性不可达：
-                这个 0 的一半是系统状态，不是数据结论。
-                {state.denominators.statistical_denominator} 次检验全部为
-                null / blocked / underpowered。离地板最近的三条（点开看它为什么不算）：
+                {state.cost_model?.declared
+                  ? `还没有。成本模型已建成（${state.cost_model.version}），四道闸门全开 —— 这个 0 现在是纯经验结论。`
+                  : '还没有——而且在成本模型建成之前 candidate 结构性不可达。'}
+                {' '}{state.denominators.statistical_denominator} 次检验全部为
+                null / blocked / underpowered。离地板最近的（基线灰字不计入另类清单）：
               </p>
             )}
             <div className="ck-near">
-              {nearest.map((c) => (
-                <button key={c.study_id} className="ck-near-item mono"
-                        onClick={() => { followRef.current = false; setSelected(c.study_id) }}>
-                  {c.study_id}　|t| {c.value.toFixed(2)}
-                  <span className="ck-dim"> vs 地板 {c.null_threshold.toFixed(2)}</span>
-                </button>
-              ))}
+              {nearest.map((c) => {
+                const st = (state.studies ?? []).find((s) => s.study_id === c.study_id)
+                const fid = st?.feature_id ?? ''
+                const baseline = fid !== '' && !fid.startsWith('pm_')
+                const seal = state.seals?.[fid]
+                return (
+                  <button key={c.study_id}
+                          className={`ck-near-item mono ${baseline ? 'baseline' : ''}`}
+                          onClick={() => { followRef.current = false; setSelected(c.study_id) }}>
+                    {c.study_id}　|t| {c.value.toFixed(2)}
+                    <span className="ck-dim"> vs 地板 {c.null_threshold.toFixed(2)}</span>
+                    {baseline && <span className="ck-dim">　基线</span>}
+                    {seal && seal.t !== null && (
+                      <span className="ck-seal">　封存段 t={seal.t.toFixed(2)} 未保住</span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </section>
 

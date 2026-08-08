@@ -215,6 +215,30 @@ def all_studies(conn: sqlite3.Connection) -> list[dict]:
     return [acc[s] for s in reversed(order)]
 
 
+def _seals(conn: sqlite3.Connection) -> dict:
+    """封存段裁决，按 feature_id 索引。开过的封条终身有效，界面必须能看到。"""
+    rows = conn.execute(
+        "SELECT json_extract(payload,'$.feature_id') fid,"
+        "       json_extract(payload,'$.result.effects.t_stat') t,"
+        "       json_extract(payload,'$.result.effects.ic.ic_spearman') ic"
+        "  FROM events WHERE event_type = 'sealed_segment_opened'"
+    ).fetchall()
+    return {r["fid"]: {"t": r["t"], "ic": r["ic"]} for r in rows if r["fid"]}
+
+
+def _cost_model_state() -> dict:
+    """成本模型是系统级状态（决定 0007），界面上的措辞必须跟着它走。"""
+    import json as _json
+    from pathlib import Path
+
+    try:
+        cfg = _json.loads(Path("configs/cost_model_v1.json").read_text(encoding="utf-8"))
+    except OSError:
+        return {"declared": False}
+    return {"declared": bool(cfg.get("approved_by_human")),
+            "version": cfg.get("version", "")}
+
+
 def _thinking() -> dict:
     """模型正在写的东西（在途观察窗）。
 
@@ -420,6 +444,8 @@ def _project(conn: sqlite3.Connection, family: str, now: datetime) -> dict:
         },
         "curve": _curve(conn, family),
         "thinking": _thinking(),
+        "seals": _seals(conn),
+        "cost_model": _cost_model_state(),
         "recent": _recent(conn),
         "studies": all_studies(conn),
         "note": (

@@ -476,3 +476,5 @@ body { background: #000; }
   border-radius:8px; font-size:11.5px; padding:4px 8px; }
 .app svg.curve .best-line.clipped { stroke-dasharray:3 5; opacity:.45; filter:none;
   animation:none; }
+.ck-near-item.baseline { color:var(--ck-dim); opacity:.75; }
+.ck-seal { color:#ebb45a; font-size:10.5px; }
