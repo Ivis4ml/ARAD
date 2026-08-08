@@ -207,7 +207,7 @@ def arad_search_curve() -> None:
             }
         elif e["event_type"] == "evaluation_result":
             t = (e["payload"].get("effects") or {}).get("t_stat")
-            if not isinstance(t, (int, float)) or t != t:
+            if not isinstance(t, (int, float)) or math.isnan(t):
                 continue
             sp = specs.get(sid, {})
             if "commodity_bar" in sp.get("srcs", set()) and "pm_market" not in sp.get("srcs", set()):
