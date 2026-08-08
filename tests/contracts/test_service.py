@@ -597,3 +597,28 @@ def test_a_run_does_not_pick_up_another_runs_leftover_tasks(rig):
     _run(rig, NeverParses(), max_rounds=1, run_id="fresh", assemble=assemble)
     assert seen == ["fresh-task-0"], f"认领了别的运行的任务：{seen}"
     assert queue.get("old-task-0")["state"] == "ready", "旧任务应当原封不动留在队列里"
+
+
+def test_every_registered_control_series_is_actually_loaded():
+    """登记而不装载是实测过的缺陷。
+
+    M9.5 在 CONTROL_SERIES 里登记了 brent，但没人把 controls/brent.parquet 装进
+    序列字典 —— run10 里模型用 brent 做控制的三条规格全死在 interpretation_gap 上。
+    拒绝本身是对的（不退化为原样返回），缺的是接线。这条钉住：登记表里的每一个
+    控制项，装载出的序列字典里都必须有对应的键。
+    """
+    import os
+
+    import pytest as _pytest
+
+    if not os.path.exists("data/spine/sc/target_sc_rv_next_session.parquet"):
+        _pytest.skip("需要先运行 spine build")
+
+    from arad.features.interpreter import CONTROL_SERIES
+    from arad.harness.demo import _load_sc, _product_target_path
+
+    _rows, sc, _visible = _load_sc(_product_target_path("sc", "sc_rv_next_session"))
+    for name, key in CONTROL_SERIES.items():
+        assert key in sc["series"], (
+            f"控制项 {name!r} 已登记为 {key}，但装载器没有提供该序列"
+        )

@@ -874,3 +874,16 @@ M9.9（缺 feature_spec 的提案会打断整个服务，已修）：run9 在第
 run9 实测（11 轮，10 次读 outcome）：判决 null 7 / blocked 3 / underpowered 1；
 数据源 pm_market 20 次、commodity_bar 6 次；最好 |t| = 2.261，而全族 40 次检验的地板是
 2.451，自罚奖励 **−0.190**。residualise 用了 0 次（原因见 M9.8，提示词此前没说为什么要用）。
+
+M9.10（登记而不装载，已修）：run10 的模型行为完全正确 —— **residualise 五个版本全用上**
+（M9.8 的口径立刻生效），并在 own_realised_volatility 与 brent 两个控制项之间交替。
+但用 brent 的三条全死在 interpretation_gap：CONTROL_SERIES 登记了 brent，
+装载器却从没把 controls/brent.parquet 装进序列字典。拒绝本身是对的（缺控制序列不退化为
+原样返回），缺的是接线。已接上（可用时刻取 available_time，PIT 由它保证），
+合同测试钉住「登记表里的每一个控制项，序列字典里必须有对应的键」。
+
+用 own_realised_volatility 的两条正常评出 null（置换 0.480 / 0.225）。
+
+顺带修一处「看起来卡死」的界面缺陷：每一轮最长的阶段是模型调用（3 至 8 分钟），
+而它在流水线视图里不可见 —— 停在「第 1/11 步」看起来像挂了。实时视图在等待模型时
+显式说明这一点。

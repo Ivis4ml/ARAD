@@ -101,6 +101,13 @@ export function Live() {
         最后一个事件 <code>{state.last_event}</code>，
         {Math.round(state.seconds_since_last_event)} 秒前
       </p>
+      {state.running && state.last_event === 'context_assembled' && (
+        <p className="small waiting">
+          <span className="dot live-on" /> 正在等待模型返回 ——
+          单次调用通常需要 3 至 8 分钟，这是每一轮里最长的阶段。
+          流水线停在第 1 步不是卡死：提案要等模型写完才会冻结。
+        </p>
+      )}
 
       <ol className="live-steps">
         {state.pipeline.map((s) => (

@@ -382,6 +382,21 @@ def _load_sc(target_path: str, segment: str = SEGMENT) -> tuple[list[dict], dict
         "to": rows[-1]["label_end"].isoformat() if rows else None,
         "forward_data": "未读取：forward 段按 Study 逐个到期，Atlas 中只显示预约状态",
     }
+    # Baseline Control 序列。**登记而不装载是实测过的缺陷**：M9.5 在 CONTROL_SERIES
+    # 里登记了 brent，但没人把 controls/brent.parquet 装进序列字典，于是 run10 里
+    # 模型用 brent 做控制的三条规格全死在 interpretation_gap 上 —— 拒绝本身是对的
+    # （不退化为原样返回），缺的是接线。序列键与 CONTROL_SERIES 的登记一致；
+    # 可用时刻取 available_time（价格发布并可得的时刻），PIT 由它保证。
+    brent_path = Path("data/spine/controls/brent.parquet")
+    if brent_path.exists():
+        bt = pq.read_table(brent_path, columns=["value", "available_time"])
+        b_times = bt.column("available_time").to_pylist()
+        b_values = [float(v) for v in bt.column("value").to_pylist()]
+        series[(Source.INTL, "brent")] = BarSeries(
+            field="brent", times=b_times, values=b_values,
+            coverage_start=b_times[0] if b_times else None,
+        )
+
     pm = _load_pm_series(PM_SERIES_PATH)
     series.update(pm["series"])
     visible["pm_families"] = pm["families"]

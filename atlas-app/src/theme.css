@@ -250,3 +250,6 @@ svg.curve .point.novalue:hover circle { r: 5.5; }
 
 .follow { display: inline-flex; align-items: center; gap: 6px; font-size: .88rem;
           margin-right: 10px; cursor: pointer; }
+
+.waiting { display: flex; align-items: baseline; gap: 8px; color: #1f6f43; }
+.waiting .dot { animation: breathe 1.8s ease-in-out infinite; }
