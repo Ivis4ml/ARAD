@@ -860,3 +860,17 @@ commodity_bar 6 次。那句话仍然要改（它就是假的），但它不是�
 Baseline Control、不计入另类因子清单，另类数据的主张必须是它之上的增量——
 从未出现在提示词里。新增 `what_counts_as_a_finding` 一条陈述该口径。
 **这不是对结果的引导**：它陈述的是既有的记账规则，与「哪类机制效应更大」无关。
+
+M9.9（缺 feature_spec 的提案会打断整个服务，已修）：run9 在第 11 轮崩溃退出，
+`AttributeError: 'NoneType' object has no attribute 'steps'` —— 模型返回了一个文字字段
+齐全但 `feature_spec` 为 null 的提案，既不是原语缺口声明也不是解析失败。
+`to_proposal()` 只校验文本字段，因此它通过了；随后 `contamination(parsed.feature_spec)`
+拿到 None 就崩，**整个服务挂掉**，24 轮预算废掉 13 轮。
+
+非正常产出一律降级为证据、不打断 Episode，这是本仓库反复立过的规矩（坏 JSON、原语缺口、
+上下文泄漏、特征恒定四种都已如此）。补上第五种：缺 feature_spec 记 `invalid_proposal`，
+任务退避重排不丢。它已在 `INFRASTRUCTURE_OUTCOMES` 里，因此不计入停滞。
+
+run9 实测（11 轮，10 次读 outcome）：判决 null 7 / blocked 3 / underpowered 1；
+数据源 pm_market 20 次、commodity_bar 6 次；最好 |t| = 2.261，而全族 40 次检验的地板是
+2.451，自罚奖励 **−0.190**。residualise 用了 0 次（原因见 M9.8，提示词此前没说为什么要用）。

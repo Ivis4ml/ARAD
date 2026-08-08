@@ -376,3 +376,21 @@ def test_the_declared_target_is_refused_before_the_outcome_is_read(rig):
     with pytest.raises(TargetMismatch):
         run_one(rig, [a_proposal_json(target="sc_rv_next_session")], builder=build)
     assert ledger.denominators(FAMILY)["statistical_denominator"] == 0
+
+
+def test_a_proposal_without_a_feature_spec_degrades_instead_of_crashing(rig):
+    """文字字段齐全但没有 feature_spec，且不是原语缺口声明。
+
+    `to_proposal()` 只校验文本字段，因此它能通过；随后
+    `contamination(parsed.feature_spec)` 拿到 None 就崩，**整个服务挂掉**。
+    实测：run9 因此在第 11 轮死掉，24 轮预算废掉 13 轮。
+    非正常产出一律降级为证据，不打断 Episode。
+    """
+    ledger, queue = rig
+    payload = json.loads(a_proposal_json())
+    payload.pop("feature_spec")
+    outcome, _ = run_one(rig, [json.dumps(payload, ensure_ascii=False)])
+    assert outcome.outcome == "invalid_proposal"
+    kinds = [e["event_type"] for e in ledger.read_events(role=LedgerRole.EVALUATOR)]
+    assert "invalid_proposal" in kinds
+    assert queue.get("t0")["state"] == "ready"      # 任务没丢

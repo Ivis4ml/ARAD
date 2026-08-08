@@ -265,6 +265,19 @@ def run_round(
         return RoundOutcome(task_id=task_id, outcome="primitive_gap",
                             proposal_id=proposal_id)
 
+    if parsed.feature_spec is None:
+        # 文字字段齐全但没有 feature_spec，且不是原语缺口声明。
+        # `to_proposal()` 只校验文本字段，因此它能通过 —— 随后
+        # `contamination(parsed.feature_spec)` 拿到 None 就崩，**整个服务挂掉**。
+        # 实测：run9 因此在第 11 轮死掉，24 轮预算废掉 13 轮。
+        # 非正常产出一律降级为证据，不打断 Episode，这是本仓库反复立过的规矩。
+        ledger.append("invalid_proposal", {
+            "task_id": task_id,
+            "error": "提案没有 feature_spec，也没有声明原语缺口；两者必居其一",
+        }, study_id=study_id)
+        queue.fail(task_id, owner, "提案缺 feature_spec", now=current)
+        return RoundOutcome(task_id=task_id, outcome="invalid_proposal")
+
     try:
         proposal = parsed.to_proposal()
     except ValidationError as exc:
