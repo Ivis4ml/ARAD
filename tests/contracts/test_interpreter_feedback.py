@@ -212,6 +212,13 @@ def test_numeric_block_reasons_are_categorised_not_passed_through():
     assert fb.failure_categories == ["placebo_failed"]
     assert "1.000" not in fb.render()
     assert "斜率" not in fb.render()
+    # 新措辞（按比例读）同样只回传类别，不回传数字
+    fb2 = format_feedback(
+        result_with(["置换检验未通过：64% 的打乱样本跑出的 |斜率| 不小于实际值（阈值 10%）"]),
+        "blocked",
+    )
+    assert fb2.failure_categories == ["placebo_failed"]
+    assert "64" not in fb2.render()
 
 
 def test_unknown_reasons_are_dropped_not_passed_along_just_in_case():

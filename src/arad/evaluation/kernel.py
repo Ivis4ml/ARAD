@@ -369,7 +369,10 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
     if placebo["placebo_exceed_rate"] > 0.1:
         blocked.append((
             "placebo_failed",
-            f"置换检验未通过：{placebo['placebo_exceed_rate']:.3f} 的置换斜率不小于实际值",
+            # 措辞按比例读：0.640 曾被读成一个斜率值。它是比例 —— 打乱标签的
+            # 样本里有多大比例跑出了不小于实际值的 |斜率|（闸门 0.1）。
+            (f"置换检验未通过：{placebo['placebo_exceed_rate']:.0%} 的打乱样本"
+             f"跑出的 |斜率| 不小于实际值（阈值 10%）"),
         ))
     if not math.isnan(dfbetas) and dfbetas > request.max_abs_dfbetas:
         # 方向感知：删掉一个点最多把 |t| 移动约 dfbetas 个标准误（一阶近似 ——
