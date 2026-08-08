@@ -67,10 +67,19 @@ export async function load(): Promise<Loaded> {
   if (injected) {
     return { mode: 'inline', projection: injected, cards: [], runs: [], runId: null }
   }
-  const runs = await json<RunRow[]>('/api/runs')
-  if (!runs.length) throw new Error('运行目录里还没有任何一次运行')
+  const archived = await json<RunRow[]>('/api/runs').catch(() => [] as RunRow[])
+  // 第一项永远是当前账本：归档快照只在服务**正常结束**时写一次，被停掉或崩溃的
+  // 运行没有快照；且每个快照是当时全账本的累计投影，不是该次运行的切片。
+  const runs: RunRow[] = [
+    { run_id: '__live__', studies: -1, cards: 0 } as unknown as RunRow,
+    ...archived,
+  ]
   const wanted = new URLSearchParams(location.search).get('run')
-  const runId = runs.find((r) => r.run_id === wanted)?.run_id ?? runs[0].run_id
+  const runId = runs.find((r) => r.run_id === wanted)?.run_id ?? '__live__'
+  if (runId === '__live__') {
+    const projection = await json<Projection>('/api/live/projection')
+    return { mode: 'api', projection, cards: [], runs, runId }
+  }
   const [projection, cards] = await Promise.all([
     json<Projection>(`/api/runs/${runId}/atlas`),
     json<Card[]>(`/api/runs/${runId}/cards`).catch(() => [] as Card[]),

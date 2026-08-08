@@ -1063,88 +1063,98 @@ def run_service_demo(
             AutoProposer(target_name=LABEL_TARGET) if provider_kind == "mutator"
             else ClaudeCliProvider(model_id=model)
         )
-        result = run_service(
-            ledger=ledger, queue=queue,
-            provider=provider,
-            family=FAMILY, owner="auto-worker",
-            assemble=_assembler(ledger, manifest_dir, visible, sc),
-            build_evaluation=_build_evaluation(sc, rows, visible, loader=_load_product),
-            audit_input=_audit_input(sc, visible, record),
-            contamination=_contamination(visible, FAMILIES_MANIFEST),
-            seed_task={}, max_rounds=max_rounds, now=now,
-            # 队列与账本跨运行持久，标识必须带上运行 id：否则第二次运行的
-            # `auto-task-1` 在上一次里已经是 done，入队成空操作，服务一轮就停
-            run_id=run_id,
-        )
-        # 相关矩阵：只比信号之间，不读 outcome
-        correlations = signal_correlations(ledger, sc, rows)
-        ledger.append("signal_correlation", correlations)
-
-        # 束：按 reward（越过噪声地板多少）排，不按原始 |t| 排
-        beam = Beam(width=4)
-        proj = project(ledger, family=FAMILY)
-        tests_at = {c["study_id"]: c["tests_so_far"]
-                    for chain in proj.lineage for c in chain["curves"]["abs_t"]}
-        by_study = {st["study_id"]: st for st in proj.studies}
-        for study_id, study in by_study.items():
-            spec_id = next(
-                (e["payload"]["feature_id"]
-                 for e in ledger.read_events(role=LedgerRole.HUMAN, study_id=study_id)
-                 if e["event_type"] == "feature_spec_locked"), None,
+        # 归档挪进 finally：此前只在正常结束时写快照，被停掉或崩溃的运行
+        # 在下拉里就消失了（实测 run3/7/8/10 无踪、run9 崩溃后无档）。
+        # 账本本身始终完整，快照只是它的投影，没有理由只给"善终"的运行拍照。
+        result = None
+        cards: list[dict] = []
+        extras: dict = {}
+        try:
+            result = run_service(
+                ledger=ledger, queue=queue,
+                provider=provider,
+                family=FAMILY, owner="auto-worker",
+                assemble=_assembler(ledger, manifest_dir, visible, sc),
+                build_evaluation=_build_evaluation(sc, rows, visible, loader=_load_product),
+                audit_input=_audit_input(sc, visible, record),
+                contamination=_contamination(visible, FAMILIES_MANIFEST),
+                seed_task={}, max_rounds=max_rounds, now=now,
+                # 队列与账本跨运行持久，标识必须带上运行 id：否则第二次运行的
+                # `auto-task-1` 在上一次里已经是 done，入队成空操作，服务一轮就停
+                run_id=run_id,
             )
-            if spec_id is None:
-                continue
-            beam.offer(Candidate(
-                feature_id=spec_id, study_id=study_id,
-                value=study["metrics"].get("abs_t"),
-                tests_at_evaluation=tests_at.get(study_id, 1),
-                source=study.get("source", ""),
-            ))
-        ledger.append("beam_state", beam.summary())
+            # ---- 以下是**有后果的研究动作**（写账本、开封存段），只在正常结束时做。
+            # 归档在 finally 里：它是纯投影，崩溃也要拍照，但绝不能反过来把
+            # 封存开启塞进 finally —— 一次崩溃就会静默烧掉只有一次的机会。
+            correlations = signal_correlations(ledger, sc, rows)
+            ledger.append("signal_correlation", correlations)
 
-        # 封闭段：每个特征只开一次，提案器全程不接触
-        sealed = sealed_pass(
-            ledger, target_path=target_path, families_manifest=FAMILIES_MANIFEST,
-            top_features=[m["feature_id"] for m in beam.summary()["members"]],
-        )
-        ledger.append("sealed_pass", {"entries": sealed})
+            beam = Beam(width=4)
+            proj = project(ledger, family=FAMILY)
+            tests_at = {c["study_id"]: c["tests_so_far"]
+                        for chain in proj.lineage for c in chain["curves"]["abs_t"]}
+            by_study = {st["study_id"]: st for st in proj.studies}
+            for study_id, study in by_study.items():
+                spec_id = next(
+                    (e["payload"]["feature_id"]
+                     for e in ledger.read_events(role=LedgerRole.HUMAN, study_id=study_id)
+                     if e["event_type"] == "feature_spec_locked"), None,
+                )
+                if spec_id is None:
+                    continue
+                beam.offer(Candidate(
+                    feature_id=spec_id, study_id=study_id,
+                    value=study["metrics"].get("abs_t"),
+                    tests_at_evaluation=tests_at.get(study_id, 1),
+                    source=study.get("source", ""),
+                ))
+            ledger.append("beam_state", beam.summary())
 
-        # 组合：在**发现段**上贪心前向选（低相关约束），这一步是选择，不是验证
-        members = [m["feature_id"] for m in beam.summary()["members"]]
-        signals = {
-            name: values for name, values in _signal_values(ledger, sc, rows, members).items()
-        }
-        ensemble = greedy_ensemble(
-            signals, [sc["labels"][_key(r)] for r in rows], max_size=3,
-        ) if len(signals) >= 2 else {"constituents": [], "note": "可求值特征少于两个"}
-        ledger.append("ensemble_selected", ensemble)
+            sealed = sealed_pass(
+                ledger, target_path=target_path, families_manifest=FAMILIES_MANIFEST,
+                top_features=[m["feature_id"] for m in beam.summary()["members"]],
+            )
+            ledger.append("sealed_pass", {"entries": sealed})
 
-        # 因子卡：公式、意义、证据、以及由规格确定性生成的代码
-        cards = _alpha_cards(ledger, beam.summary()["members"], sealed, proj)
-        ledger.append("alpha_cards", {"cards": [c["feature_id"] for c in cards]})
-        _write_cards(cards, atlas_dir)
-        projection = project(ledger, family=FAMILY, service=queue.service_state())
-        fresh = data_freshness(manifest_dir)
-        paths = render_app(projection, atlas_dir, freshness=fresh)
-        # 同一次运行同时落成 runs/<id>/：单文件那条路保留（不需要服务器），
-        # 运行目录让独立 app 能看历史、能并排比较
-        paths["run"] = write_run(
-            projection, runs_root, run_id,
-            events=ledger.read_events(role=LedgerRole.HUMAN),
-            cards=cards, freshness=fresh,
-        )["run_id"]
+            members = [m["feature_id"] for m in beam.summary()["members"]]
+            signals = {
+                name: values
+                for name, values in _signal_values(ledger, sc, rows, members).items()
+            }
+            ensemble = greedy_ensemble(
+                signals, [sc["labels"][_key(r)] for r in rows], max_size=3,
+            ) if len(signals) >= 2 else {"constituents": [], "note": "可求值特征少于两个"}
+            ledger.append("ensemble_selected", ensemble)
+
+            cards = _alpha_cards(ledger, beam.summary()["members"], sealed, proj)
+            ledger.append("alpha_cards", {"cards": [c["feature_id"] for c in cards]})
+            _write_cards(cards, atlas_dir)
+            extras = {
+                "beam": beam.summary()["members"],
+                "ensemble": {k: ensemble.get(k) for k in
+                             ("constituents", "trajectory", "score",
+                              "rejected_for_correlation")},
+                "sealed": sealed,
+                "signal_correlation": {
+                    k: correlations.get(k) for k in ("defined", "method", "names",
+                                                     "mean_abs_offdiagonal")
+                },
+            }
+        finally:
+            # 纯投影归档。此前只在正常结束时写快照，被停掉或崩溃的运行在运行列表里
+            # 就消失了（实测 run3/7/8/10 无踪、run9 崩溃无档）。账本始终完整，
+            # 快照只是它的投影，没有理由只给"善终"的运行拍照。
+            projection = project(ledger, family=FAMILY, service=queue.service_state())
+            fresh = data_freshness(manifest_dir)
+            paths = render_app(projection, atlas_dir, freshness=fresh)
+            paths["run"] = write_run(
+                projection, runs_root, run_id,
+                events=ledger.read_events(role=LedgerRole.HUMAN),
+                cards=cards, freshness=fresh,
+            )["run_id"]
         return {
             "service": {**result.summary(), "provider": provider_kind},
-            "beam": beam.summary()["members"],
-            "cards": [{k: c[k] for k in ("feature_id", "status", "taxonomy_clean")}
-                      for c in cards],
-            "ensemble": {k: ensemble.get(k) for k in
-                         ("constituents", "trajectory", "score", "rejected_for_correlation")},
-            "sealed": sealed,
-            "signal_correlation": {
-                k: correlations.get(k) for k in ("defined", "method", "names",
-                                                 "mean_abs_offdiagonal")
-            },
+            **extras,
             "denominators": ledger.denominators(FAMILY),
             "ledger_events": ledger.require_intact(),
             "atlas": paths,

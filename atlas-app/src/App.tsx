@@ -53,7 +53,9 @@ export function App({ loaded }: { loaded: Loaded }) {
                   onChange={(e) => switchRun(e.target.value)}>
             {loaded.runs.map((r) => (
               <option key={r.run_id} value={r.run_id}>
-                {r.run_id} · {r.studies} studies
+                {r.run_id === '__live__'
+                  ? '当前账本 · 实时'
+                  : `${r.run_id} · 结束时归档（累计 ${r.studies}）`}
               </option>
             ))}
           </select>
