@@ -203,9 +203,15 @@ export function Cockpit() {
                 模型推理中 <span className="ck-pulse" />
                 <span className="ck-dim mono small">　{state.thinking.chars} 字</span>
               </h4>
-              <pre className="ck-stream mono" ref={(el) => { if (el) el.scrollTop = el.scrollHeight }}>
-                {state.thinking.tail}
-              </pre>
+              {(state.thinking.chars ?? 0) === 0 ? (
+                <p className="ck-dim small" style={{ margin: '6px 0 2px' }}>
+                  已连接，等待首批增量……（模型先思考再落笔，这一段可能持续几十秒）
+                </p>
+              ) : (
+                <pre className="ck-stream mono" ref={(el) => { if (el) el.scrollTop = el.scrollHeight }}>
+                  {state.thinking.tail}
+                </pre>
+              )}
             </section>
           )}
 

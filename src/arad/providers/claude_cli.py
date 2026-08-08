@@ -81,31 +81,55 @@ class ClaudeCliProvider:
         """
         import json as _json
         import os
+        import os as _os
+        import pty as _pty
         import time
 
         inflight = Path(INFLIGHT_PATH)
         inflight.parent.mkdir(parents=True, exist_ok=True)
         inflight.write_text("", encoding="utf-8")
+        # stdout 走**伪终端**而不是管道：CLI 检测到管道会按块缓冲（约 8KB），
+        # 事件攒在它的缓冲区里不吐 —— 实测同一进程里一次调用流畅（2162 字），
+        # 下一次 195 秒零字节。pty 让它以为在跟终端说话，恢复行刷新。
+        master, slave = _pty.openpty()
         proc = subprocess.Popen(
-            self.command(), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, text=True, env=self.env,
+            self.command(), stdin=subprocess.PIPE, stdout=slave,
+            stderr=subprocess.PIPE, text=False, env=self.env,
         )
+        _os.close(slave)
         deadline = time.monotonic() + self.timeout_seconds
         pieces: list[str] = []
         result_text: str | None = None
+
+        def _lines():
+            buf = b""
+            while True:
+                if time.monotonic() > deadline:
+                    proc.kill()
+                    raise ProviderError(
+                        f"{self.executable} 在 {self.timeout_seconds}s 内未返回；"
+                        "任务交由队列重排"
+                    )
+                try:
+                    chunk = _os.read(master, 65536)
+                except OSError:          # pty 关闭（进程结束）
+                    chunk = b""
+                if not chunk:
+                    if buf.strip():
+                        yield buf.decode("utf-8", errors="replace")
+                    return
+                buf += chunk
+                while b"\n" in buf:
+                    raw, buf = buf.split(b"\n", 1)
+                    yield raw.decode("utf-8", errors="replace")
+
         try:
-            assert proc.stdin is not None and proc.stdout is not None
-            proc.stdin.write(prompt)
+            assert proc.stdin is not None
+            proc.stdin.write(prompt.encode("utf-8"))
             proc.stdin.close()
             with inflight.open("a", encoding="utf-8") as sink:
-                for line in proc.stdout:
-                    if time.monotonic() > deadline:
-                        proc.kill()
-                        raise ProviderError(
-                            f"{self.executable} 在 {self.timeout_seconds}s 内未返回；"
-                            "任务交由队列重排"
-                        )
-                    line = line.strip()
+                for line in _lines():
+                    line = line.strip().rstrip("\r")
                     if not line:
                         continue
                     try:
@@ -131,6 +155,8 @@ class ClaudeCliProvider:
                         result_text = event.get("result")
             proc.wait(timeout=30)
         finally:
+            with contextlib_suppress():
+                _os.close(master)
             with contextlib_suppress():
                 os.remove(inflight)
         if proc.returncode not in (0, None):
