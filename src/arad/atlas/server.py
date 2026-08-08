@@ -23,6 +23,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from .app import SHELL_PATH
+from .jsonsafe import finite
 from .runs import list_runs, read_artifact
 
 SERVER_VERSION = "0.1.0"
@@ -41,7 +42,10 @@ class AtlasHandler(BaseHTTPRequestHandler):
         return                                        # 不往 stderr 刷访问日志
 
     def _json(self, payload, status: int = 200) -> None:
-        body = json.dumps(payload, ensure_ascii=False, default=str).encode("utf-8")
+        # allow_nan=False + 预净化：账本里一个 NaN 就能让浏览器端 JSON.parse 炸掉
+        # 整个 app（单文件模式反而没事 —— JS 字面量里 NaN 合法）。边界统一杀。
+        body = json.dumps(finite(payload), ensure_ascii=False, default=str,
+                          allow_nan=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))

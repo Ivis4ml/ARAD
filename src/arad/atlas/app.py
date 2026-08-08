@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .jsonsafe import finite
 from .project import AtlasProjection
 
 SHELL_PATH = Path(__file__).with_name("app_shell.html")
@@ -56,7 +57,7 @@ def render_app(
             f"找不到 React 外壳 {shell_file}；在 atlas-app/ 运行 `npm run build`，"
             "或用 `--renderer static` 退回服务端渲染"
         )
-    payload = projection.to_dict()
+    payload = finite(projection.to_dict())
     payload["data_freshness"] = freshness or []
 
     root = Path(out_dir)

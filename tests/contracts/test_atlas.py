@@ -506,3 +506,28 @@ def test_the_vendored_shell_matches_the_built_app():
         "内联副本与构建产物不一致：在 atlas-app/ 运行 npm run build 之后，"
         "把 dist/index.html 复制到 src/arad/atlas/app_shell.html"
     )
+
+
+def test_served_json_never_contains_nan():
+    """账本里一个 NaN 就能让浏览器端 JSON.parse 炸掉整个 app。
+
+    Python 的 json.dumps 默认允许 NaN（非标准扩展），浏览器按 RFC 拒绝。
+    单文件模式一直没事 —— 它注入的是 JS 字面量，NaN 在 JS 里合法。
+    同一份数据、两条通路、一条炸：只能在边界统一杀。
+    """
+    import json
+    import math
+
+    from arad.atlas.jsonsafe import finite
+
+    dirty = {"abs_t": float("nan"), "t": [1.0, float("inf")],
+             "nested": {"x": float("-inf"), "ok": 2.5}, "s": "NaN 字符串照留"}
+    clean = finite(dirty)
+    body = json.dumps(clean, allow_nan=False)          # 不抛即为合法 RFC JSON
+    parsed = json.loads(body)
+    assert parsed["abs_t"] is None
+    assert parsed["t"] == [1.0, None]
+    assert parsed["nested"] == {"x": None, "ok": 2.5}
+    assert parsed["s"] == "NaN 字符串照留"
+    assert not any(isinstance(v, float) and not math.isfinite(v)
+                   for v in [parsed["abs_t"], *parsed["t"]] if v is not None)

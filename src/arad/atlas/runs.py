@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .jsonsafe import finite
 from .project import AtlasProjection
 
 RUNS_VERSION = "0.1.0"
@@ -60,7 +61,7 @@ def write_run(
     base = Path(root) / run_id
     (base / "cards").mkdir(parents=True, exist_ok=True)
 
-    payload = projection.to_dict()
+    payload = finite(projection.to_dict())
     payload["data_freshness"] = freshness or []
     (base / "atlas.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
