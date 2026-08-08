@@ -86,7 +86,7 @@ class AtlasHandler(BaseHTTPRequestHandler):
 
             try:
                 with EvidenceLedger(self.ledger_path) as ledger:
-                    self._json(project(ledger, family=self.family))
+                    self._json(project(ledger, family=self.family).to_dict())
             except Exception as exc:                       # noqa: BLE001
                 self._json({"error": f"投影失败：{exc}"}, 503)
             return
