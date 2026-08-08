@@ -349,3 +349,21 @@ svg.curve .point.novalue:hover circle { r: 5.5; }
   .ck-nav, .ck-side { border:0; } }
 main.full-bleed { max-width:none; padding:0 24px; }
 main.full-bleed .cockpit { max-width:1480px; margin:8px auto 20px; }
+
+/* 分隔条与产物台 chips（token 同参照实现） */
+.ck-handle { cursor:col-resize; display:flex; align-items:center; justify-content:center; }
+.ck-handle i { width:2px; max-height:220px; height:40%; background:var(--ck-line2);
+  border-radius:2px; transition:background .15s ease, width .15s ease; }
+.ck-handle:hover i { background:var(--ck-acc); width:3px; }
+.ck-chips { display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; }
+.ck-stage-chip { font-size:12.5px; padding:5px 11px; border-radius:999px; border:0;
+  background:var(--ck-panel2); color:var(--ck-dim); cursor:pointer;
+  transition:background .15s ease; white-space:nowrap; }
+.ck-stage-chip:hover { background:var(--ck-hover); }
+.ck-stage-chip.sel { background:var(--ck-acc); color:#fff; }
+.ck-found { border-left:2px solid var(--ck-acc); }
+.ck-near { display:flex; gap:8px; flex-wrap:wrap; }
+.ck-near-item { font-size:11.5px; padding:4px 10px; border-radius:8px; border:0;
+  background:var(--ck-panel2); color:var(--ck-fg); cursor:pointer;
+  transition:background .15s ease; }
+.ck-near-item:hover { background:var(--ck-hover); }

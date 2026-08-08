@@ -65,6 +65,35 @@ export function Cockpit() {
   const seq = useRef(0)
   const runningRef = useRef(false)
   const followRef = useRef(true)   // 没手动选过 Study 时，跟随当前正在跑的那个
+  // 等待计秒本地每秒跳：只靠轮询回包，5 分钟的等待看起来就像死了
+  const fetchedAt = useRef(0)
+  const [, forceTick] = useState(0)
+  useEffect(() => {
+    const t = window.setInterval(() => forceTick((x) => x + 1), 1000)
+    return () => window.clearInterval(t)
+  }, [])
+  // 中右栏分隔条：右栏宽度可拖，记进 localStorage（参照实现的做法）
+  const [sideW, setSideW] = useState(() =>
+    Number(localStorage.getItem('arad-ck-side') ?? 400))
+  const dragging = useRef(false)
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      if (!dragging.current) return
+      const w = Math.min(640, Math.max(320, window.innerWidth - e.clientX - 40))
+      setSideW(w)
+    }
+    const up = () => {
+      if (!dragging.current) return
+      dragging.current = false
+      document.body.style.cursor = ''
+      setSideW((w) => { localStorage.setItem('arad-ck-side', String(w)); return w })
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
+  }, [])
+  // 产物台分页 chips
+  const [chip, setChip] = useState('全部')
 
   useEffect(() => {
     let alive = true
@@ -76,6 +105,7 @@ export function Cockpit() {
       if (!alive || mine !== seq.current) return
       setState(data)
       setStale(false)
+      fetchedAt.current = Date.now()
       runningRef.current = data.running
       if (followRef.current) {
         // 跟随时选**最近一条有内容的**：正在等模型的那条只有 context_assembled，
@@ -111,6 +141,15 @@ export function Cockpit() {
     byRun.get(run)!.push(s)
   }
   const waiting = state.running && state.last_event === 'context_assembled'
+  const elapsed = Math.round(
+    state.seconds_since_last_event + (fetchedAt.current ? (Date.now() - fetchedAt.current) / 1000 : 0))
+  // 发现状态：candidate 数、最好一次与地板的差、离地板最近的前三条
+  const withVal = state.curve.filter((c) => c.value !== null) as (CurvePt & { value: number })[]
+  const best = withVal.reduce<CurvePt & { value: number } | null>(
+    (a, c) => (a === null || c.value > a.value ? c : a), null)
+  const nearest = [...withVal].sort(
+    (a, b) => (b.value - b.null_threshold) - (a.value - a.null_threshold)).slice(0, 3)
+  const nCandidate = state.verdicts.candidate ?? 0
 
   return (
     <div className="cockpit">
@@ -119,9 +158,12 @@ export function Cockpit() {
         <span className={state.running ? 'dot live-on' : 'dot live-off'} />
         <strong>{state.running ? '研究进行中' : '未在运行'}</strong>
         <span className="mono ck-dim">{state.run_id ?? '—'}</span>
+        {state.running && !waiting && (
+          <span className="ck-dim small">上一事件 {elapsed}s 前</span>
+        )}
         {waiting && (
           <span className="ck-wait">
-            等待模型返回 {Math.round(state.seconds_since_last_event)}s
+            等待模型返回 {elapsed}s
             <i className="ck-pulse" />
           </span>
         )}
@@ -132,7 +174,8 @@ export function Cockpit() {
         {stale && <span className="ck-stale">读不到账本，显示上次读数</span>}
       </header>
 
-      <div className="ck-body">
+      <div className="ck-body"
+           style={{ gridTemplateColumns: `224px minmax(0,1fr) 14px ${sideW}px` }}>
         {/* ------------------------------------------------ 左栏：Study 导航 */}
         <nav className="ck-nav">
           {[...byRun.entries()].map(([run, list]) => (
@@ -153,6 +196,37 @@ export function Cockpit() {
 
         {/* ------------------------------------------------ 中栏：过程与曲线 */}
         <main className="ck-main">
+          <section className="ck-card ck-found">
+            <h4>找到因子了吗</h4>
+            <div className="ck-nums">
+              <div><span className="ck-dim small">candidate</span>
+                <b style={{ color: nCandidate ? '#3cc4a8' : undefined }}>{nCandidate}</b></div>
+              <div><span className="ck-dim small">最好一次 |t|</span>
+                <b>{best ? best.value.toFixed(3) : '—'}</b></div>
+              <div><span className="ck-dim small">当前地板</span>
+                <b>{state.price.floor_now}</b></div>
+              <div><span className="ck-dim small">差距</span>
+                <b style={{ color: best && best.value > state.price.floor_now ? '#3cc4a8' : '#f0735e' }}>
+                  {best ? (best.value - state.price.floor_now).toFixed(3) : '—'}</b></div>
+            </div>
+            {nCandidate === 0 && (
+              <p className="ck-dim small" style={{ margin: '4px 0 6px' }}>
+                还没有。{state.denominators.statistical_denominator} 次检验全部为
+                null / blocked / underpowered —— 这是诚实的记录，不是界面没显示。
+                离地板最近的三条（点开看它为什么不算）：
+              </p>
+            )}
+            <div className="ck-near">
+              {nearest.map((c) => (
+                <button key={c.study_id} className="ck-near-item mono"
+                        onClick={() => { followRef.current = false; setSelected(c.study_id) }}>
+                  {c.study_id}　|t| {c.value.toFixed(2)}
+                  <span className="ck-dim"> vs 地板 {c.null_threshold.toFixed(2)}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
           <section className="ck-card">
             <h4>逐次检验 · 与同步抬高的地板</h4>
             <Chart
@@ -189,6 +263,11 @@ export function Cockpit() {
           </section>
         </main>
 
+        <div className="ck-handle" title="拖动调整产物台宽度"
+             onMouseDown={() => { dragging.current = true; document.body.style.cursor = 'col-resize' }}>
+          <i />
+        </div>
+
         {/* ------------------------------------------------ 右栏：产物台 */}
         <aside className="ck-side">
           {!detail && <p className="ck-dim small">点左栏或中栏任何一条，这里展开它的全部产物。</p>}
@@ -203,6 +282,12 @@ export function Cockpit() {
           )}
           {detail && detail.proposal && (
             <div className="ck-detail" key={detail.study_id}>
+              <div className="ck-chips">
+                {['全部', '机制', '规格', '评价', '判决'].map((c) => (
+                  <button key={c} className={`ck-stage-chip ${chip === c ? 'sel' : ''}`}
+                          onClick={() => setChip(c)}>{c}</button>
+                ))}
+              </div>
               <div className="ck-detail-head">
                 <span className="mono">{detail.study_id}</span>
                 {detail.verdict?.verdict && (
@@ -212,7 +297,7 @@ export function Cockpit() {
                 )}
               </div>
 
-              {detail.proposal?.mechanism && (
+              {detail.proposal?.mechanism && ['全部', '机制'].includes(chip) && (
                 <section>
                   <h5>机制（模型的推理）</h5>
                   <p className="ck-think">{detail.proposal.mechanism}</p>
@@ -224,7 +309,7 @@ export function Cockpit() {
                 </section>
               )}
 
-              {detail.feature?.steps && detail.feature.steps.length > 0 && (
+              {detail.feature?.steps && detail.feature.steps.length > 0 && ['全部', '规格'].includes(chip) && (
                 <section>
                   <h5>冻结的规格 · {detail.feature.feature_id}</h5>
                   <ol className="ck-steps mono small">
@@ -233,14 +318,14 @@ export function Cockpit() {
                 </section>
               )}
 
-              {detail.proposal?.falsifiable_condition && (
+              {detail.proposal?.falsifiable_condition && ['全部', '机制'].includes(chip) && (
                 <section>
                   <h5>证否条件（预注册）</h5>
                   <p className="small">{detail.proposal.falsifiable_condition}</p>
                 </section>
               )}
 
-              {detail.audit && detail.audit.length > 0 && (
+              {detail.audit && detail.audit.length > 0 && ['全部', '评价'].includes(chip) && (
                 <section>
                   <h5>语义审计</h5>
                   {detail.audit.map((a) => (
@@ -249,7 +334,7 @@ export function Cockpit() {
                 </section>
               )}
 
-              {detail.evaluation && (
+              {detail.evaluation && ['全部', '评价'].includes(chip) && (
                 <section>
                   <h5>评价</h5>
                   <div className="ck-nums">
@@ -265,7 +350,7 @@ export function Cockpit() {
                 </section>
               )}
 
-              {detail.verdict?.rationale && (
+              {detail.verdict?.rationale && ['全部', '判决'].includes(chip) && (
                 <section>
                   <h5>判决理由</h5>
                   <p className="small">{detail.verdict.rationale}</p>
