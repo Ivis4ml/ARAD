@@ -120,8 +120,25 @@ export function Chart({
         <path d={line((p) => p.null_threshold, shown)} fill="none" className="band-line"
               strokeWidth={1.5} strokeDasharray="5 4" />
       )}
-      <path d={line((p) => p.running_best, shown)} fill="none" className="best-line"
-            strokeWidth={2} strokeLinecap="round" />
+      {/* running best 一旦超出显示上限（被假象点抬走），继续画实线会钉在顶上
+          一路拖到底，看起来像一条真实数据线。改为：可见段实线；超限段细虚线，
+          右端标注一次真实值。 */}
+      <path d={line((p) => (p.running_best !== null && p.running_best <= ceil
+                            ? p.running_best : null), shown)}
+            fill="none" className="best-line" strokeWidth={2} strokeLinecap="round" />
+      <path d={line((p) => (p.running_best !== null && p.running_best > ceil
+                            ? p.running_best : null), shown)}
+            fill="none" className="best-line clipped" strokeWidth={1} />
+      {(() => {
+        const last = [...points.slice(0, shown)].reverse()
+          .find((p) => p.running_best !== null)
+        return last && last.running_best !== null && last.running_best > ceil ? (
+          <text x={pad.left + innerW} y={y(last.running_best) + 14} textAnchor="end"
+                fontSize={9.5} className="axis">
+            最好 {num(last.running_best, 2)}（超出显示上限）
+          </text>
+        ) : null
+      })()}
 
       {pendingIndex >= 0 && pendingIndex >= shown && (
         <g className="pending">
@@ -162,8 +179,9 @@ export function Chart({
              style={{ cursor: 'pointer' }}
              className={i === shown - 1 ? 'point landed' : 'point'}>
             {p.value > ceil && (
-              <text x={x(i)} y={y(p.value) - 10} textAnchor="middle" fontSize={9.5}
-                    className="axis">{num(p.value, 1)}↑</text>
+              <path d={`M ${x(i) - 4} ${y(p.value) - 8} L ${x(i) + 4} ${y(p.value) - 8} `
+                       + `L ${x(i)} ${y(p.value) - 14} Z`}
+                    fill={VERDICT_FILL[p.verdict] ?? '#5a6270'} opacity={0.9} />
             )}
             <circle cx={x(i)} cy={y(p.value)} r={selected === p.study_id ? 7 : 5}
                     fill={VERDICT_FILL[p.verdict] ?? '#5a6270'}
@@ -176,14 +194,19 @@ export function Chart({
         ),
       )}
 
-      {points.map((p, i) => (
-        <text key={`x${p.study_id}`} x={x(i)} y={H - pad.bottom + 18} textAnchor="middle"
-              fontSize={10.5} className={i < shown ? 'axis' : 'axis dimmer'}
-              fontFamily="var(--mono)"
-              fontWeight={selected === p.study_id ? 700 : 400}>
-          {i + 1}
-        </text>
-      ))}
+      {(() => {
+        const step = Math.max(1, Math.ceil(points.length / 12))
+        return points.map((p, i) =>
+          (i % step === 0 || i === points.length - 1 || selected === p.study_id) ? (
+            <text key={`x${p.study_id}`} x={x(i)} y={H - pad.bottom + 18}
+                  textAnchor="middle" fontSize={10.5}
+                  className={i < shown ? 'axis' : 'axis dimmer'}
+                  fontFamily="var(--mono)"
+                  fontWeight={selected === p.study_id ? 700 : 400}>
+              {i + 1}
+            </text>
+          ) : null)
+      })()}
       <text x={pad.left + innerW / 2} y={H - 10} textAnchor="middle" fontSize={11} className="axis">
         {xCaption ?? '第几版（沿谱系）　·　点开一个点看它的判决快照'}
       </text>
