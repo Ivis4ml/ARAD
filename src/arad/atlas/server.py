@@ -90,7 +90,10 @@ class AtlasHandler(BaseHTTPRequestHandler):
 
             try:
                 with EvidenceLedger(self.ledger_path) as ledger:
-                    self._json(project(ledger, family=self.family).to_dict())
+                    # strict=False：进行中的 Study 缺 outcome/判决是**常态不是缺口**，
+                    # 实测每逢有版本在飞（多数时间）这里就 503，整个 app 打不开。
+                    # 归档路径保持 strict=True —— 跑完的运行缺段仍然要刺眼。
+                    self._json(project(ledger, family=self.family, strict=False).to_dict())
             except Exception as exc:                       # noqa: BLE001
                 self._json({"error": f"投影失败：{exc}"}, 503)
             return

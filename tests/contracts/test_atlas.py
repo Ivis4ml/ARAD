@@ -531,3 +531,32 @@ def test_served_json_never_contains_nan():
     assert parsed["s"] == "NaN 字符串照留"
     assert not any(isinstance(v, float) and not math.isfinite(v)
                    for v in [parsed["abs_t"], *parsed["t"]] if v is not None)
+
+
+def test_live_projection_tolerates_an_in_flight_study():
+    """进行中的 Study 缺 outcome 与判决是常态，不是账本缺口。
+
+    实测：run16 刚冻结提案、还没读 outcome 时，strict 投影抛 SnapshotIncomplete，
+    /api/live/projection 一路 503，整个 app 打不开 —— 而有版本在飞恰恰是常态。
+    归档路径保持 strict：跑完的运行缺段仍然要刺眼。
+    """
+    import pytest as _pytest
+
+    from arad.atlas.project import project
+    from arad.memory.ledger import EvidenceLedger
+    from arad.memory.snapshot import SnapshotIncomplete
+
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp, EvidenceLedger(f"{tmp}/l.db") as ledger:
+        sid = "s-inflight"
+        ledger.append("proposal_locked", {"study_id": sid, "mechanism": "m",
+                                          "target": "t", "universe": "u", "direction": 1,
+                                          "falsifiable_condition": "f"}, study_id=sid)
+        ledger.append("hypothesis_locked", {"study_id": sid}, study_id=sid)
+        ledger.append("confirmatory_locked", {"study_id": sid}, study_id=sid)
+        with _pytest.raises(SnapshotIncomplete):
+            project(ledger, family="fam", strict=True)
+        proj = project(ledger, family="fam", strict=False)
+        assert any(s["study_id"] == sid and s["verdict"] == ""
+                   for s in proj.to_dict()["studies"])
