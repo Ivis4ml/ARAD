@@ -95,6 +95,8 @@ export function Cockpit() {
   }, [])
   // 产物台分页 chips
   const [chip, setChip] = useState('全部')
+  // 中栏聚焦当前运行；历史运行折叠进下拉，选中才展开那一轮的卡
+  const [histRun, setHistRun] = useState('')
 
   useEffect(() => {
     let alive = true
@@ -134,6 +136,10 @@ export function Cockpit() {
 
   if (!state) return <p className="muted small">正在读取账本…</p>
 
+  const currentRun = state.run_id
+    ?? (state.studies?.[0]?.study_id.includes('-study-')
+        ? state.studies[0].study_id.slice(0, state.studies[0].study_id.indexOf('-study-'))
+        : null)
   const byRun = new Map<string, StudySummary[]>()
   for (const s of state.studies ?? []) {
     const run = s.study_id.includes('-study-')
@@ -179,20 +185,31 @@ export function Cockpit() {
            style={{ gridTemplateColumns: `224px minmax(0,1fr) 14px ${sideW}px` }}>
         {/* ------------------------------------------------ 左栏：Study 导航 */}
         <nav className="ck-nav">
-          {[...byRun.entries()].map(([run, list]) => (
-            <div key={run} className="ck-run">
-              <div className="ck-run-head mono">{run} <span className="ck-dim">{list.length}</span></div>
-              {list.map((s) => (
-                <button key={s.study_id}
-                        className={`ck-item ${selected === s.study_id ? 'sel' : ''}`}
-                        onClick={() => { followRef.current = false; setSelected(s.study_id) }}>
-                  <i className="vdot" style={{ background: V_COLOR[s.verdict ?? ''] ?? '#30363d' }} />
-                  <span className="mono ck-item-id">{s.study_id.slice(s.study_id.indexOf('-study-') + 7)}</span>
-                  <span className="ck-item-feat">{s.feature_id ?? '…'}</span>
-                </button>
-              ))}
-            </div>
-          ))}
+          {[...byRun.entries()].map(([run, list]) => {
+            const items = list.map((s) => (
+              <button key={s.study_id}
+                      className={`ck-item ${selected === s.study_id ? 'sel' : ''}`}
+                      onClick={() => { followRef.current = false; setSelected(s.study_id) }}>
+                <i className="vdot" style={{ background: V_COLOR[s.verdict ?? ''] ?? '#30363d' }} />
+                <span className="mono ck-item-id">{s.study_id.slice(s.study_id.indexOf('-study-') + 7)}</span>
+                <span className="ck-item-feat">{s.feature_id ?? '…'}</span>
+              </button>
+            ))
+            if (run === currentRun) {
+              return (
+                <div key={run} className="ck-run">
+                  <div className="ck-run-head mono">{run} <span className="ck-dim">{list.length}</span> · 当前</div>
+                  {items}
+                </div>
+              )
+            }
+            return (
+              <details key={run} className="ck-run-fold">
+                <summary className="mono">{run} <span className="ck-dim">{list.length}</span></summary>
+                {items}
+              </details>
+            )
+          })}
         </nav>
 
         {/* ------------------------------------------------ 中栏：过程与曲线 */}
@@ -262,7 +279,22 @@ export function Cockpit() {
           </section>
 
           <section className="ck-feed">
-            {(state.recent ?? []).map((r, i) => (
+            <div className="ck-feed-head">
+              <span className="ck-dim small">过程流 · {histRun || `${currentRun ?? '当前'}（进行中）`}</span>
+              <select className="ck-hist mono" value={histRun}
+                      onChange={(e) => setHistRun(e.target.value)}>
+                <option value="">当前运行</option>
+                {[...byRun.keys()].filter((r) => r !== currentRun).map((r) => (
+                  <option key={r} value={r}>历史 · {r}</option>
+                ))}
+              </select>
+            </div>
+            {(state.recent ?? [])
+              .filter((r) => {
+                const run = r.study_id.slice(0, r.study_id.indexOf('-study-'))
+                return histRun ? run === histRun : run === currentRun
+              })
+              .map((r, i) => (
               <button key={r.study_id}
                       style={{ animationDelay: `${Math.min(i * 45, 360)}ms` }}
                       className={`ck-beat ${selected === r.study_id ? 'sel' : ''}`}
