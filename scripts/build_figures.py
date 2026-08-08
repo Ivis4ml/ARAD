@@ -129,5 +129,49 @@ def main() -> None:
     print(f"共 {len(index)} 张图 → {OUT}")
 
 
+
+
+def hillclimb_baseline() -> None:
+    """旧系统（Alpha-Data 时代）的爬山基线：为什么上升的曲线不是证据。
+
+    三个数字的出处都有合同测试钉着（tests/contracts/test_selection.py:28-37）：
+    81 次爬山、试验间 Sharpe 标准差 0.06758419676972037、
+    实测最好年化 Sharpe 2.40；零假设下同样搜索的期望是
+    expected_max_sharpe(81, sd) * sqrt(252) = 2.6345。
+    曲线用与判决同一套公式画出 —— 不是示意，是可复现的计算。
+    """
+    from arad.evaluation.selection import expected_max_sharpe
+
+    SD = 0.06758419676972037
+    ANN = 252 ** 0.5
+    ns = list(range(2, 82))
+    null_curve = [expected_max_sharpe(k, SD) * ANN for k in ns]
+    best = 2.40
+
+    fig, ax = plt.subplots(figsize=(6.4, 2.9), dpi=200)
+    ax.plot(ns, null_curve, color=PRICE, lw=1.4,
+            label="零假设期望 E[max Sharpe]（同一搜索过程、纯噪声）")
+    ax.axhline(best, color=SIGNAL, lw=1.4, ls="--",
+               label="实测最好（81 次爬山选出）= 2.40")
+    cross = next((k for k, v in zip(ns, null_curve) if v > best), None)
+    if cross:
+        ax.axvline(cross, color="#8a8f98", lw=0.8, ls=":")
+        ax.annotate(f"n={cross} 起，噪声期望即超过实测最好",
+                    xy=(cross, best), xytext=(cross + 3, best - 0.55),
+                    fontsize=7.5, color="#374151",
+                    arrowprops={"arrowstyle": "->", "lw": 0.7, "color": "#8a8f98"})
+    ax.set_xlabel("搜索次数 n", fontsize=8)
+    ax.set_ylabel("年化 Sharpe", fontsize=8)
+    ax.tick_params(labelsize=7)
+    ax.legend(fontsize=7, frameon=False, loc="lower right")
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
+    fig.tight_layout(pad=0.4)
+    fig.savefig(OUT / "hillclimb_baseline.png")
+    plt.close(fig)
+    print("hillclimb_baseline.png 完成")
+
+
 if __name__ == "__main__":
     main()
+    hillclimb_baseline()

@@ -47,26 +47,52 @@ def num(v, digits: int = 3) -> str:
 
 
 def study_rows(D: dict, run: str) -> str:
+    """一行 = 一条 Study。target 与控制项并入特征块的小字第二行 ——
+    单独成列会把数字列挤出页边（实测溢出至 120pt）。整表 footnotesize。"""
     rows = [s for s in D["studies"] if s["run"] == run]
     if not rows:
-        return r"\emph{本次运行没有产出任何属于自己的 Study。}" + "\n"
-    out = [r"\begin{longtable}{@{}l p{0.44\textwidth} l r r l@{}}",
-           r"\toprule Study & 特征（控制项） & target & $t$ & IC$_\rho$ & 判决 \\ \midrule",
+        return "\n"
+    out = [r"{\footnotesize\begin{longtable}"
+           r"{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.50\textwidth} "
+           r"r r l@{}}",
+           r"\toprule Study & 特征（第二行：target · 控制） & $t$ & IC$_\rho$ & 判决 "
+           r"\\ \midrule",
            r"\endhead"]
     for s in rows:
-        fid = mono(s.get("feature_id") or "—")
+        meta = [(s.get("target") or "—").replace("sc_", "")]
         if s.get("controls"):
-            fid += r" {\scriptsize（控制：" + tex_escape(",".join(s["controls"])) + r"）}"
+            meta.append("控制 " + ",".join(s["controls"]))
+        fid = mono(s.get("feature_id") or "—")
+        fid += (r"\newline {\scriptsize\color{gray}"
+                + tex_escape(" · ".join(meta)) + r"}")
         if s.get("audit"):
-            fid += (r" {\scriptsize\color{warn}（审计拦下："
-                    + tex_escape("、".join(s["audit"])) + r"）}")
-        tgt = mono((s.get("target") or "—").replace("sc_", ""))
+            fid += (r"\newline {\scriptsize\color{warn}审计拦下："
+                    + tex_escape("、".join(s["audit"])) + r"}")
         out.append(
-            f"{mono(s['study_id'])} & {fid} & {tgt} & "
+            f"{tex_escape(s['study_id'])} & {fid} & "
             f"{num(s.get('t'))} & {num(s.get('ic'), 3)} & "
             f"{tex_escape(s.get('verdict') or '进行中')} \\\\")
-    out.append(r"\bottomrule\end{longtable}")
+    out.append(r"\bottomrule\end{longtable}}")
     return "\n".join(out) + "\n"
+
+
+def run_figures(D: dict, figs: dict, run: str) -> str:
+    """该 run 的信号图紧跟其表格：表给判决与数字，图给形状，两两一组对照读。"""
+    parts = []
+    for s in D["studies"]:
+        if s["run"] != run:
+            continue
+        meta = figs.get(s["study_id"])
+        if not meta:
+            continue
+        cap = (r"\texttt{" + tex_escape(s["study_id"]) + r"}：\path{"
+               + meta["feature_id"] + r"}。有定义 "
+               + f"{meta['defined_points']}/{meta['total_points']} 点。")
+        parts.append(
+            r"\noindent\includegraphics[width=\textwidth]{figures/"
+            + meta["file"] + r"}\par\vspace{-2pt}{\scriptsize " + cap
+            + r"}\par\vspace{6pt}" + "\n")
+    return "".join(parts)
 
 
 def chronicle(D: dict, figs: dict) -> str:
@@ -76,6 +102,8 @@ def chronicle(D: dict, figs: dict) -> str:
         parts.append(r"\subsection{" + tex_escape(title) + "}\n")
         parts.append(tex_escape(narr) + "\n\n")
         parts.append(study_rows(D, r))
+        parts.append(run_figures(D, figs, r))
+        parts.append("\n\\clearpage\n")
     return "".join(parts)
 
 
@@ -143,7 +171,7 @@ def render(D: dict, figs: dict) -> str:
         + ("是" if s.get("taxonomy_clean") else r"\textcolor{bad}{否}") + r" \\"
         for s in D["sealed"])
     appendix_rows = "\n".join(
-        f"{mono(s['study_id'])} & {mono(s.get('feature_id') or '—')} & "
+        f"{tex_escape(s['study_id'])} & {mono(s.get('feature_id') or '—')} & "
         f"{num(s.get('t'))} & {num(s.get('ic'), 3)} & "
         f"{s.get('placebo') if s.get('placebo') is not None else '—'} & "
         f"{tex_escape(s.get('verdict') or '进行中')} \\\\"
@@ -164,7 +192,7 @@ def render(D: dict, figs: dict) -> str:
             + str(D["frozen_at"]["seq"]) + r"""
 \documentclass[11pt]{ctexart}
 \usepackage[a4paper,margin=2.4cm]{geometry}
-\usepackage{booktabs,longtable,graphicx,amsmath,amssymb,url,xcolor,caption}
+\usepackage{array,booktabs,longtable,graphicx,amsmath,amssymb,url,xcolor,caption}
 \usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
 \definecolor{warn}{HTML}{9A6510}\definecolor{bad}{HTML}{B93C28}
 \definecolor{ok}{HTML}{00806E}
@@ -195,13 +223,27 @@ Polymarket 预测市场 $\times$ 中国商品期货（以 SC 原油为主）上�
 \end{abstract}
 \tableofcontents
 
+\paragraph{符号约定}$n$ 为本族已读取 outcome 的次数（统计分母）；$t=\hat\beta/\mathrm{SE}$
+为一元回归斜率对双向 cluster 标准误之比；IC$_\rho$ 为预测与标签的 Spearman 秩相关；
+$E_\tau(n)$ 为 $n$ 次搜索在零假设下的期望最大统计量（\S\ref{sec:selection}）；
+$\bar p$ 为 Polymarket 某事件族的归一化概率均值；「决策时点」指某品种某交易时段
+开始前一分钟，系统在该时刻冻结全部可见信息并作出预测。
+
 \section{动机：每条约束防的是哪一种自欺}
-系统的每个机制对应一种具体的、已经发生过的失败。
+系统的每个机制对应一种具体的、已经发生过的失败。本节每段先摆失败，再给约束。
 
 \paragraph{一条上升的曲线本身不是证据。}选择在纯噪声上必然产出上升的 running-best
-曲线。旧系统实测：81 次爬山选出的最好 Sharpe 为 2.40，而同一搜索过程在零假设下的
-期望是 2.63 —— 曲线在涨，实际比噪声还差。因此每条曲线配一条随检验次数抬升的
-零假设带（\S\ref{sec:selection}），且地板对已有与将来的全部结论同时生效。
+曲线。图~\ref{fig:hillclimb} 是本项目的前身（Alpha-Data 时代）留下的实测：81 次
+爬山选出的最好年化 Sharpe 为 2.40，把\textbf{同一套搜索过程}放在纯噪声上，其期望
+最大值在第 46 次就超过了这个成绩，到第 81 次为 2.63 —— 曲线一直在涨，成绩却
+比噪声还差。这个教训是整个 ARAD 设计的起点：本系统给每条曲线配一条随检验次数抬升
+的零假设带（\S\ref{sec:selection}），且地板对已有与将来的全部结论同时生效。
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.9\textwidth]{figures/hillclimb_baseline.png}
+\caption{旧系统爬山基线：红线为零假设期望（用与本文判决同一套公式计算，
+参数为该搜索自身的试验间离散度），蓝虚线为 81 次爬山的实测最好。三个输入数字
+均有合同测试钉定。}\label{fig:hillclimb}
+\end{figure}
 
 \paragraph{分母会被悄悄做小。}「试过多少次」若由报告者自己数必然缩水。统计分母
 入库且只增不减（\path{statistical_denominator} 表挂 DELETE/UPDATE 触发器，一律
@@ -224,8 +266,8 @@ Polymarket 预测市场 $\times$ 中国商品期货（以 SC 原油为主）上�
 结论的 taxonomy\_clean 为否，主张被结构性封顶 —— 这是如实标注，不是缺陷。
 
 \section{数据}
-\begin{table}[htbp]\centering\small
-\begin{tabular}{@{}llll@{}}\toprule
+\begin{table}[htbp]\centering\footnotesize
+\begin{tabular}{@{}l p{0.30\textwidth} p{0.24\textwidth} l@{}}\toprule
 层 & 内容 & 规模 & 状态 \\ \midrule
 商品 tick 归档 & chinese-commodity（只读） & 87 品种 · 221 GB · 909 交易日 & M1 合同化 \\
 Temporal Spine & 分钟 bar、主力视图、三类 target & 51 品种（36 个满 1{,}816 行） & 郑商所 21 品种待裁决 \\
@@ -236,13 +278,33 @@ Polymarket & 族级小时序列 & 1{,}998 族 · 5{,}986{,}409 行 & 全量物�
 \bottomrule\end{tabular}
 \caption{数据层与状态。}\end{table}
 
-三类目标逐品种命名，声明即被评（M8.2 硬校验）：\path{rv_next_session}（下一时段
-已实现波动，主目标）、\path{ret_next_session}（入场到收盘对数收益，唯一可交易主张）、
+\paragraph{一行数据是什么。}评价样本的一行 =（品种，交易时段）：在该时段开始前
+一分钟（决策时点）冻结全部可见信息，特征在此刻求值；标签取该时段结束后才可知的量。
+SC 每交易日两个时段（夜盘、日盘），discovery 段共 1{,}040 个决策时点；36 品种面板
+把行数扩到三万余，但同一交易日的行高度相关 —— 这正是双向 cluster 标准误存在的原因。
+
+\paragraph{特征的原料。}Polymarket 侧不用单个市场，而用「族」：把语义相近的事件市场
+（如全部与伊朗相关的）聚成一条小时级序列，含归一化概率 $p$、名义资金 notional、
+成交笔数 trades 三个字段。族定义由归纳产生，归纳语料的时间切点被记为
+taxonomy\_freeze\_at 并进入前向门（\S1 第六段）。
+
+\paragraph{目标。}三类，逐品种命名，声明即被评（M8.2 硬校验）：
+\path{rv_next_session}（下一时段已实现波动，主目标 —— 波动可预测性是另类数据最可能
+先出现的地方）、\path{ret_next_session}（入场到收盘对数收益，唯一可交易主张）、
 \path{open_gap_absorption}（诊断用）。universe 由模型自选：36 品种面板或任一单品种
 主力视图。
 
 \section{方法与数学定义}
-只写参与判决的量；凡实现与教科书形式或与本仓文档不一致处，一律写明。
+\paragraph{一轮的流水线。}一条 Study 固定走十一步，缺步本身是信息：
+（1）组装盲化上下文 $\to$（2）冻结提案（机制、target、universe、方向、证否条件）
+$\to$（3）冻结假设 $\to$（4）冻结检验规格 $\to$（5）建立 Study $\to$
+（6）冻结特征规格 $\to$（7）语义审计（在读 outcome \textbf{之前}；被拦下的不进
+统计分母）$\to$（8）声明可见数据范围 $\to$（9）读取 outcome（统计分母加一，
+零假设带随之抬升）$\to$（10）评价机出具全部统计量与阻塞理由 $\to$
+（11）判决由理由种类机械推出并入账。提案器全程看不到任何效应的方向与量级；
+评价机是唯一读标签的组件。
+
+以下只写参与判决的量；凡实现与教科书形式或与本仓文档不一致处，一律写明。
 
 \subsection{时点与窗口}
 三个时刻的不等式由构造保证并在评价机复查：
@@ -273,7 +335,7 @@ $b$=品种）：
 （权重为组规模，量纲是\textbf{有效 cluster 数}）。
 
 置换检验按 episode 整块置换（默认 200 次，种子 20260805）；
-$\text{exceed}=\#\{|s^\ast|\ge|\hat\beta|\}/\text{成功次数}$，闸门 $>0.1$ 记
+$\text{exceed}=\#\{|s^\ast|\ge|\hat\beta|\}/\text{成功次数}$，闸门 $>0.1$ 时记
 placebo\_failed —— 它是唯一能产出 null 的理由。三处声明：块规模不等时 $y^\ast$
 并非 $y$ 的置换（短块循环复用、长块截尾）；无 $(e{+}1)/(d{+}1)$ 修正；成功次数为 0
 时兜底 1.0，等于把度量失败记成支持 null 的证据。
@@ -289,11 +351,15 @@ $|t|+\mathrm{DFBETAS}\ge 2.8$ 分「同时使 candidate 与 null 失效」或「
 不在式中；SE 被低估时该界一并被低估。
 
 \subsection{判决导出}\label{sec:verdict}
-判决只读阻塞理由的\textbf{种类}，不读数值。失效表：insufficient\_sample、
-not\_identified、single\_point\_influence\_both $\to\{$candidate, null$\}$；
-cost\_model\_missing、cluster\_structure\_insufficient、
-single\_point\_influence\_candidate\_only $\to\{$candidate$\}$；
-placebo\_failed $\to\varnothing$。导出顺序：未知种类报错 $\to$ 样本不足判
+判决只读阻塞理由的\textbf{种类}，不读数值。失效表：
+\begin{center}\footnotesize\begin{tabular}{@{}ll@{}}\toprule
+理由种类 & 使哪些结论失效 \\ \midrule
+\path{insufficient_sample} · \path{not_identified} · \path{single_point_influence_both}
+  & \{candidate, null\} \\
+\path{cost_model_missing} · \path{cluster_structure_insufficient} & \{candidate\} \\
+\path{single_point_influence_candidate_only} & \{candidate\} \\
+\path{placebo_failed} & $\varnothing$ \\
+\bottomrule\end{tabular}\end{center}导出顺序：未知种类报错 $\to$ 样本不足判
 UNDERPOWERED $\to$ 求失效并集 $\to$ placebo\_failed 且 null 未失效判 NULL $\to$
 candidate 失效判 BLOCKED $\to$ 否则 CANDIDATE。给定理由集合，判决唯一确定、可机械复核。
 
@@ -312,7 +378,7 @@ $|z|$ 带取 $\tau=2$（搜索接受任一方向），$n=1$ 时取半正态均�
 \bottomrule\end{tabular}\caption{零假设带的实际抬升轨迹（账本快照）。}\end{table}
 
 \subsection{封存段}
-$\text{seal\_key}=\mathrm{SHA256}(\text{feature\_id},\text{segment},\text{version})$；
+\[ \text{seal\_key}=\mathrm{SHA256}(\text{feature\_id},\ \text{segment},\ \text{version}), \]
 开封记录进哈希链，第二次开封抛 SealedAlreadyOpened。因子卡状态用
 $|t_{\text{封存}}|/|t_{\text{发现}}|$ 对阈值 0.35 —— 该阈值与 min\_rows=120
 均为写死常量，\textbf{无文档推导}；且分子分母是 $t$ 值而非效应量（\S\ref{sec:hero}）。
@@ -427,16 +493,10 @@ candidate。}\emph{证否：修正后重跑，判决分布改变。}
 
 \appendix
 \section{全部 """ + str(len(D["studies"])) + r""" 个 Study}
-\begin{longtable}{@{}l p{0.40\textwidth} r r r l@{}}
+{\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.42\textwidth} r r r l@{}}
 \toprule Study & 特征 & $t$ & IC & 置换 $p$ & 判决 \\ \midrule\endhead
 """ + appendix_rows + r"""
-\bottomrule\end{longtable}
-
-\section{全部信号图（信号：蓝，左轴；SC 收盘价：红，右轴）}
-面板 universe 的 Study 亦在 SC 决策网格上重算并以 SC 为代表绘制。
-「有定义点数」少于总点数的部分为窗口未满或控制序列缺失，按纪律返回无定义而非零。
-
-""" + appendix_figures(D, figs) + r"""
+\bottomrule\end{longtable}}
 
 \vfill\noindent\rule{\textwidth}{0.4pt}\\
 {\small 账本冻结点：事件 seq """ + str(D["frozen_at"]["seq"]) + r"""（"""
