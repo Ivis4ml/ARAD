@@ -90,7 +90,7 @@ def search_price(ledger: EvidenceLedger, family: str) -> dict:
         "floor_now": round(now, 4),
         "floor_after_one_more": round(nxt, 4),
         "note": (
-            "地板是 |t| 必须越过的噪声水平，按已花掉的检验次数抬升（√(2 ln n)）。"
+            "地板是 |t| 必须越过的噪声水平，按已花掉的检验次数抬升（Bailey-López de Prado 期望最大值，floor_now 与 floor_after_one_more 即实值）。"
             "每多提一个会被评价的假设，**已有的与将来的全部结论**都要按更高的地板重读。"
             "因此不确定值不值得检验时，产出一条原语缺口声明或一条更锐的可证伪条件，"
             "比多花一次检验更有价值"

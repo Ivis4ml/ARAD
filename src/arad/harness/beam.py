@@ -24,7 +24,14 @@ from dataclasses import dataclass, field
 from ..evaluation import stats
 from ..evaluation.selection import expected_max_abs_z
 
-BEAM_VERSION = "0.1.0"
+BEAM_VERSION = "0.2.0"
+
+#: 决定 0002：纯量价构造归 Baseline Control Library，不计入另类因子清单。
+#: 束位是自动封存的名额 —— 实测（B6）四条波动假象以 +7.1 至 +2.3 的奖励
+#: 永久霸占全部四个束位，唯一奖励为正的残差化另类构造（run16-study-3）排第五
+#: 被挤出，收尾封存只重试了四个早已开封的老面孔。基线构造仍然入账、仍可有判决，
+#: 只是不占另类束位。
+BASELINE_SOURCES = frozenset({"commodity_bar"})
 
 
 @dataclass(frozen=True)
@@ -60,6 +67,8 @@ class Beam:
         """返回是否进入了束。"""
         if candidate.reward == float("-inf"):
             return False
+        if candidate.source in BASELINE_SOURCES:
+            return False       # 决定 0002：基线构造不占另类束位（B6）
         self.members.append(candidate)
         self.members.sort(key=lambda c: -c.reward)
         del self.members[self.width:]

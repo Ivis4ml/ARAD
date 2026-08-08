@@ -234,12 +234,25 @@ def _thinking() -> dict:
     return {"active": True, "chars": len(text), "tail": text[-3000:]}
 
 
-def _curve(conn: sqlite3.Connection) -> list[dict]:
+def _curve(conn: sqlite3.Connection, family: str | None = None) -> list[dict]:
     """逐次检验的 |t| 与同一时刻的零假设带。**两者永远成对。**
 
     只取真正读过 outcome 的那些 —— 被语义审计拦下的 Study 没有 evaluation_result，
     也不该出现在这条曲线上：它没消耗多重检验预算，地板不因它抬高。
+
+    n 的口径（B1 修复）：此前用 evaluation_result 事件的序号且不按族过滤，
+    与顶栏（按族过滤统计分母）在同一屏出现两个不同的 n。现在统一：
+    每条曲线点的 n 取该 Study 在**本族统计分母表**中的位置 —— 与地板同源。
     """
+    denom = conn.execute(
+        "SELECT study_id FROM statistical_denominator"
+        + (" WHERE family = ?" if family else "")
+        + " ORDER BY rowid",
+        (family,) if family else (),
+    ).fetchall()
+    n_at: dict[str, int] = {}
+    for i, r in enumerate(denom, start=1):
+        n_at.setdefault(r["study_id"], i)
     rows = conn.execute(
         "SELECT study_id,"
         "       json_extract(payload, '$.effects.t_stat') t,"
@@ -248,7 +261,10 @@ def _curve(conn: sqlite3.Connection) -> list[dict]:
     ).fetchall()
     out: list[dict] = []
     best = 0.0
-    for i, row in enumerate(rows, start=1):
+    for row in rows:
+        i = n_at.get(row["study_id"])
+        if i is None:
+            continue           # 不属于本族的评价不进本族的曲线
         raw = row["t"]
         value = abs(raw) if isinstance(raw, (int, float)) else None
         if value is not None and value > best:
@@ -402,7 +418,7 @@ def _project(conn: sqlite3.Connection, family: str, now: datetime) -> dict:
             "floor_now": round(expected_max_abs_z(tests), 4) if tests else 0.0,
             "floor_after_one_more": round(expected_max_abs_z(tests + 1), 4),
         },
-        "curve": _curve(conn),
+        "curve": _curve(conn, family),
         "thinking": _thinking(),
         "recent": _recent(conn),
         "studies": all_studies(conn),
