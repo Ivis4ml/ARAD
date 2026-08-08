@@ -367,3 +367,60 @@ main.full-bleed .cockpit { max-width:1480px; margin:8px auto 20px; }
   background:var(--ck-panel2); color:var(--ck-fg); cursor:pointer;
   transition:background .15s ease; }
 .ck-near-item:hover { background:var(--ck-hover); }
+
+/* ================================================================ 全屏深色工作台
+   整个 app 就是驾驶舱。旧视图不逐个改：它们消费 --ground/--panel/--ink/--muted/
+   --rule/--paper 这些设计变量，在 .app 作用域里把变量整体重映射到深色 token，
+   一次变暗。个别写死的浅色（表格斑马纹等）由下面少量覆盖收尾。 */
+html, body, #root { height: 100%; margin: 0; }
+body { background: #000; }
+.app { height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+  background: #000; color: #f2f2f7;
+  /* 旧视图的变量重映射 */
+  --ground:#000; --panel:#1c1c1e; --ink:#f2f2f7; --muted:rgba(235,235,245,.6);
+  --rule:rgba(84,84,88,.36); --paper:#1c1c1e; --ink-2:rgba(235,235,245,.6);
+  --band:#8b93a1; --band-fill:rgba(139,147,161,.12); --mark:#7fa0ce;
+  --line:rgba(84,84,88,.36); --card:#1c1c1e; --fg:#f2f2f7; --bg:#000;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','PingFang SC',sans-serif;
+  font-size:13px; letter-spacing:-0.01em; }
+.app ::-webkit-scrollbar { width:8px; height:8px; }
+.app ::-webkit-scrollbar-thumb { background:rgba(84,84,88,.6); border-radius:8px; }
+.app ::-webkit-scrollbar-track { background:transparent; }
+.app-header { height:52px; flex:none; display:flex; align-items:center; gap:12px;
+  padding:0 16px 0 14px; border-bottom:0.5px solid rgba(84,84,88,.36);
+  background:rgba(28,28,30,.62); backdrop-filter:saturate(180%) blur(20px); z-index:30; }
+.app-brand { font-size:16px; font-weight:600; letter-spacing:-0.02em; }
+.app-sub { font-size:11px; color:rgba(235,235,245,.3); text-transform:uppercase;
+  letter-spacing:.08em; }
+.app-run { min-width:200px; max-width:360px; font-size:13px; padding:6px 10px;
+  border-radius:8px; border:0.5px solid rgba(84,84,88,.36); background:#1c1c1e;
+  color:#f2f2f7; }
+.app-spacer { flex:1; }
+.app-mini { font-size:12px; color:rgba(235,235,245,.6); display:inline-flex;
+  align-items:center; gap:10px; }
+.app-mini b { color:#f2f2f7; margin:0 2px; }
+.sb-sep { width:0.5px; height:16px; background:rgba(84,84,88,.36); display:inline-block; }
+.app-body { flex:1; display:flex; min-height:0; }
+.app-side { width:224px; flex:none; border-right:0.5px solid rgba(84,84,88,.36);
+  padding:16px 12px; overflow-y:auto;
+  background:rgba(28,28,30,.62); backdrop-filter:saturate(180%) blur(20px); }
+.app-nav-group { padding:12px 10px 4px; font-size:11px; color:rgba(235,235,245,.3);
+  text-transform:uppercase; letter-spacing:.05em; }
+.app-nav-item { display:block; width:100%; text-align:left; padding:6px 10px;
+  min-height:30px; font-size:14px; font-weight:500; border-radius:8px; border:0;
+  background:none; color:#f2f2f7; cursor:pointer;
+  transition:background .18s ease, color .18s ease; }
+.app-nav-item:hover { background:#3a3a3c; }
+.app-nav-item.sel { background:#7fa0ce; color:#fff; }
+.app-stage { flex:1; min-width:0; overflow-y:auto;
+  animation:ck-view .45s cubic-bezier(0.22,1,0.36,1); }
+.app-stage .cockpit { margin:0; border:0; border-radius:0; max-width:none;
+  height:100%; display:flex; flex-direction:column; }
+.app-stage .cockpit .ck-body { flex:1; max-height:none; min-height:0; }
+.stage-doc { max-width:1100px; margin:0 auto; padding:20px 28px 64px; }
+.stage-doc .slab { border-radius:16px; border:0.5px solid rgba(84,84,88,.36);
+  margin-bottom:20px; }
+.app svg.curve text { fill:rgba(235,235,245,.6); }
+/* 旧视图里写死的浅色收尾 */
+.stage-doc table { color:#f2f2f7; }
+.stage-doc .notice { background:#1c1c1e; border-color:rgba(84,84,88,.36); }
