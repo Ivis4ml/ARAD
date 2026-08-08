@@ -215,6 +215,25 @@ def all_studies(conn: sqlite3.Connection) -> list[dict]:
     return [acc[s] for s in reversed(order)]
 
 
+def _thinking() -> dict:
+    """模型正在写的东西（在途观察窗）。
+
+    provider 把 stream-json 的文本增量落到 INFLIGHT_PATH，调用结束即删。
+    这是给人看的：单次调用 3 至 8 分钟，等待期间一个字都看不到是实测里
+    最难受的一段。只取尾部 —— 人要看的是"它正在想什么"，不是全文。
+    """
+    from pathlib import Path
+
+    path = Path("data/ledger/inflight_proposer.txt")
+    if not path.exists():
+        return {"active": False}
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return {"active": False}
+    return {"active": True, "chars": len(text), "tail": text[-3000:]}
+
+
 def _curve(conn: sqlite3.Connection) -> list[dict]:
     """逐次检验的 |t| 与同一时刻的零假设带。**两者永远成对。**
 
@@ -384,6 +403,7 @@ def _project(conn: sqlite3.Connection, family: str, now: datetime) -> dict:
             "floor_after_one_more": round(expected_max_abs_z(tests + 1), 4),
         },
         "curve": _curve(conn),
+        "thinking": _thinking(),
         "recent": _recent(conn),
         "studies": all_studies(conn),
         "note": (

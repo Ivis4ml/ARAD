@@ -1,0 +1,13 @@
+{
+  "run_id": "run12",
+  "created_at": "2026-08-08T05:17:24.130177+00:00",
+  "family": "demo_sc_price_volume",
+  "studies": 69,
+  "statistical_denominator": 49,
+  "proposal_denominator": 70,
+  "headline": "这一轮没有留下可用的发现，是否继续搜索已交回人工判断。",
+  "exceeded_band": true,
+  "cards": 0,
+  "chain_intact": true,
+  "runs_version": "0.1.0"
+}

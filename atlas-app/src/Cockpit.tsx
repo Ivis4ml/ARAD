@@ -31,6 +31,7 @@ type LiveState = {
   denominators: { proposal_denominator: number; statistical_denominator: number }
   price: { tests_spent: number; floor_now: number; floor_after_one_more: number }
   curve: CurvePt[]; recent: Recent[]; studies: StudySummary[]
+  thinking?: { active: boolean; chars?: number; tail?: string }
 }
 type Detail = {
   study_id: string
@@ -196,6 +197,18 @@ export function Cockpit() {
 
         {/* ------------------------------------------------ 中栏：过程与曲线 */}
         <main className="ck-main">
+          {state.thinking?.active && (
+            <section className="ck-card ck-live-think">
+              <h4>
+                模型推理中 <span className="ck-pulse" />
+                <span className="ck-dim mono small">　{state.thinking.chars} 字</span>
+              </h4>
+              <pre className="ck-stream mono" ref={(el) => { if (el) el.scrollTop = el.scrollHeight }}>
+                {state.thinking.tail}
+              </pre>
+            </section>
+          )}
+
           <section className="ck-card ck-found">
             <h4>找到因子了吗</h4>
             <div className="ck-nums">

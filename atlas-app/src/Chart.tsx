@@ -57,13 +57,20 @@ export function Chart({
     )
   }
   const lo = Math.min(0, ...values)
-  const hi = Math.max(...values)
+  // 纵轴截顶：两个 |t|=9.3 的量价假象点会把其余全部点压成底部一条线，
+  // 图就废了。上限取「地板的 1.6 倍」与 3.5 中的大者；超出的点画在顶边、
+  // 标真实值 —— 它们存在这件事要看得见，但不配决定整张图的比例。
+  const bandMax = Math.max(0, ...points.map((p) => p.null_threshold ?? 0))
+  const ceil = Math.max(3.5, bandMax * 1.6)
+  const hiRaw = Math.max(...values)
+  const hi = Math.min(hiRaw, ceil)
   const span = hi - lo || 1
   const yMin = lo - span * 0.1
   const yMax = hi + span * 0.14
+  const clampY = (v: number) => Math.min(v, ceil)
   const x = (i: number) =>
     pad.left + (points.length === 1 ? innerW / 2 : (i / (points.length - 1)) * innerW)
-  const y = (v: number) => pad.top + innerH - ((v - yMin) / (yMax - yMin)) * innerH
+  const y = (v: number) => pad.top + innerH - ((clampY(v) - yMin) / (yMax - yMin)) * innerH
 
   const ticks = 4
   const gridY = Array.from({ length: ticks + 1 }, (_, i) => yMin + ((yMax - yMin) * i) / ticks)
@@ -154,6 +161,10 @@ export function Chart({
           <g key={p.study_id} onClick={() => onSelect(p.study_id)}
              style={{ cursor: 'pointer' }}
              className={i === shown - 1 ? 'point landed' : 'point'}>
+            {p.value > ceil && (
+              <text x={x(i)} y={y(p.value) - 10} textAnchor="middle" fontSize={9.5}
+                    className="axis">{num(p.value, 1)}↑</text>
+            )}
             <circle cx={x(i)} cy={y(p.value)} r={selected === p.study_id ? 7 : 5}
                     fill={VERDICT_FILL[p.verdict] ?? '#5a6270'}
                     className="pt-ring" strokeWidth={selected === p.study_id ? 2.5 : 1.5} />
