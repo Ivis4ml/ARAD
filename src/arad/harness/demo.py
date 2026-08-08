@@ -544,6 +544,46 @@ def _collect(spec, rows, values, times, eval_rows, authoritative, exclusions) ->
         )
 
 
+_COST_CFG_PATH = "configs/cost_model_v1.json"
+
+
+def _cost_model_for(members: list[str]) -> dict | None:
+    """按品种构造 M5 成本模型（决定 0007）。
+
+    round_trip_cost_ret = 2*commission + 2*half_spread_ticks*tick/中位决策价。
+    tick 为实测归纳（configs/tick_sizes_derived.json 经 cost_model_v1 引用），
+    佣金与半点差为人批准的声明常量。面板取成员品种成本的中位数 ——
+    成本本就该按「典型一笔」计。任何成员缺 tick 或缺价则整体不声明（宁缺勿假）。
+    """
+    import statistics
+
+    try:
+        cfg = json.loads(Path(_COST_CFG_PATH).read_text(encoding="utf-8"))
+    except OSError:
+        return None
+    if not cfg.get("approved_by_human"):
+        return None
+    costs: list[float] = []
+    for product in members:
+        row = cfg["products"].get(product)
+        path = _product_target_path(product, f"{product}_ret_next_session")
+        if row is None or not os.path.exists(path):
+            return None
+        import pyarrow.parquet as _pq
+
+        t = _pq.read_table(path, columns=["exit_price", "sample_segment"])
+        prices = [p for p, seg in zip(t.column("exit_price").to_pylist(),
+                                      t.column("sample_segment").to_pylist())
+                  if seg == "discovery" and p]
+        if not prices:
+            return None
+        mid = statistics.median(prices)
+        costs.append(2 * cfg["commission_bp_per_side"] * 1e-4
+                     + 2 * cfg["half_spread_ticks"] * row["tick_size"] / mid)
+    return {"version": cfg["version"],
+            "round_trip_cost_ret": statistics.median(costs)}
+
+
 def _build_evaluation(sc: dict, rows: list[dict], visible: dict,
                       loader=None, default_universe: str = "sc_dominant_t1"):
     """返回 harness 需要的 build_evaluation 回调。
@@ -620,7 +660,8 @@ def _build_evaluation(sc: dict, rows: list[dict], visible: dict,
             rows=eval_rows,
             authoritative_keys=authoritative,
             preregistered_exclusions=exclusions,
-            cost_model_declared=False,   # M5 之前没有成本模型；声明为 True 就是伪造
+            # M5（决定 0007）：成本表存在且经人批准时声明；构造失败宁缺勿假
+            cost_model=_cost_model_for(members),
             interpreter_version=INTERPRETER_VERSION,
             label_is_return=bool(record and record.get("label_is_return")),
             target_name=target_name,

@@ -1,0 +1,201 @@
+{
+ "version": "cost-model-v1",
+ "provenance": {
+  "tick_size": "configs/tick_sizes_derived.json（从 spine 分钟 bar 实测归纳，sc 与权威合约规格自检一致）",
+  "half_spread_ticks": "声明的保守常量：一跳（假设）",
+  "commission_bp_per_side": "声明的保守常量：名义额 1bp/边（假设）"
+ },
+ "formula": "round_trip_cost_ret = 2*commission_bp_per_side*1e-4 + 2*half_spread_ticks*tick_size/median_price_at_decision",
+ "approved_by_human": true,
+ "approved_note": "2026-08-08 用户选定方案 A；两项声明常量可修订，修订即换版本号",
+ "half_spread_ticks": 1.0,
+ "commission_bp_per_side": 1.0,
+ "products": {
+  "AP": {
+   "tick_size": 1.0
+  },
+  "CJ": {
+   "tick_size": 5.0
+  },
+  "PK": {
+   "tick_size": 2.0
+  },
+  "PL": {
+   "tick_size": 1.0
+  },
+  "PR": {
+   "tick_size": 2.0
+  },
+  "PX": {
+   "tick_size": 2.0
+  },
+  "RS": {
+   "tick_size": 1.0
+  },
+  "SF": {
+   "tick_size": 2.0
+  },
+  "SH": {
+   "tick_size": 1.0
+  },
+  "SM": {
+   "tick_size": 2.0
+  },
+  "UR": {
+   "tick_size": 1.0
+  },
+  "a": {
+   "tick_size": 1.0
+  },
+  "ad": {
+   "tick_size": 5.0
+  },
+  "ag": {
+   "tick_size": 1.0
+  },
+  "al": {
+   "tick_size": 5.0
+  },
+  "ao": {
+   "tick_size": 1.0
+  },
+  "au": {
+   "tick_size": 0.02
+  },
+  "b": {
+   "tick_size": 1.0
+  },
+  "bb": {
+   "tick_size": 0.05
+  },
+  "bc": {
+   "tick_size": 10.0
+  },
+  "br": {
+   "tick_size": 5.0
+  },
+  "bu": {
+   "tick_size": 1.0
+  },
+  "bz": {
+   "tick_size": 1.0
+  },
+  "c": {
+   "tick_size": 1.0
+  },
+  "cs": {
+   "tick_size": 1.0
+  },
+  "cu": {
+   "tick_size": 10.0
+  },
+  "eb": {
+   "tick_size": 1.0
+  },
+  "eg": {
+   "tick_size": 1.0
+  },
+  "fb": {
+   "tick_size": 0.5
+  },
+  "fu": {
+   "tick_size": 1.0
+  },
+  "hc": {
+   "tick_size": 1.0
+  },
+  "i": {
+   "tick_size": 0.5
+  },
+  "j": {
+   "tick_size": 0.5
+  },
+  "jd": {
+   "tick_size": 1.0
+  },
+  "jm": {
+   "tick_size": 0.5
+  },
+  "l": {
+   "tick_size": 1.0
+  },
+  "lc": {
+   "tick_size": 20.0
+  },
+  "lg": {
+   "tick_size": 0.5
+  },
+  "lh": {
+   "tick_size": 5.0
+  },
+  "lu": {
+   "tick_size": 1.0
+  },
+  "m": {
+   "tick_size": 1.0
+  },
+  "ni": {
+   "tick_size": 10.0
+  },
+  "nr": {
+   "tick_size": 5.0
+  },
+  "op": {
+   "tick_size": 2.0
+  },
+  "p": {
+   "tick_size": 1.0
+  },
+  "pb": {
+   "tick_size": 5.0
+  },
+  "pd": {
+   "tick_size": 0.05
+  },
+  "pg": {
+   "tick_size": 1.0
+  },
+  "pp": {
+   "tick_size": 1.0
+  },
+  "ps": {
+   "tick_size": 5.0
+  },
+  "pt": {
+   "tick_size": 0.05
+  },
+  "rb": {
+   "tick_size": 1.0
+  },
+  "rr": {
+   "tick_size": 1.0
+  },
+  "ru": {
+   "tick_size": 5.0
+  },
+  "sc": {
+   "tick_size": 0.1
+  },
+  "si": {
+   "tick_size": 5.0
+  },
+  "sn": {
+   "tick_size": 10.0
+  },
+  "sp": {
+   "tick_size": 2.0
+  },
+  "ss": {
+   "tick_size": 5.0
+  },
+  "v": {
+   "tick_size": 1.0
+  },
+  "y": {
+   "tick_size": 1.0
+  },
+  "zn": {
+   "tick_size": 5.0
+  }
+ }
+}

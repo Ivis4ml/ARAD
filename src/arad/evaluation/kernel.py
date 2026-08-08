@@ -26,11 +26,12 @@ from datetime import datetime
 from ..registry.specs import Verdict, content_id
 from . import stats
 
-EVALUATOR_VERSION = "0.3.0"
+EVALUATOR_VERSION = "0.4.0"
 
 #: 准入所需的最小证据。缺任一项，Study 不得取 candidate。
 ADMISSION_REQUIREMENTS = (
     "cost_model_declared",
+    "cost_model",
     "min_returns",
     "min_clusters",
     "placebo_passed",
@@ -56,6 +57,10 @@ REASON_INVALIDATES: dict[str, frozenset[str]] = {
     "insufficient_sample": frozenset({"candidate", "null"}),
     "not_identified": frozenset({"candidate", "null"}),
     "cost_model_missing": frozenset({"candidate"}),
+    # 声明了成本模型之后才可能出现：典型一笔的往返成本吃掉了平均绝对标签的
+    # 全部或更多 —— 即使每次都完美捕捉平均幅度也付不起成本。只废 candidate：
+    # 「统计上有关系但不足以支付交易成本」仍是一条合法的否定/对照结论。
+    "uneconomic_target": frozenset({"candidate"}),
     "cluster_structure_insufficient": frozenset({"candidate"}),
     # 单点影响是方向感知的：一个点能制造效应，也能遮蔽效应，但两者的判据不同
     "single_point_influence_candidate_only": frozenset({"candidate"}),
@@ -164,6 +169,10 @@ class EvaluationRequest:
     bottom_quantile: float = 0.05
     preregistered_exclusions: dict[str, str] = field(default_factory=dict)
     cost_model_declared: bool = False
+    #: M5 成本模型（决定 0007）。形态：{"version": str, "round_trip_cost_ret": float}
+    #: —— 该品种（或面板中位）一次往返的成本，以标签同量纲（对数收益）计。
+    #: 提供即视为已声明；digest 纳入 version，换成本表就是另一次评价。
+    cost_model: dict | None = None
     placebo_draws: int = 200
     placebo_seed: int = 20260805
     hac_lag: int = 5
@@ -364,7 +373,29 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
         "gate_evaluable": not math.isnan(dfbetas),
     }
 
-    if not request.cost_model_declared:
+    declared = request.cost_model_declared or request.cost_model is not None
+    cost_effects = None
+    if request.cost_model is not None:
+        cost = float(request.cost_model.get("round_trip_cost_ret", float("nan")))
+        mean_abs_label = (math.fsum(abs(v) for v in y) / len(y)
+                          if y else float("nan"))
+        breakeven = (cost / mean_abs_label
+                     if mean_abs_label and math.isfinite(mean_abs_label)
+                     and mean_abs_label > 0 and math.isfinite(cost) else float("nan"))
+        cost_effects = {
+            "version": request.cost_model.get("version", ""),
+            "round_trip_cost_ret": cost,
+            "mean_abs_label": mean_abs_label,
+            # 盈亏平衡捕捉率：往返成本占平均绝对标签的比例。>= 1 意味着
+            # 即使完美捕捉平均幅度也付不起成本（旧系统的盈亏平衡倍数同一量纲）。
+            "breakeven_capture_share": breakeven,
+        }
+        if request.label_is_return and math.isfinite(breakeven) and breakeven >= 1.0:
+            blocked.append((
+                "uneconomic_target",
+                f"往返成本为平均绝对收益的 {breakeven:.1f} 倍：完美捕捉也不够付",
+            ))
+    if not declared:
         blocked.append((
             "cost_model_missing",
             # 这是**系统级状态**（M5 未建），不是本条 Study 的缺陷。措辞必须说清，
@@ -440,7 +471,8 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
         ),
         "influence": influence,
         "placebo": placebo,
-        "cost_model_declared": request.cost_model_declared,
+        "cost_model_declared": declared,
+        "cost_model": cost_effects,
         "cost_note": "成本占位：真实成本与容量模型属 M5，未声明时不得取 candidate",
     }
     return _result(request, coverage, effects, blocked, {**independence, **diagnostics})

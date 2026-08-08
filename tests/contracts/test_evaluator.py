@@ -706,3 +706,57 @@ def test_the_verdict_classification_no_longer_reaches_the_proposer():
     assert bundle.facts["denominators"]["statistical_denominator"] == 0
     for study_id in ("s0", "s1", "s2"):
         assert study_id not in bundle.prompt
+
+
+def _cost_rows(n=40, label=0.01):
+    """构造 n 行可评样本：标签为有符号收益，幅度可控。"""
+    import datetime as dt
+
+    from arad.evaluation.kernel import EvaluationRow
+
+    base = dt.datetime(2024, 1, 1, 9, 0, tzinfo=dt.UTC)
+    rows, labels = [], {}
+    for i in range(n):
+        key = f"r{i}"
+        rows.append(EvaluationRow(
+            row_key=key, prediction=(i % 7) - 3.0,
+            decision_time=base + dt.timedelta(hours=i),
+            label_start=base + dt.timedelta(hours=i, minutes=1),
+            availability_times={"f": base + dt.timedelta(hours=i, minutes=-1)},
+            episode_id=f"e{i // 3}", date_cluster=f"d{i // 2}",
+            product_cluster="sc",
+        ))
+        labels[key] = label * (1 if i % 2 else -1)
+    return rows, labels
+
+
+def test_cost_model_v1_makes_candidate_reachable_and_prices_the_claim():
+    """决定 0007：提供成本模型即视为已声明，cost_model_missing 消失；
+    往返成本吃掉平均绝对收益的全部时，记 uneconomic_target（只废 candidate）。"""
+    from arad.evaluation.kernel import EvaluationRequest, evaluate
+
+    rows, labels = _cost_rows(label=0.01)
+    base = {"study_id": "s", "confirmatory_id": "c", "family": "f",
+            "rows": rows, "authoritative_keys": [r.row_key for r in rows],
+            "label_is_return": True, "target_name": "t",
+            "label_rule": "entry_to_close"}
+
+    cheap = evaluate(EvaluationRequest(
+        **base, cost_model={"version": "v1", "round_trip_cost_ret": 0.0005}),
+        labels, role="evaluator")
+    kinds = cheap["blocked_reason_kinds"]
+    assert "cost_model_missing" not in kinds
+    assert "uneconomic_target" not in kinds
+    assert cheap["diagnostics"]["cost_model_declared"] is True
+    assert cheap["diagnostics"]["cost_model"]["breakeven_capture_share"] < 0.1
+
+    expensive = evaluate(EvaluationRequest(
+        **base, cost_model={"version": "v1", "round_trip_cost_ret": 0.02}),
+        labels, role="evaluator")
+    assert "uneconomic_target" in expensive["blocked_reason_kinds"]
+    # 只废 candidate：若置换也失败，结论仍可为 null（经济上不可行不妨碍否定）
+    from arad.evaluation.kernel import REASON_INVALIDATES
+    assert REASON_INVALIDATES["uneconomic_target"] == frozenset({"candidate"})
+
+    undeclared = evaluate(EvaluationRequest(**base), labels, role="evaluator")
+    assert "cost_model_missing" in undeclared["blocked_reason_kinds"]

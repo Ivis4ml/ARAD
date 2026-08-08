@@ -977,3 +977,11 @@ M10.7（发表格式报告 + 逐 Study 信号图）：按用户指定的参照
 图脚本用 pyarrow 直读并按 (contract, trading_day, session) 对齐，对齐率断言 >80%）。
 正文放候选与假象的图，附录 B 收全部 97 张。matplotlib 为绘图新增开发依赖（未入
 pyproject，报告脚本文档内声明）。
+
+M11（最小成本模型，决定 0007）：用户选定方案 A。tick_size 从 spine 分钟 bar 实测归纳
+（62 品种，sc 自检与权威规格一致），半点差与佣金为人批准的声明常量。评价机：提供
+cost_model 即视为已声明；新增 uneconomic_target（往返成本 ≥ 平均绝对收益时只废
+candidate）；digest 纳入成本版本。同轮修正呈现：成本状态以系统级表述进提案器上下文
+（system_state）、判决文案与发现卡，不再像每条提案的缺陷。EVALUATOR_VERSION 0.4.0。
+candidate 自此可达 —— 下一个越过地板、过置换、影响有界、经济可行的构造，将是第一个
+真正的候选。

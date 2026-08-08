@@ -1,0 +1,315 @@
+{
+ "method": "每品种最近 20 个交易日分钟 close 的相邻非零价差绝对值，取每日最小值的众数。自检：sc 归纳值与权威合约规格一致",
+ "products": {
+  "AP": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "CJ": {
+   "tick_size": 5.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "PK": {
+   "tick_size": 2.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "PL": {
+   "tick_size": 1.0,
+   "days_sampled": 2,
+   "days_agreeing": 2
+  },
+  "PR": {
+   "tick_size": 2.0,
+   "days_sampled": 3,
+   "days_agreeing": 3
+  },
+  "PX": {
+   "tick_size": 2.0,
+   "days_sampled": 2,
+   "days_agreeing": 2
+  },
+  "RS": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 13
+  },
+  "SF": {
+   "tick_size": 2.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "SH": {
+   "tick_size": 1.0,
+   "days_sampled": 2,
+   "days_agreeing": 2
+  },
+  "SM": {
+   "tick_size": 2.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "UR": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "a": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "ad": {
+   "tick_size": 5.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "ag": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "al": {
+   "tick_size": 5.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "ao": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "au": {
+   "tick_size": 0.02,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "b": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "bb": {
+   "tick_size": 0.05,
+   "days_sampled": 20,
+   "days_agreeing": 14
+  },
+  "bc": {
+   "tick_size": 10.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "br": {
+   "tick_size": 5.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "bu": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "bz": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "c": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "cs": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "cu": {
+   "tick_size": 10.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "eb": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "eg": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "fb": {
+   "tick_size": 0.5,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "fu": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "hc": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "i": {
+   "tick_size": 0.5,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "j": {
+   "tick_size": 0.5,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "jd": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "jm": {
+   "tick_size": 0.5,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "l": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "lc": {
+   "tick_size": 20.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "lg": {
+   "tick_size": 0.5,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "lh": {
+   "tick_size": 5.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "lu": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "m": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "ni": {
+   "tick_size": 10.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "nr": {
+   "tick_size": 5.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "op": {
+   "tick_size": 2.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "p": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "pb": {
+   "tick_size": 5.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "pd": {
+   "tick_size": 0.05,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "pg": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "pp": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "ps": {
+   "tick_size": 5.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "pt": {
+   "tick_size": 0.05,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "rb": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "rr": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "ru": {
+   "tick_size": 5.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "sc": {
+   "tick_size": 0.1,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "si": {
+   "tick_size": 5.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "sn": {
+   "tick_size": 10.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "sp": {
+   "tick_size": 2.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "ss": {
+   "tick_size": 5.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "v": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "y": {
+   "tick_size": 1.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  },
+  "zn": {
+   "tick_size": 5.0,
+   "days_sampled": 20,
+   "days_agreeing": 20
+  }
+ }
+}
