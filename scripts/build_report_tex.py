@@ -52,11 +52,11 @@ def study_rows(D: dict, run: str) -> str:
     rows = [s for s in D["studies"] if s["run"] == run]
     if not rows:
         return "\n"
-    out = [r"{\footnotesize\begin{longtable}"
-           r"{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.50\textwidth} "
-           r"r r l@{}}",
-           r"\toprule Study & 特征（第二行：target · 控制） & $t$ & IC$_\rho$ & 判决 "
-           r"\\ \midrule",
+    out = [(r"{\footnotesize\begin{longtable}"
+            r"{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.50\textwidth} "
+            r"r r l@{}}"),
+           (r"\toprule Study & 特征（第二行：target · 控制） & $t$ & IC$_\rho$ & 判决 "
+            r"\\ \midrule"),
            r"\endhead"]
     for s in rows:
         meta = [(s.get("target") or "—").replace("sc_", "")]
