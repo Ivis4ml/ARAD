@@ -86,7 +86,7 @@ export function Cockpit() {
     }
     const stop = startAdaptivePoll({
       poll: async () => { try { await poll() } catch { if (alive) setStale(true) } },
-      intervalMs: () => (runningRef.current ? 2000 : 15000),
+      intervalMs: () => (runningRef.current ? 1200 : 15000),   // 直播 1.2s，与参照一致
     })
     return () => { alive = false; stop() }
   }, [])
