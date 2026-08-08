@@ -114,7 +114,15 @@ class ClaudeCliProvider:
                         continue
                     if event.get("type") == "stream_event":
                         delta = (event.get("event") or {}).get("delta") or {}
-                        if delta.get("type") == "text_delta":
+                        # 思考与正文都进观察窗：推理主体在 thinking_delta 里，
+                        # 只捕 text_delta 会在扩展思考阶段显示 0 字
+                        #（实测一次调用思考了 11 分钟，窗口全程空白）。
+                        # 兜底拼接（pieces）只收正文 —— 它可能被当作最终输出解析，
+                        # 思考文字混进去会污染 JSON。
+                        if delta.get("type") == "thinking_delta":
+                            sink.write(delta.get("thinking", ""))
+                            sink.flush()
+                        elif delta.get("type") == "text_delta":
                             piece = delta.get("text", "")
                             pieces.append(piece)
                             sink.write(piece)
