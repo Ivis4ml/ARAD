@@ -172,6 +172,94 @@ def hillclimb_baseline() -> None:
     print("hillclimb_baseline.png 完成")
 
 
+
+
+def arad_search_curve() -> None:
+    """ARAD 自己的爬山曲线：逐次检验的 |t| 对同步抬升的零假设地板。
+
+    与 hillclimb_baseline（旧系统的教训）成对：旧图说明为什么要有地板，
+    本图展示带着地板搜索七个月账本的全貌 —— 基线假象越过地板（按决定 0002
+    归 Baseline Control，不计入另类清单）；残差化的另类构造中，第一条越过
+    地板的是 run16-study-3（成本模型建成后按失效表即为 candidate 形态）。
+    """
+    import sys as _sys
+
+    _sys.path.insert(0, "src")
+    from arad.evaluation.selection import expected_max_abs_z
+    from arad.memory.ledger import EvidenceLedger, Role
+
+    with EvidenceLedger("data/ledger/service.db") as ledger:
+        events = list(ledger.read_events(role=Role.HUMAN))
+    specs: dict[str, dict] = {}
+    pts = []          # (n_at, abs_t, group, study_id)
+    n_reads = 0
+    for e in events:
+        sid = e.get("study_id")
+        if e["event_type"] == "outcome_read":
+            n_reads += 1
+        if not sid:
+            continue
+        if e["event_type"] == "feature_spec_locked":
+            st = e["payload"]
+            specs[sid] = {
+                "srcs": {x.get("source") for x in st.get("steps", []) if x.get("source")},
+                "resid": any(x.get("controls") for x in st.get("steps", [])),
+            }
+        elif e["event_type"] == "evaluation_result":
+            t = (e["payload"].get("effects") or {}).get("t_stat")
+            if not isinstance(t, (int, float)) or t != t:
+                continue
+            sp = specs.get(sid, {})
+            if "commodity_bar" in sp.get("srcs", set()) and "pm_market" not in sp.get("srcs", set()):
+                grp = "baseline"
+            elif sp.get("resid"):
+                grp = "pm_resid"
+            else:
+                grp = "pm_plain"
+            pts.append((n_reads, abs(t), grp, sid))
+
+    n_max = max(n for n, *_ in pts)
+    xs = list(range(1, n_max + 1))
+    floor = [expected_max_abs_z(k) for k in xs]
+
+    fig, ax = plt.subplots(figsize=(6.6, 3.2), dpi=200)
+    ax.plot(xs, floor, color=PRICE, lw=1.5, ls="--",
+            label="零假设地板 E[max|z|]（随已读 outcome 次数抬升）")
+    STYLE = {
+        "baseline": ("#8a8f98", "量价构造（Baseline Control，不计入另类清单）"),
+        "pm_plain": ("#b7c3d6", "Polymarket 构造（未残差化）"),
+        "pm_resid": (SIGNAL, "Polymarket 构造（已残差化）"),
+    }
+    seen = set()
+    for n, t, grp, sid in pts:
+        c, lbl = STYLE[grp]
+        ax.scatter([n], [min(t, 6.0)], s=16 if grp != "pm_resid" else 24,
+                   color=c, zorder=3,
+                   marker="^" if t > 6.0 else "o",
+                   label=lbl if grp not in seen else None)
+        seen.add(grp)
+    hero = next((x for x in pts if x[3] == "run16-study-3"), None)
+    if hero:
+        n, t, *_ = hero
+        ax.annotate("run16-study-3\n|t|=4.39，地板 2.60\n首个越过地板的残差化另类构造",
+                    xy=(n, t), xytext=(n - 26, t + 0.7), fontsize=7,
+                    color="#1c1c1e",
+                    arrowprops={"arrowstyle": "->", "lw": 0.8, "color": SIGNAL})
+        ax.scatter([n], [t], s=70, facecolors="none", edgecolors=SIGNAL,
+                   linewidths=1.6, zorder=4)
+    ax.set_xlabel("已读 outcome 次数 n（统计分母）", fontsize=8)
+    ax.set_ylabel("|t|（超过 6 截顶为 ▲）", fontsize=8)
+    ax.tick_params(labelsize=7)
+    ax.legend(fontsize=6.4, frameon=False, loc="upper left")
+    for spx in ("top", "right"):
+        ax.spines[spx].set_visible(False)
+    fig.tight_layout(pad=0.4)
+    fig.savefig(OUT / "arad_search_curve.png")
+    plt.close(fig)
+    print("arad_search_curve.png 完成")
+
+
 if __name__ == "__main__":
     main()
     hillclimb_baseline()
+    arad_search_curve()

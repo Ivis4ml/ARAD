@@ -216,10 +216,13 @@ Polymarket 预测市场 $\times$ 中国商品期货（以 SC 原油为主）上�
             + f"{floor:.3f}" + r"""}。三条主结果：（一）不加控制时最大的统计量
 （$|t|$ 至 """ + f"{abs(top[0]['t']):.2f}" + r"""）全部是波动率聚集这一教科书事实；
 （二）对品种自身波动或国际油价残差化后，Polymarket 特征大面积失去线性预测力；
-（三）唯一走完全流程的候选在一次性的封存段被否决。\textbf{「candidate = 0」的一半是
-结构性的}：成本模型未建使 candidate 在判决导出规则下不可达，与数据无关 ——
-本文第 \ref{sec:conclusions} 节把经验结论与结构约束分开陈述，每条结论附证否条件。
-全部数字由脚本从同一次账本快照派生。
+（三）第一条走完全流程的候选在一次性的封存段被否决；
+（四）\textbf{最小成本模型（决定 0007）建成后}，按失效表对全部历史判决作回溯投影：
+16 条 blocked 会翻为 candidate，其中唯一同时满足「纯 Polymarket、已残差化、
+越过评价时地板」的是 run16-study-3（$t=+4.39$ 对地板 $2.60$，置换 $0/200$，
+自罚奖励 $+1.79$，为残差化另类构造首次），其封存段封条未开，是否开启属人的
+一次性决定。本文第 \ref{sec:conclusions} 节把经验结论与结构约束分开陈述，
+每条结论附证否条件。全部数字由脚本从同一次账本快照派生。
 \end{abstract}
 \tableofcontents
 
@@ -243,6 +246,17 @@ $\bar p$ 为 Polymarket 某事件族的归一化概率均值；「决策时点�
 \caption{旧系统爬山基线：红线为零假设期望（用与本文判决同一套公式计算，
 参数为该搜索自身的试验间离散度），蓝虚线为 81 次爬山的实测最好。三个输入数字
 均有合同测试钉定。}\label{fig:hillclimb}
+\end{figure}
+
+与之成对的是本系统自己的搜索全貌（图~\ref{fig:searchcurve}）：同一条地板公式
+随统计分母抬升；量价假象在第 20 至 26 次检验间越顶（截顶为 $\blacktriangle$，
+按决定 0002 归 Baseline Control）；残差化的 Polymarket 构造几乎全部诚实地
+落在地板之下 —— 唯一的例外在第 61 次检验，见 \S\ref{sec:retro}。
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.94\textwidth]{figures/arad_search_curve.png}
+\caption{ARAD 的搜索全貌：逐次检验的 $|t|$ 对同步抬升的零假设地板。
+每点一条已评价的 Study，按「量价 ／ 未残差化 PM ／ 残差化 PM」着色；
+圈出者为 run16-study-3。}\label{fig:searchcurve}
 \end{figure}
 
 \paragraph{分母会被悄悄做小。}「试过多少次」若由报告者自己数必然缩水。统计分母
@@ -434,6 +448,50 @@ $\sqrt{n_s/n_d}\approx """ + (f"{size_factor:.2f}" if size_factor else "—")
 到达加速度、对娱乐族的安慰剂对照。按判决导出规则 null 只能经由置换检验产出，因此
 每一条都是「置换分布里 $\le 10\%$ 的抽样达到实际斜率绝对值」的具体陈述。
 
+\subsection{成本模型建成后的回溯投影}\label{sec:retro}
+最小成本模型（决定 0007）建成后，判决可按失效表机械地重推：从每条已判 Study 的
+阻塞理由种类中移除 cost\_model\_missing，对收益型 target 补入经济闸门投影。
+这不改写任何已入账判决（账本不可回写），它回答的是「若当时就有成本模型，
+判决会是什么」。结果分三组：
+
+\begin{itemize}
+\item \textbf{基线假象组}（4 条，量价源，$|t|$ 至 9.30）：翻为 candidate，
+且确实越过评价时地板（奖励 $+7.1$ 至 $+2.3$）。但按决定 0002 它们归
+Baseline Control 库，\textbf{不计入另类清单} —— 翻转只说明「波动率聚集是真的」。
+\item \textbf{未越地板组}（11 条，Polymarket）：置换全部通过（exceed
+$0$ 至 $0.035$），但 $|t|$ 在 $1.2$ 至 $2.3$，自罚奖励为负 —— 干净而不够高。
+\item \textbf{真形态，一条}：run16-study-3。
+\end{itemize}
+
+\begin{table}[htbp]\centering\small
+\begin{tabular}{@{}ll@{}}\toprule
+特征 & \path{pm_iran_outstanding_resolution_mass_resid_own_rv_12h_90d} \\
+构造 & $\bar p(1-\bar p)$：iran 族 12 小时窗口均值的伯努利方差（「仍未解决的概率质量」），\\
+     & 残差化掉品种自身波动持续性 \\
+universe & 36 品种面板 · 14{,}923 行 \\
+统计 & $t=+4.393$ · IC$_\rho$ = $0.085$ · 置换 $0/200$ · DFBETAS $0.048$ \\
+地板 & 评价时 $n=61$，$E_2(61)=2.600$ → \textbf{自罚奖励 $+1.79$}（残差化另类构造首次为正）\\
+当时判决 & blocked，唯一理由 cost\_model\_missing —— 该理由今日已不存在 \\
+封条 & \textbf{未开}。束宽为四且被基线假象占满（B6），收尾自动封存未轮到它 \\
+\bottomrule\end{tabular}
+\caption{run16-study-3：回溯投影下唯一的完整候选形态。开启封存段属人的一次性决定。}
+\end{table}
+
+一条使它区别于全部前例的证据：\textbf{模型在提案时把当时的地板写进了证否条件}：
+\begin{quote}\small
+「在 full coverage panel 上……若残差对 sc rv next session 的 $|t|$ 不超过
+本轮噪声地板 2.5998，或其系数符号为负，则本机制不被支持。」
+\end{quote}
+随后做到 $4.39$。
+这不是事后从账本里挑出来的幸存者：预注册的证否线就是地板本身，另附三条
+非统计的证否观测（增量在纳入信念波动后消失、预测力由样本组成漂移承担等）。
+
+机制上它是 run11-study-3（发生率水平）与 run15 推理（事件不确定性）的直系后代：
+$\bar p$ 接近 $0.5$ 表示事件悬而未决、任何新证据都会引发实质重定价，
+$\bar p(1-\bar p)$ 正是这份「未决质量」的读数。谨慎读法同样必要：
+run11-study-3 在发现段同样通过置换（$0.05$）而封存段未保住；本条的发现段
+统计强得多（$4.39$ 对 $2.42$，且越过地板），但唯一有权裁决的是那次一次性开封。
+
 \subsection{封存段全记录（""" + str(len(D["sealed"])) + r""" 次开启）}
 \begin{longtable}{@{}p{0.42\textwidth} r r r l l@{}}
 \toprule 特征 & $t$ & IC$_\rho$ & 行 & 时间样本外 & 分类法干净 \\ \midrule\endhead
@@ -453,10 +511,11 @@ min\_clusters 被 episode 命名稀释 $N$ 倍（underpowered 偏少）；$h_i=1
 
 \section{结论（每条附证否条件）}\label{sec:conclusions}
 \begin{enumerate}
-\item \textbf{结构：「candidate=0」当前不是经验结论。}cost\_model\_missing 对全部
-Study 成立且其失效集合含 candidate，判决必为 BLOCKED 或更弱；在 M5 之前任何数据都
-不可能产出 candidate。\emph{证否：一条 cost\_model\_declared=True 且无 candidate
-失效理由的 Study。}
+\item \textbf{结构（已解除）：截至 M11 之前，「candidate=0」不是经验结论。}
+cost\_model\_missing 曾对全部 Study 成立且其失效集合含 candidate。
+决定 0007 建成最小成本模型后该约束解除；回溯投影（\S\ref{sec:retro}）显示
+16 条历史 blocked 在新制度下为 candidate 形态。\emph{证否（更正后）：
+新制度下一条各闸门全过的 Study 仍被判 blocked。}
 \item \textbf{经验：已检验机制上，Polymarket 特征相对基线的线性增量预测力未过
 预注册证否闸门。}\emph{证否：残差化后在族地板上方且置换 $\le0.1$ 并在封存段保住的
 一条特征。}
@@ -475,6 +534,11 @@ $|t|$ 不显著下降且封存段保住的量价构造。}
 在此状态下不可采信；否定结论方向不受影响。\emph{证否：用干净切点语料重归纳并重跑。}
 \item \textbf{局限：测量装置有 12 处实现与文档不符，但无一能把 null 翻成
 candidate。}\emph{证否：修正后重跑，判决分布改变。}
+\item \textbf{经验（新）：run16-study-3 是七个月账本中唯一同时满足
+「纯 Polymarket、已残差化、越过评价时地板、置换零例外、影响有界」的构造，
+其封存段封条未开。}在开封之前它是候选形态，不是发现 —— run11-study-3
+的先例（发现段通过、封存段未保住）正是分寸所在。
+\emph{证否：开封后 $t$ 值保持率低于 0.35（则它加入被否决候选的行列）。}
 \end{enumerate}
 
 \section{下一步（全部需人决定）}

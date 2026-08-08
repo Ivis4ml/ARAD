@@ -1,4 +1,4 @@
-% 由 scripts/build_report_tex.py 生成；数字全部来自账本快照 seq 1455
+% 由 scripts/build_report_tex.py 生成；数字全部来自账本快照 seq 1529
 \documentclass[11pt]{ctexart}
 \usepackage[a4paper,margin=2.4cm]{geometry}
 \usepackage{array,booktabs,longtable,graphicx,amsmath,amssymb,url,xcolor,caption}
@@ -8,22 +8,25 @@
 \captionsetup{font=small,labelfont=bf}
 \setlength{\parskip}{2pt}
 \title{\textbf{ARAD：另类数据自主因子研究}\\
-\large 从计划到七十六次检验的全部证据 —— 方法、数学与逐条可证否的结论}
+\large 从计划到八十一次检验的全部证据 —— 方法、数学与逐条可证否的结论}
 \author{ARAD 项目}
 \date{2026 年 8 月 8 日}
 \begin{document}
 \maketitle
 \begin{abstract}
 研究者是大语言模型（claude-opus-5，经 \path{claude -p} 调用），确定性框架负责使其产出
-可信且可累积。截至账本冻结点（事件 seq 1455），系统在
-Polymarket 预测市场 $\times$ 中国商品期货（以 SC 原油为主）上共冻结 \textbf{98 个互异假设}，读取 outcome \textbf{76 次}，
-判决为 null \textbf{46}、blocked \textbf{44}、underpowered \textbf{6}、candidate \textbf{0}；噪声地板升至 \textbf{2.675}。三条主结果：（一）不加控制时最大的统计量
+可信且可累积。截至账本冻结点（事件 seq 1529），系统在
+Polymarket 预测市场 $\times$ 中国商品期货（以 SC 原油为主）上共冻结 \textbf{103 个互异假设}，读取 outcome \textbf{81 次}，
+判决为 null \textbf{50}、blocked \textbf{45}、underpowered \textbf{6}、candidate \textbf{0}；噪声地板升至 \textbf{2.696}。三条主结果：（一）不加控制时最大的统计量
 （$|t|$ 至 9.30）全部是波动率聚集这一教科书事实；
 （二）对品种自身波动或国际油价残差化后，Polymarket 特征大面积失去线性预测力；
-（三）唯一走完全流程的候选在一次性的封存段被否决。\textbf{「candidate = 0」的一半是
-结构性的}：成本模型未建使 candidate 在判决导出规则下不可达，与数据无关 ——
-本文第 \ref{sec:conclusions} 节把经验结论与结构约束分开陈述，每条结论附证否条件。
-全部数字由脚本从同一次账本快照派生。
+（三）第一条走完全流程的候选在一次性的封存段被否决；
+（四）\textbf{最小成本模型（决定 0007）建成后}，按失效表对全部历史判决作回溯投影：
+16 条 blocked 会翻为 candidate，其中唯一同时满足「纯 Polymarket、已残差化、
+越过评价时地板」的是 run16-study-3（$t=+4.39$ 对地板 $2.60$，置换 $0/200$，
+自罚奖励 $+1.79$，为残差化另类构造首次），其封存段封条未开，是否开启属人的
+一次性决定。本文第 \ref{sec:conclusions} 节把经验结论与结构约束分开陈述，
+每条结论附证否条件。全部数字由脚本从同一次账本快照派生。
 \end{abstract}
 \tableofcontents
 
@@ -47,6 +50,17 @@ $\bar p$ 为 Polymarket 某事件族的归一化概率均值；「决策时点�
 \caption{旧系统爬山基线：红线为零假设期望（用与本文判决同一套公式计算，
 参数为该搜索自身的试验间离散度），蓝虚线为 81 次爬山的实测最好。三个输入数字
 均有合同测试钉定。}\label{fig:hillclimb}
+\end{figure}
+
+与之成对的是本系统自己的搜索全貌（图~\ref{fig:searchcurve}）：同一条地板公式
+随统计分母抬升；量价假象在第 20 至 26 次检验间越顶（截顶为 $\blacktriangle$，
+按决定 0002 归 Baseline Control）；残差化的 Polymarket 构造几乎全部诚实地
+落在地板之下 —— 唯一的例外在第 61 次检验，见 \S\ref{sec:retro}。
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.94\textwidth]{figures/arad_search_curve.png}
+\caption{ARAD 的搜索全貌：逐次检验的 $|t|$ 对同步抬升的零假设地板。
+每点一条已评价的 Study，按「量价 ／ 未残差化 PM ／ 残差化 PM」着色；
+圈出者为 run16-study-3。}\label{fig:searchcurve}
 \end{figure}
 
 \paragraph{分母会被悄悄做小。}「试过多少次」若由报告者自己数必然缩水。统计分母
@@ -185,7 +199,7 @@ $|z|$ 带取 $\tau=2$（搜索接受任一方向），$n=1$ 时取半正态均�
 25 & 2.276 \\
 40 & 2.451 \\
 50 & 2.531 \\
-76 & 2.675 \\
+81 & 2.696 \\
 \bottomrule\end{tabular}\caption{零假设带的实际抬升轨迹（账本快照）。}\end{table}
 
 \subsection{封存段}
@@ -482,8 +496,8 @@ run15-study-2 & \path{pm_ceasefire_p_innov_accel_same_phase_resid_own_rv_12h_30d
 \noindent\includegraphics[width=\textwidth]{figures/run15-study-2.png}\par\vspace{-2pt}{\scriptsize \texttt{run15-study-2}：\path{pm_ceasefire_p_innov_accel_same_phase_resid_own_rv_12h_30d_90d}。有定义 527/1040 点。}\par\vspace{6pt}
 
 \clearpage
-\subsection{run16 · 流式全程生效}
-pty 流式全程可见的首轮，思考与正文逐秒可读。截稿时仍在进行。
+\subsection{run16 · 流式全程生效，并产出首个越过地板的残差化另类构造}
+pty 流式全程可见的首轮，二十个回合。其中 study-3（伊朗族未决概率质量 p̄(1−p̄)，残差化掉自身波动，36 品种面板）在评价时越过族地板，置换检验零例外、单点影响极小 —— 当时唯一的阻塞理由是成本模型未建。它排在束的第五位而束宽为四，收尾的自动封存没有轮到它（缺陷记 B6），封条因此仍未开启。
 
 {\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.50\textwidth} r r l@{}}
 \toprule Study & 特征（第二行：target · 控制） & $t$ & IC$_\rho$ & 判决 \\ \midrule
@@ -530,6 +544,25 @@ run16-study-19 & \path{pm_iran_arrival_intensity_per_active_hour_over_30d_norm_r
 \noindent\includegraphics[width=\textwidth]{figures/run16-study-19.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-19}：\path{pm_iran_arrival_intensity_per_active_hour_over_30d_norm_resid_own_rv_1d_90d}。有定义 469/1040 点。}\par\vspace{6pt}
 
 \clearpage
+\subsection{run17 · 人类研究方向通道首用（进行中）}
+首轮通过入账的研究方向指令（标的不限于 sc）运行；首版即选 36 品种面板。截稿时仍在进行。
+
+{\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.50\textwidth} r r l@{}}
+\toprule Study & 特征（第二行：target · 控制） & $t$ & IC$_\rho$ & 判决 \\ \midrule
+\endhead
+run17-study-0 & \path{pm_dip_over_up_tail_attention_share_dev_resid_own_rv_1d_30d_90d}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & +0.469 & +0.118 & null \\
+run17-study-1 & \path{pm_out_uncertainty_creation_dod_resid_own_rv_1d_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -1.417 & -0.012 & blocked \\
+run17-study-2 & \path{pm_russia_belief_path_skew_7d_resid_own_rv_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -0.710 & -0.003 & null \\
+run17-study-3 & \path{pm_out_studentised_closed_range_over_30d_churn_resid_own_rv_6h_off6h_90d}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -0.754 & -0.016 & null \\
+run17-study-4 & \path{pm_out_arrival_growth_wow_ratio_resid_own_rv_7d_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & +0.870 & +0.033 & null \\
+run17-study-5 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
+\bottomrule\end{longtable}}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-0.png}\par\vspace{-2pt}{\scriptsize \texttt{run17-study-0}：\path{pm_dip_over_up_tail_attention_share_dev_resid_own_rv_1d_30d_90d}。有定义 12/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-1.png}\par\vspace{-2pt}{\scriptsize \texttt{run17-study-1}：\path{pm_out_uncertainty_creation_dod_resid_own_rv_1d_90d_panel}。有定义 851/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-2.png}\par\vspace{-2pt}{\scriptsize \texttt{run17-study-2}：\path{pm_russia_belief_path_skew_7d_resid_own_rv_90d_panel}。有定义 773/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-3.png}\par\vspace{-2pt}{\scriptsize \texttt{run17-study-3}：\path{pm_out_studentised_closed_range_over_30d_churn_resid_own_rv_6h_off6h_90d}。有定义 771/1040 点。}\par\vspace{6pt}
+
+\clearpage
 
 
 \section{结果}
@@ -537,7 +570,7 @@ run16-study-19 & \path{pm_iran_arrival_intensity_per_active_hour_over_30d_norm_r
 统计量最大的构造（$|t|$ 至 9.30）分母为已实现波动、
 目标亦为已实现波动。PIT 无误、置换通过 —— 关系是真的，但它是 Baseline Control，
 不是另类数据 alpha。诊断（离线，不进账本，本文唯一非快照数字）：对最大一条做残差化，
-秩相关由 $-0.5695$ 塌至 $-0.0077$，缩小约 74 倍。此后 44/97 的规格自带控制项。
+秩相关由 $-0.5695$ 塌至 $-0.0077$，缩小约 74 倍。此后 49/102 的规格自带控制项。
 \begin{figure}[htbp]\centering
 \includegraphics[width=0.95\textwidth]{figures/run5-study-2.png}
 \caption{波动假象 \texttt{run5-study-2}（$t=-9.30$）：信号与价格。该信号实为已实现波动的函数，与目标同源。}\label{fig:run5-study-2}
@@ -573,11 +606,55 @@ $\sqrt{n_s/n_d}\approx —$ 缩小；样本量修正后效应保留率约 —，
 \end{figure}
 
 
-\subsection{干净的 null（46 条）}
+\subsection{干净的 null（50 条）}
 残差化普及后，模型系统扫过互异机制：资金集中度、信念下限棘轮、闭市时段资金份额、
 停火/伊朗资金倾斜、平均单笔金额、方向性信念离散度、事件不确定性 $\bar p(1-\bar p)$、
 到达加速度、对娱乐族的安慰剂对照。按判决导出规则 null 只能经由置换检验产出，因此
 每一条都是「置换分布里 $\le 10\%$ 的抽样达到实际斜率绝对值」的具体陈述。
+
+\subsection{成本模型建成后的回溯投影}\label{sec:retro}
+最小成本模型（决定 0007）建成后，判决可按失效表机械地重推：从每条已判 Study 的
+阻塞理由种类中移除 cost\_model\_missing，对收益型 target 补入经济闸门投影。
+这不改写任何已入账判决（账本不可回写），它回答的是「若当时就有成本模型，
+判决会是什么」。结果分三组：
+
+\begin{itemize}
+\item \textbf{基线假象组}（4 条，量价源，$|t|$ 至 9.30）：翻为 candidate，
+且确实越过评价时地板（奖励 $+7.1$ 至 $+2.3$）。但按决定 0002 它们归
+Baseline Control 库，\textbf{不计入另类清单} —— 翻转只说明「波动率聚集是真的」。
+\item \textbf{未越地板组}（11 条，Polymarket）：置换全部通过（exceed
+$0$ 至 $0.035$），但 $|t|$ 在 $1.2$ 至 $2.3$，自罚奖励为负 —— 干净而不够高。
+\item \textbf{真形态，一条}：run16-study-3。
+\end{itemize}
+
+\begin{table}[htbp]\centering\small
+\begin{tabular}{@{}ll@{}}\toprule
+特征 & \path{pm_iran_outstanding_resolution_mass_resid_own_rv_12h_90d} \\
+构造 & $\bar p(1-\bar p)$：iran 族 12 小时窗口均值的伯努利方差（「仍未解决的概率质量」），\\
+     & 残差化掉品种自身波动持续性 \\
+universe & 36 品种面板 · 14{,}923 行 \\
+统计 & $t=+4.393$ · IC$_\rho$ = $0.085$ · 置换 $0/200$ · DFBETAS $0.048$ \\
+地板 & 评价时 $n=61$，$E_2(61)=2.600$ → \textbf{自罚奖励 $+1.79$}（残差化另类构造首次为正）\\
+当时判决 & blocked，唯一理由 cost\_model\_missing —— 该理由今日已不存在 \\
+封条 & \textbf{未开}。束宽为四且被基线假象占满（B6），收尾自动封存未轮到它 \\
+\bottomrule\end{tabular}
+\caption{run16-study-3：回溯投影下唯一的完整候选形态。开启封存段属人的一次性决定。}
+\end{table}
+
+一条使它区别于全部前例的证据：\textbf{模型在提案时把当时的地板写进了证否条件}：
+\begin{quote}\small
+「在 full coverage panel 上……若残差对 sc rv next session 的 $|t|$ 不超过
+本轮噪声地板 2.5998，或其系数符号为负，则本机制不被支持。」
+\end{quote}
+随后做到 $4.39$。
+这不是事后从账本里挑出来的幸存者：预注册的证否线就是地板本身，另附三条
+非统计的证否观测（增量在纳入信念波动后消失、预测力由样本组成漂移承担等）。
+
+机制上它是 run11-study-3（发生率水平）与 run15 推理（事件不确定性）的直系后代：
+$\bar p$ 接近 $0.5$ 表示事件悬而未决、任何新证据都会引发实质重定价，
+$\bar p(1-\bar p)$ 正是这份「未决质量」的读数。谨慎读法同样必要：
+run11-study-3 在发现段同样通过置换（$0.05$）而封存段未保住；本条的发现段
+统计强得多（$4.39$ 对 $2.42$，且越过地板），但唯一有权裁决的是那次一次性开封。
 
 \subsection{封存段全记录（13 次开启）}
 \begin{longtable}{@{}p{0.42\textwidth} r r r l l@{}}
@@ -610,15 +687,20 @@ min\_clusters 被 episode 命名稀释 $N$ 倍（underpowered 偏少）；$h_i=1
 
 \section{结论（每条附证否条件）}\label{sec:conclusions}
 \begin{enumerate}
-\item \textbf{结构：「candidate=0」当前不是经验结论。}cost\_model\_missing 对全部
-Study 成立且其失效集合含 candidate，判决必为 BLOCKED 或更弱；在 M5 之前任何数据都
-不可能产出 candidate。\emph{证否：一条 cost\_model\_declared=True 且无 candidate
-失效理由的 Study。}
+\item \textbf{结构（已解除）：截至 M11 之前，「candidate=0」不是经验结论。}
+cost\_model\_missing 曾对全部 Study 成立且其失效集合含 candidate。
+决定 0007 建成最小成本模型后该约束解除；回溯投影（\S\ref{sec:retro}）显示
+16 条历史 blocked 在新制度下为 candidate 形态。\emph{证否（更正后）：
+新制度下一条各闸门全过的 Study 仍被判 blocked。}
 \item \textbf{经验：已检验机制上，Polymarket 特征相对基线的线性增量预测力未过
 预注册证否闸门。}\emph{证否：残差化后在族地板上方且置换 $\le0.1$ 并在封存段保住的
 一条特征。}
-\item \textbf{经验：从未有 Study 越过其评价时的族地板}（自罚奖励恒负）。
-\emph{证否：账本 beam\_state 中出现 reward $>0$。}
+\item \textbf{经验（已按自身证否条件更正）：残差化之前，四条波动假象的自罚奖励
+为正（最高 $+7.1$）；残差化的另类构造中，第一条奖励为正的出现在 run16-study-3
+（$+1.79$，见 \S\ref{sec:hero} 后补）。}本报告上一版此条写作「从未有 Study 越过
+评价时地板」，按其证否条件（beam\_state 出现 reward $>0$）在写下时即不成立 ——
+假象家族早已越过；当时想表达而未写准的是「无残差化的另类构造越过」。
+\emph{证否（更正后）：残差化另类构造的奖励为正且封存段保持。}
 \item \textbf{方法：残差化把「发现」与「重新发现基线」分开，效果是数量级的}；
 模型采用它的转折点是提示词写明「为什么」，不是原语可见。\emph{证否：一条残差化后
 $|t|$ 不显著下降且封存段保住的量价构造。}
@@ -628,6 +710,11 @@ $|t|$ 不显著下降且封存段保住的量价构造。}
 在此状态下不可采信；否定结论方向不受影响。\emph{证否：用干净切点语料重归纳并重跑。}
 \item \textbf{局限：测量装置有 12 处实现与文档不符，但无一能把 null 翻成
 candidate。}\emph{证否：修正后重跑，判决分布改变。}
+\item \textbf{经验（新）：run16-study-3 是七个月账本中唯一同时满足
+「纯 Polymarket、已残差化、越过评价时地板、置换零例外、影响有界」的构造，
+其封存段封条未开。}在开封之前它是候选形态，不是发现 —— run11-study-3
+的先例（发现段通过、封存段未保住）正是分寸所在。
+\emph{证否：开封后 $t$ 值保持率低于 0.35（则它加入被否决候选的行列）。}
 \end{enumerate}
 
 \section{下一步（全部需人决定）}
@@ -649,7 +736,7 @@ candidate。}\emph{证否：修正后重跑，判决分布改变。}
 \end{enumerate}
 
 \appendix
-\section{全部 106 个 Study}
+\section{全部 112 个 Study}
 {\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.42\textwidth} r r r l@{}}
 \toprule Study & 特征 & $t$ & IC & 置换 $p$ & 判决 \\ \midrule\endhead
 auto-study-0 & \path{pm_iran_trade_arrival_z} & +0.776 & +0.047 & 0.55 & null \\
@@ -758,9 +845,15 @@ run16-study-16 & \path{pm_iran_over_out_arrival_share_dev_resid_own_rv_1d_30d_90
 run16-study-17 & \path{pm_up_closed_window_ticket_premium_over_30d_norm_resid_own_rv_6h_90d} & -2.031 & -0.082 & 0.0 & blocked \\
 run16-study-18 & \path{pm_iran_belief_drift_agreement_prod_resid_own_rv_12h_adj_90d} & +0.396 & +0.009 & 0.54 & null \\
 run16-study-19 & \path{pm_iran_arrival_intensity_per_active_hour_over_30d_norm_resid_own_rv_1d_90d} & -0.266 & -0.033 & 0.68 & null \\
+run17-study-0 & \path{pm_dip_over_up_tail_attention_share_dev_resid_own_rv_1d_30d_90d} & +0.469 & +0.118 & 0.64 & null \\
+run17-study-1 & \path{pm_out_uncertainty_creation_dod_resid_own_rv_1d_90d_panel} & -1.417 & -0.012 & 0.0 & blocked \\
+run17-study-2 & \path{pm_russia_belief_path_skew_7d_resid_own_rv_90d_panel} & -0.710 & -0.003 & 0.29 & null \\
+run17-study-3 & \path{pm_out_studentised_closed_range_over_30d_churn_resid_own_rv_6h_off6h_90d} & -0.754 & -0.016 & 0.335 & null \\
+run17-study-4 & \path{pm_out_arrival_growth_wow_ratio_resid_own_rv_7d_90d_panel} & +0.870 & +0.033 & 0.11 & null \\
+run17-study-5 & \path{—} & — & — & — & 进行中 \\
 \bottomrule\end{longtable}}
 
 \vfill\noindent\rule{\textwidth}{0.4pt}\\
-{\small 账本冻结点：事件 seq 1455（2026-08-08T08:55:11，run16 当时仍在进行）；事件 1455 条，哈希链完整。
+{\small 账本冻结点：事件 seq 1529（2026-08-08T21:13:21，run16 当时仍在进行）；事件 1529 条，哈希链完整。
 叙述由人撰写且不含数字；数字一律由快照渲染，二者不会不一致。}
 \end{document}

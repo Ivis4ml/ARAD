@@ -580,5 +580,29 @@
   "feature_id": "pm_iran_arrival_intensity_per_active_hour_over_30d_norm_resid_own_rv_1d_90d",
   "defined_points": 469,
   "total_points": 1040
+ },
+ "run17-study-0": {
+  "file": "run17-study-0.png",
+  "feature_id": "pm_dip_over_up_tail_attention_share_dev_resid_own_rv_1d_30d_90d",
+  "defined_points": 12,
+  "total_points": 1040
+ },
+ "run17-study-1": {
+  "file": "run17-study-1.png",
+  "feature_id": "pm_out_uncertainty_creation_dod_resid_own_rv_1d_90d_panel",
+  "defined_points": 851,
+  "total_points": 1040
+ },
+ "run17-study-2": {
+  "file": "run17-study-2.png",
+  "feature_id": "pm_russia_belief_path_skew_7d_resid_own_rv_90d_panel",
+  "defined_points": 773,
+  "total_points": 1040
+ },
+ "run17-study-3": {
+  "file": "run17-study-3.png",
+  "feature_id": "pm_out_studentised_closed_range_over_30d_churn_resid_own_rv_6h_off6h_90d",
+  "defined_points": 771,
+  "total_points": 1040
  }
 }
