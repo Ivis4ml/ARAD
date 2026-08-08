@@ -296,6 +296,22 @@ def render(D: dict) -> str:
             f"<td>{E(s.get('verdict') or '进行中')}</td></tr>")
     appendix.append("</table>")
 
+    # 唯一走完全流程的候选：散文里的每个数字都必须从快照取，不得手写 ——
+    # 封面声明了这条约束，散文里硬编码就是文档自我违约（而账本每几分钟在变）。
+    HERO_ID = "run11-study-3"
+    hero = next((s for s in D["studies"] if s["study_id"] == HERO_ID), {})
+    hero_sealed = next((e for e in D["sealed"]
+                        if e.get("feature_id") == hero.get("feature_id")), {})
+    hero_t, hero_seal_t = hero.get("t"), hero_sealed.get("t_stat")
+    retention = (abs(hero_seal_t) / abs(hero_t)
+                 if isinstance(hero_t, float) and isinstance(hero_seal_t, float)
+                 and hero_t else None)
+    # 该候选被评价时，本族已花的检验次数 —— 地板是当时那条，不是现在这条
+    hero_index = next((i for i, s in enumerate(D["studies"])
+                       if s["study_id"] == HERO_ID), None)
+    tests_then = sum(1 for s in D["studies"][:(hero_index or 0) + 1] if s.get("read"))
+    floor_then = expected_max_abs_z(tests_then) if tests_then else None
+
     top = sorted((s for s in D["studies"] if isinstance(s.get("t"), float)),
                  key=lambda s: -abs(s["t"]))[:4]
     artefacts = "、".join(f"{s['study_id']}（{s['t']:+.2f}）" for s in top)
@@ -452,13 +468,15 @@ residualise 两个原语被实现的直接动因。</p>
 cand:iran 族归一化概率的 30 日均值，减掉品种自身波动持续性之后，预测下一时段已实现波动。
 机制为混合分布假说 —— 波动由信息到达强度决定，到达强度由风险的当前发生率水平决定；
 油价已含发生率×损失的一阶期望，发生率水平本身另有信息。<br><br>
-discovery 段：t = +2.416、IC 秩 = +0.087、616 行、置换检验 0.05 通过、DFBETAS 0.267。<br>
-封存段（一次性）：t = +0.426、IC 秩 = +0.128、405 行 —— 线性效应保留率 17.6%，
-低于预注册的 35% 保持线，判 sealed_failed。<br><br>
-如实并记：秩相关在样本外反而升高（约 2.6 个标准误），单调关联仍在、线性斜率没了。
-但按预注册规则这就是失败；且 taxonomy_clean 为否，任何主张本就被封顶。
-<strong>裁决终身有效，不重开</strong>。它在 discovery 段也从未越过当时的族地板
-（2.416 &lt; 2.523）。</blockquote>
+discovery 段：t = {num(hero.get('t'))}、IC 秩 = {num(hero.get('ic'), 3)}、
+{hero.get('rows', '—')} 行、置换检验 {hero.get('placebo', '—')} 通过。<br>
+封存段（一次性）：t = {num(hero_seal_t)}、IC 秩 = {num(hero_sealed.get('ic_spearman'), 3)}、
+{hero_sealed.get('rows', '—')} 行 —— 线性效应保留率
+{f'{retention:.1%}' if retention is not None else '—'}，低于预注册的 35% 保持线，
+判 sealed_failed。<br><br>
+它在 discovery 段也从未越过当时的族地板：被评价时本族已花 {tests_then} 次检验，
+地板 {f'{floor_then:.3f}' if floor_then else '—'}，而它是 {num(hero.get('t'))}。
+<strong>裁决终身有效，不重开。</strong></blockquote>
 
 <h3>C · 干净的 null（{v.get('null', 0)} 条）</h3>
 <p>残差化普及之后（近数轮使用率 100%），模型在互异机制上系统扫过：资金集中度、
