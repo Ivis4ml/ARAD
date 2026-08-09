@@ -877,7 +877,7 @@ def make_provider(kind: str, model: str = "claude-opus-5") -> tuple[Provider, in
             "proposer": [_variant_json(v) for v in LINEAGE_VARIANTS]
         }), 1
     if kind == "claude":
-        return ClaudeCliProvider(model_id=model), 1
+        return ClaudeCliProvider(model_id=model, timeout_seconds=1800), 1
     raise ValueError(f"未知的 provider {kind!r}")
 
 
@@ -1213,7 +1213,7 @@ def run_service_demo(
     with EvidenceLedger(ledger_path) as ledger, DurableQueue(queue_path) as queue:
         provider = (
             AutoProposer(target_name=LABEL_TARGET) if provider_kind == "mutator"
-            else ClaudeCliProvider(model_id=model)
+            else ClaudeCliProvider(model_id=model, timeout_seconds=1800)
         )
         # 归档挪进 finally：此前只在正常结束时写快照，被停掉或崩溃的运行
         # 在下拉里就消失了（实测 run3/7/8/10 无踪、run9 崩溃后无档）。
@@ -1245,7 +1245,9 @@ def run_service_demo(
             ledger.append("signal_correlation", correlations)
 
             beam = Beam(width=4)
-            proj = project(ledger, family=FAMILY)
+            # strict=False：run_service 因停滞或 provider 失败结束时，最后几轮
+            # 可能只有 context_assembled —— 半途 Study 是常态不是账本缺口。
+            proj = project(ledger, family=FAMILY, strict=False)
             tests_at = {c["study_id"]: c["tests_so_far"]
                         for chain in proj.lineage for c in chain["curves"]["abs_t"]}
             by_study = {st["study_id"]: st for st in proj.studies}
@@ -1299,7 +1301,10 @@ def run_service_demo(
             # 纯投影归档。此前只在正常结束时写快照，被停掉或崩溃的运行在运行列表里
             # 就消失了（实测 run3/7/8/10 无踪、run9 崩溃无档）。账本始终完整，
             # 快照只是它的投影，没有理由只给"善终"的运行拍照。
-            projection = project(ledger, family=FAMILY, service=queue.service_state())
+            # strict=False：崩溃现场必然有半途 Study —— 归档为崩溃而生，
+            # 却曾在崩溃现场先崩（run20 实测，且掩盖了原始异常）。
+            projection = project(ledger, family=FAMILY, strict=False,
+                                 service=queue.service_state())
             fresh = data_freshness(manifest_dir)
             paths = render_app(projection, atlas_dir, freshness=fresh)
             paths["run"] = write_run(
