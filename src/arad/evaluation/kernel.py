@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import math
+from itertools import pairwise
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -102,7 +103,7 @@ def signal_power(predictions: list[float]) -> dict:
     if var <= 0:
         return {"n": n, "distinct": len(set(vals)), "lag1_autocorr": 1.0,
                 "n_eff": 1.0}
-    rho = math.fsum(a * b for a, b in zip(dev, dev[1:])) / var
+    rho = math.fsum(a * b for a, b in pairwise(dev)) / var
     rho = max(-0.999, min(0.999, rho))
     n_eff = n * (1 - rho) / (1 + rho)
     return {"n": n, "distinct": len(set(vals)),

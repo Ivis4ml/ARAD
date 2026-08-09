@@ -400,7 +400,7 @@ def test_signal_prescreen_blocks_persistent_signals_before_outcome_read(rig):
     """M13：在决策节奏上几乎不动的信号（长窗水平类）被拦在读 outcome 之前 ——
     不占统计分母、地板不抬。实测 run22 十六条 null 的主要形态正是
     exceed 0.9+ 的持续性构造，事前筛把这类结论「注定无分辨力」的读取省下来。"""
-    ledger, queue = rig
+    ledger, _queue = rig
 
     def sticky_builder(spec, study_id):
         rows, labels = rows_for(60)
