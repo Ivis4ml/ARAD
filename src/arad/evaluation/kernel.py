@@ -70,6 +70,45 @@ REASON_INVALIDATES: dict[str, frozenset[str]] = {
 }
 
 
+
+#: 信号侧事前筛（M13）的声明阈值。置换检验按 Episode 整块打乱：一个在决策节奏上
+#: 几乎不动的信号（长窗水平类构造），打乱前后难以区分 —— 实测 exceed 0.9+ 的
+#: 构造全部是这一形态。该性质**只依赖特征值本身**，可以在读 outcome 之前判定，
+#: 拦下的构造不花统计预算。阈值与 min_returns 同源（30 个有效独立观测）。
+SIGNAL_PRESCREEN = {
+    "version": "prescreen-v1",
+    "min_effective_obs": 30,
+    # 互异值只防退化（近常量/二值以下回归无意义）；低功效的主责在 n_eff。
+    # 定 10 会误伤十分位 rank 这类合法构造（恰好 10 个值，实测夹具即中招）。
+    "min_distinct_values": 3,
+}
+
+
+def signal_power(predictions: list[float]) -> dict:
+    """信号自身的有效功效统计。**不读任何标签**，盲化无涉。
+
+    n_eff 按 AR(1) 折算：n·(1−ρ)/(1+ρ)，ρ 为决策节奏上的一阶自相关。
+    一个 30 日均值在逐时段网格上 ρ 常在 0.99 以上 —— 六百个名义观测
+    折算不足十个独立观测，置换检验对它没有分辨力。
+    """
+    vals = [v for v in predictions if v is not None and math.isfinite(v)]
+    n = len(vals)
+    if n < 3:
+        return {"n": n, "distinct": len(set(vals)), "lag1_autocorr": None,
+                "n_eff": float(n)}
+    mean = math.fsum(vals) / n
+    dev = [v - mean for v in vals]
+    var = math.fsum(d * d for d in dev)
+    if var <= 0:
+        return {"n": n, "distinct": len(set(vals)), "lag1_autocorr": 1.0,
+                "n_eff": 1.0}
+    rho = math.fsum(a * b for a, b in zip(dev, dev[1:])) / var
+    rho = max(-0.999, min(0.999, rho))
+    n_eff = n * (1 - rho) / (1 + rho)
+    return {"n": n, "distinct": len(set(vals)),
+            "lag1_autocorr": round(rho, 4), "n_eff": round(n_eff, 1)}
+
+
 def derive_verdict(kinds: list[str]) -> str:
     """由阻塞理由的**种类**推出判决。不读任何效应数值。
 

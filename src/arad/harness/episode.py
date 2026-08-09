@@ -394,6 +394,35 @@ def run_round(
             "这会使结论关于另一个问题，拒绝读 outcome"
         )
 
+    # M13：信号侧事前筛。**只看特征值，不读任何标签** —— 在决策节奏上几乎
+    # 不动的构造（长窗水平类），块置换对它没有分辨力，读了 outcome 也只会
+    # 得到一条 exceed 0.9+ 的 null（实测 run22 十六条 null 的主要形态）。
+    # 拦在这里：不读、不占统计分母、地板不抬。
+    from ..evaluation.kernel import SIGNAL_PRESCREEN, signal_power
+
+    power = signal_power([r.prediction for r in request_obj.rows])
+    ledger.append("signal_prescreen", {**SIGNAL_PRESCREEN, **power},
+                  study_id=study_id)
+    if (power["n_eff"] < SIGNAL_PRESCREEN["min_effective_obs"]
+            or power["distinct"] < SIGNAL_PRESCREEN["min_distinct_values"]):
+        verdict = StudyVerdict(
+            study_id=study_id, verdict=Verdict.BLOCKED,
+            next_action=NextAction.CREATE_NEW_VERSION,
+            rationale=(
+                f"信号事前筛未通过：有效独立观测 {power['n_eff']}"
+                f"（一阶自相关 {power['lag1_autocorr']}），互异值 {power['distinct']}。"
+                "该构造在决策节奏上几乎不动，置换检验对它没有分辨力；"
+                "未读 outcome，不占统计预算。构造应在决策节奏上有变化"
+            ),
+        )
+        ledger.append("verdict_recorded", verdict.payload(), study_id=study_id)
+        queue.complete(task_id, owner, {"verdict": verdict.verdict.value},
+                       idempotency_key=f"{task_id}:verdict", now=current)
+        return RoundOutcome(task_id=task_id, outcome="signal_prescreen",
+                            proposal_id=proposal.content_id,
+                            feature_id=parsed.feature_spec.content_id,
+                            study_id=study_id, verdict=verdict.verdict.value)
+
     for test_id in [f"{study_id}:main"]:
         ledger.record_outcome_read(test_id, family, study_id)
     result = evaluate(request_obj, labels, role="evaluator")

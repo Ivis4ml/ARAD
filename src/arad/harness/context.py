@@ -249,6 +249,17 @@ def assemble_proposer_context(
         # 前者是唯一能做截面推断的形态，后者的品种维恒为一组。
         "universes": universes or [],
         "primitives": primitive_catalogue(),
+        # 评价合同的方法说明：这是检验的**机理**（预注册规则），不是任何结果。
+        # 不写出来，模型没有理由避开注定低功效的构造形态。
+        "evaluation_mechanics": (
+            "证伪闸门之一是按 Episode 整块置换的检验：把标签整块打乱后重跑回归，"
+            "若超过 10% 的打乱样本跑出不小于实际值的 |斜率|，判 placebo_failed。"
+            "结构性推论：在决策节奏上几乎不动的构造（如远长于标签节奏的窗口均值/水平），"
+            "打乱前后难以区分，注定低功效。信号事前筛会在读 outcome **之前**拦下"
+            "有效独立观测 < 30（按一阶自相关折算）或互异值 < 10 的构造 —— 被拦不花"
+            "检验预算，但也不产生任何结论。构造应在决策节奏上有实质变化：innovation、"
+            "difference、短窗比值等形态天然满足；长窗水平请与更快的分量组合"
+        ),
         "menu": {
             "candidate_families": menu,
             "known_biases": [b.__dict__ for b in menu_biases],

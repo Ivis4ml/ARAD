@@ -15,7 +15,7 @@ from arad.evaluation.kernel import EvaluationRequest, EvaluationRow
 from arad.features.interpreter import SourceNotImplemented
 from arad.harness.context import DeclaredBias, assemble_proposer_context
 from arad.harness.episode import ProposalOutput, run_episode, run_round
-from arad.memory.ledger import EvidenceLedger
+from arad.memory.ledger import EvidenceLedger, Role
 from arad.memory.ledger import Role as LedgerRole
 from arad.orchestrator.queue import DurableQueue
 from arad.providers.base import EpisodeBudget
@@ -394,3 +394,31 @@ def test_a_proposal_without_a_feature_spec_degrades_instead_of_crashing(rig):
     kinds = [e["event_type"] for e in ledger.read_events(role=LedgerRole.EVALUATOR)]
     assert "invalid_proposal" in kinds
     assert queue.get("t0")["state"] == "ready"      # 任务没丢
+
+
+def test_signal_prescreen_blocks_persistent_signals_before_outcome_read(rig):
+    """M13：在决策节奏上几乎不动的信号（长窗水平类）被拦在读 outcome 之前 ——
+    不占统计分母、地板不抬。实测 run22 十六条 null 的主要形态正是
+    exceed 0.9+ 的持续性构造，事前筛把这类结论「注定无分辨力」的读取省下来。"""
+    ledger, queue = rig
+
+    def sticky_builder(spec, study_id):
+        rows, labels = rows_for(60)
+        for i, r in enumerate(rows):
+            # 高度持续的水平信号：一阶自相关约 0.997，n_eff 远低于 30
+            object.__setattr__(r, "prediction", float(i // 30))
+        request = EvaluationRequest(
+            study_id=study_id, confirmatory_id="c", family=FAMILY, rows=rows,
+            authoritative_keys=[r.row_key for r in rows], cost_model_declared=True,
+            placebo_draws=20, min_returns=10, min_clusters=5,
+        )
+        return request, labels, {"from": "2022-11-01", "to": "2024-12-31"}
+
+    outcome, _ = run_one(rig, [a_proposal_json()], builder=sticky_builder)
+    d = ledger.denominators(FAMILY)
+    assert outcome.outcome == "signal_prescreen"
+    assert outcome.verdict == "blocked"
+    assert d["statistical_denominator"] == 0        # 没读 outcome，不占预算
+    events = [e["event_type"] for e in ledger.read_events(role=Role.HUMAN)]
+    assert "signal_prescreen" in events
+    assert "evaluation_result" not in events
