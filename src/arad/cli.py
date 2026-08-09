@@ -149,6 +149,8 @@ def main(argv: list[str] | None = None) -> int:
     svc.add_argument("--provider", default="mutator", choices=("mutator", "claude"),
                      help="mutator 走确定性变异器；claude 让真实模型自主提案（花钱）")
     svc.add_argument("--model", default="claude-opus-5")
+    svc.add_argument("--family", default=None,
+                     help="问题族（缺省 demo_sc_price_volume；事件条件程序用独立族，分母独立）")
     svc.add_argument("--direction", default=None,
                      help="人类研究方向（整句入账并出现在提案器上下文，可审计）")
 
@@ -265,6 +267,7 @@ def main(argv: list[str] | None = None) -> int:
                 max_rounds=args.max_rounds, runs_root=args.runs, run_id=args.run_id,
                 provider_kind=args.provider, model=args.model,
                 direction=getattr(args, "direction", None),
+                family=getattr(args, "family", None),
             )
             print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
             return 0
