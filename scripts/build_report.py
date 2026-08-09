@@ -31,7 +31,13 @@ from arad.memory.ledger import EvidenceLedger, Role
 FAMILY = "demo_sc_price_volume"
 
 RUN_ORDER = ["auto", "run3", "run4", "run5", "run6", "run7", "run8", "run9",
-             "run10", "run11", "run12", "run13", "run14", "run15", "run16", "run17"]
+             "run10", "run11", "run12", "run13", "run14", "run15", "run16", "run17",
+             "run18", "run19", "run20", "run21", "run22", "run23", "run24"]
+
+#: 事件条件族（决定 0008）的运行。族归属按运行前缀判定 —— B9 时代的评价载荷
+#: 曾把族标签写错，运行前缀才是可靠索引。
+EVENT_RUNS = frozenset({"run23", "run24"})
+EVENT_FAMILY = "sc_event_conditional_v1"
 
 #: 每次运行的叙述。这些是**只有人才知道的因果**（为什么停、修了什么），
 #: 账本里只有事件，没有故事。数字一律不写在这里，全部由快照渲染。
@@ -155,10 +161,70 @@ NARRATIVE: dict[str, tuple[str, str]] = {
         ),
     ),
     "run17": (
-        "run17 · 人类研究方向通道首用（进行中）",
+        "run17 · 人类研究方向通道首用",
         (
-            "首轮通过入账的研究方向指令（标的不限于 sc）运行；"
-            "首版即选 36 品种面板。截稿时仍在进行。"
+            "首轮通过入账的研究方向指令（标的不限于 sc）运行。标的确实铺开"
+            "（面板为主，另有黄金与燃油单品种），十六版判决全为否定。"
+            "为加载最小成本模型（决定 0007）主动停止。"
+        ),
+    ),
+    "run18": (
+        "run18 · 成本模型时代首轮",
+        (
+            "决定 0007 后第一轮：cost_model_missing 从判决理由中绝迹，"
+            "真实成本诊断（盈亏平衡捕捉率）入账 —— 首版即显示成本仅占典型幅度"
+            "约百分之九，构造死于统计而非成本。为错配教训跨运行回放修复让位。"
+        ),
+    ),
+    "run19": (
+        "run19 · 错配教训回放首轮",
+        (
+            "语义错配码此前每次运行清零重学（run3 用七轮撞出的教训 run18 并不知道），"
+            "修为初值从账本回放全历史。为分层轮换菜单（M12）让位。"
+        ),
+    ),
+    "run20": (
+        "run20 · 分层轮换菜单首轮，provider 三连超时",
+        (
+            "M12 菜单（先验 4 + 安慰剂 3 + 头部 8 + 轮换 15）首轮。第 2 至 4 轮"
+            "provider 连续三次 900 秒超时触发保护性停机（行为正确），但暴露两处"
+            "strict 投影被半途 Study 炸掉（归档为崩溃而生却在崩溃现场先崩），"
+            "以及超时线卡在实测思考时长分布中间。仅一版判决。"
+        ),
+    ),
+    "run21": (
+        "run21 · 阻塞读吞超时（零判决）",
+        (
+            "pty 改造的阻塞读使超时永远不触发：CLI 一个字节不发时，检查超时的"
+            "代码轮不到执行 —— 进程挂死 103 分钟（子进程仅 3 秒 CPU）被杀。"
+            "修为 select 五秒一拍的带超时轮询，挂死调用三十分钟必被回收。"
+        ),
+    ),
+    "run22": (
+        "run22 · 基础设施首次全程无恙",
+        (
+            "二十轮跑满，两次超时被正确吸收。轮换层的族被真实选中并惰性装载"
+            "（生产验证）；标的横跨面板与六个单品种。十六条干净 null。收尾自动封存"
+            "把封条烧在一条十行样本的 underpowered Study 上（B7 由此修复：样本不足"
+            "不进束）。"
+        ),
+    ),
+    "run23": (
+        "run23 · 事件条件族第一轮",
+        (
+            "决定 0008：只在 PM 概率大幅移动后的窗口上评价，独立问题族、地板从头起。"
+            "触发器采用 19/19，但 17 版集中在 iran 单一事件源。十九版全为 null ——"
+            "iran 事件窗口内 SC 仍无线性可预测性。收尾封存越界烧在旧族特征上"
+            "（B8 由此修复：束按族过滤）。"
+        ),
+    ),
+    "run24": (
+        "run24 · 触发多样化",
+        (
+            "方向指令要求触发源互异：铺开到十一个族（含轮换层新族）。"
+            "十一 null、三 underpowered、四 blocked（信号事前筛在生产首次拦下两版，"
+            "读 outcome 之前省下预算）。结论与 run23 一致。束为空暴露 B9：评价证据"
+            "的族标签曾被写死为旧族。"
         ),
     ),
 }
@@ -204,16 +270,25 @@ def collect() -> dict:
         elif kind == "verdict_recorded":
             st["verdict"] = payload.get("verdict")
 
+    with EvidenceLedger("data/ledger/service.db") as ledger2:
+        event_denominators = ledger2.denominators(EVENT_FAMILY)
     n = denominators["statistical_denominator"]
+    ne = event_denominators["statistical_denominator"]
     last = events[-1] if events else {}
     return {
         "denominators": denominators,
+        "event_denominators": event_denominators,
+        "event_floor": expected_max_abs_z(ne) if ne else None,
+        "event_floor_curve": [(k, expected_max_abs_z(k))
+                              for k in (1, 5, 10, 20, ne) if ne and k <= ne],
         "floor": expected_max_abs_z(n),
         "floor_curve": [(k, expected_max_abs_z(k))
                         for k in (1, 5, 10, 15, 25, 40, 50, n) if k <= n],
         "studies": list(studies.values()),
         "verdicts": Counter(s.get("verdict") for s in studies.values() if s.get("verdict")),
-        "sealed": [e["payload"] for e in events
+        # 封存载荷的统计量嵌在 result.effects 下（open_sealed 的 verdict.payload
+        # 结构）；此前取顶层键拿到 None，报告封存表整列空白。这里抽平。
+        "sealed": [_flatten_seal(e["payload"]) for e in events
                    if e["event_type"] == "sealed_segment_opened"],
         "events": len(events),
         "chain_intact": not broken,
@@ -222,6 +297,22 @@ def collect() -> dict:
         "specs": sum(1 for s in studies.values() if s.get("feature_id")),
         "tickets": _headings("docs/tickets/*.md"),
         "decisions": _headings("docs/decisions/*.md"),
+    }
+
+
+def _flatten_seal(payload: dict) -> dict:
+    result = payload.get("result") or {}
+    effects = result.get("effects") or {}
+    ic = effects.get("ic") or {}
+    coverage = result.get("coverage") or {}
+    return {
+        "feature_id": payload.get("feature_id"),
+        "segment": payload.get("segment"),
+        "t_stat": payload.get("t_stat", effects.get("t_stat")),
+        "ic_spearman": payload.get("ic_spearman", ic.get("ic_spearman")),
+        "rows": payload.get("rows", coverage.get("rows_submitted")),
+        "out_of_sample_in_time": payload.get("out_of_sample_in_time"),
+        "taxonomy_clean": payload.get("taxonomy_clean"),
     }
 
 

@@ -90,8 +90,8 @@ def run_figures(D: dict, figs: dict, run: str) -> str:
                + f"{meta['defined_points']}/{meta['total_points']} 点。")
         parts.append(
             r"\noindent\includegraphics[width=\textwidth]{figures/"
-            + meta["file"] + r"}\par\vspace{-2pt}{\scriptsize " + cap
-            + r"}\par\vspace{6pt}" + "\n")
+            + meta["file"] + r"}\par\vspace{-2pt}{\scriptsize\sloppy " + cap
+            + r"\par}\vspace{6pt}" + "\n")
     return "".join(parts)
 
 
@@ -130,8 +130,8 @@ def appendix_figures(D: dict, figs: dict) -> str:
                + f"。有定义 {meta['defined_points']}/{meta['total_points']} 点。")
         parts.append(
             r"\noindent\includegraphics[width=\textwidth]{figures/"
-            + meta["file"] + r"}\par\vspace{-2pt}{\scriptsize " + cap
-            + r"}\par\vspace{6pt}" + "\n")
+            + meta["file"] + r"}\par\vspace{-2pt}{\scriptsize\sloppy " + cap
+            + r"\par}\vspace{6pt}" + "\n")
     return "".join(parts)
 
 
@@ -188,7 +188,7 @@ def render(D: dict, figs: dict) -> str:
                      "信号与价格。该信号实为已实现波动的函数，与目标同源。")
         for s in top[:2])
 
-    return (r"""% 由 scripts/build_report_tex.py 生成；数字全部来自账本快照 seq """
+    tex = (r"""% 由 scripts/build_report_tex.py 生成；数字全部来自账本快照 seq """
             + str(D["frozen_at"]["seq"]) + r"""
 \documentclass[11pt]{ctexart}
 \usepackage[a4paper,margin=2.4cm]{geometry}
@@ -221,8 +221,11 @@ Polymarket 预测市场 $\times$ 中国商品期货（以 SC 原油为主）上�
 16 条 blocked 会翻为 candidate，其中唯一同时满足「纯 Polymarket、已残差化、
 越过评价时地板」的是 run16-study-3（$t=+4.39$ 对地板 $2.60$，置换 $0/200$，
 自罚奖励 $+1.79$，为残差化另类构造首次）；人随后决定开封，封存段
-\textbf{未保住}（$t$ 保持率 18.7\%，秩相关同塌），按预注册条件判 sealed\_failed。本文第 \ref{sec:conclusions} 节把经验结论与结构约束分开陈述，
-每条结论附证否条件。全部数字由脚本从同一次账本快照派生。
+\textbf{未保住} —— 至截稿封存段共否决\textbf{四个}候选形态；
+（五）把问题换成\textbf{事件条件形态}（决定 0008：只在 PM 概率大幅移动后的窗口上
+评价，独立问题族、地板从头起）后，两轮四十回合、{EVENT_N} 次检验（触发源十一个互异族），
+仍无一越过本族地板 {EVENT_FLOOR}。本文第 \ref{sec:conclusions} 节把经验结论与
+结构约束分开陈述，每条结论附证否条件。全部数字由脚本从同一次账本快照派生。
 \end{abstract}
 \tableofcontents
 
@@ -391,6 +394,36 @@ $|z|$ 带取 $\tau=2$（搜索接受任一方向），$n=1$ 时取半正态均�
 """ + floor_rows + r"""
 \bottomrule\end{tabular}\caption{零假设带的实际抬升轨迹（账本快照）。}\end{table}
 
+\subsection{信号侧事前筛（prescreen-v1）}
+置换检验按 Episode 整块打乱；一个在决策节奏上几乎不动的信号，打乱前后难以区分，
+读 outcome 只能得到一条注定的 null 并抬高地板。该性质只依赖特征值本身，
+可在读之前判定：
+\[ \hat\rho=\frac{\sum_t (x_t-\bar x)(x_{t+1}-\bar x)}{\sum_t (x_t-\bar x)^2},\qquad
+   n_{\mathrm{eff}}=n\,\frac{1-\hat\rho}{1+\hat\rho}. \]
+$n_{\mathrm{eff}}<30$ 或互异值 $<3$（防退化；主责在 $n_{\mathrm{eff}}$）时判 blocked：
+不读 outcome、不占统计分母、地板不抬。检验机理同时作为方法说明写进提案器上下文
+（预注册规则的说明，不是任何结果的泄漏）。生产实测：run24 两版被拦
+（$n_{\mathrm{eff}}$ 13.9 与 23.1），预算一分未花。
+
+\subsection{事件条件形态（决定 0008）}
+预测市场的信息天然是事件性的：概率长期钉着不动，事件来临才跳变。「永远在线」的
+检验把无事时段与事件时段混进同一条回归，信号被稀释。事件条件形态由提案声明触发器
+$(\text{field}, L, \delta)$：决策时点 $t$ 活跃当且仅当
+\[ \bigl|\,p^{\,\text{last}}_{<t} - p^{\,\text{last}}_{<t-L}\,\bigr| \ge \delta, \]
+两值取自\textbf{严格早于}边界的分桶（与特征窗口同一右端点排他约定）。
+不活跃时点记入预注册排除，不读其 outcome —— 触发只依赖决策前可见信息，
+不是结果依赖过滤。触发器进 content id：同一机制加不同触发是不同的提案。
+事件条件研究以独立问题族记账：分母从零、地板从 $0.798$ 起；旧族账目原样保留
+（分账纪律同 Alpha-Data 主族／扩展族）。
+
+\subsection{候选族菜单的三层设计（M12）}
+「起点选择」此前是按成交量取前 30 的默认。现为预注册结构：
+资格筛（qualify-v1，纯 PM 侧：跨度、桶数、未决性 $\overline{p(1-p)}$、活动度，
+1{,}998 族筛得 1{,}404 合格）；事前经济映射（只读引入 Alpha-Data P1 的 tier
+registry，验证只用外部 ETF 证据，以声明先验标注、不过滤）；分层轮换
+（每轮 30 = 先验 4 + 安慰剂 3 + 头部 8 + 轮换 15，确定性轮换使全部合格族长期
+都有出场机会）。评价侧按需装载：轮到谁就能评价谁，不合格族即使被引用也不装载。
+
 \subsection{封存段}
 \[ \text{seal\_key}=\mathrm{SHA256}(\text{feature\_id},\ \text{segment},\ \text{version}), \]
 开封记录进哈希链，第二次开封抛 SealedAlreadyOpened。因子卡状态用
@@ -422,7 +455,7 @@ cand:iran 族归一化概率 30 日均值，残差化掉品种自身波动持续
 封存段（一次性） & """ + num(hero_seal_t) + " & "
             + num(hero_sealed.get("ic_spearman"), 3) + " & " + str(n_s)
             + r""" & $t$ 值比 """
-            + (f"{retention:.1%}" if retention is not None else "—")
+            + (f"{retention * 100:.1f}\\%" if retention is not None else "—")
             + r""" $<$ 0.35 $\Rightarrow$ sealed\_failed \\
 \bottomrule\end{tabular}\caption{候选在两段上的对比。裁决终身有效，不重开。}\end{table}
 
@@ -430,7 +463,7 @@ cand:iran 族归一化概率 30 日均值，残差化掉品种自身波动持续
             + str(n_d) + " 对 " + str(n_s) + r""" 行），即便效应完全不变 $t$ 也按
 $\sqrt{n_s/n_d}\approx """ + (f"{size_factor:.2f}" if size_factor else "—")
             + r"""$ 缩小；样本量修正后效应保留率约 """
-            + (f"{retention_adj:.1%}" if retention_adj is not None else "—")
+            + (f"{retention_adj * 100:.1f}\\%" if retention_adj is not None else "—")
             + r"""，仍远低于 0.35，\textbf{裁决不变}。该候选在发现段也从未越过当时的
 族地板（评价时已花 """ + str(tests_then) + r""" 次检验，地板 """
             + (f"{floor_then:.3f}" if floor_then else "—") + r"""，而它是 """
@@ -464,7 +497,7 @@ $0$ 至 $0.035$），但 $|t|$ 在 $1.2$ 至 $2.3$，自罚奖励为负 —— �
 \end{itemize}
 
 \begin{table}[htbp]\centering\small
-\begin{tabular}{@{}ll@{}}\toprule
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.74\textwidth}@{}}\toprule
 特征 & \path{pm_iran_outstanding_resolution_mass_resid_own_rv_12h_90d} \\
 构造 & $\bar p(1-\bar p)$：iran 族 12 小时窗口均值的伯努利方差（「仍未解决的概率质量」），\\
      & 残差化掉品种自身波动持续性 \\
@@ -496,6 +529,26 @@ $\bar p(1-\bar p)$ 正是这份「未决质量」的读数。谨慎读法同样�
 run11-study-3 在发现段同样通过置换（$0.05$）而封存段未保住；本条的发现段
 统计强得多（$4.39$ 对 $2.42$，且越过地板），但唯一有权裁决的是那次一次性开封。
 
+\subsection{事件条件族：两轮四十回合}
+图~\ref{fig:eventcurve} 是事件族自己的搜索曲线（分母独立、地板从头起）。
+run23 触发器采用 19/19 但 17 版集中在 iran 单一事件源，十九版全 null；
+run24 经方向指令铺开到十一个互异触发族（含轮换层新族），结论一致。
+两轮合计：即使只看概率大幅移动后的窗口、即使换了十一个事件源，
+线性可预测性仍然缺席。本族最好 $|t|=1.87$，从未越过本族地板。
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.9\textwidth]{figures/event_search_curve.png}
+\caption{事件条件族的搜索曲线。分母独立（决定 0008），地板从 $0.798$ 起。}
+\label{fig:eventcurve}
+\end{figure}
+
+\paragraph{四次封存否决的共同判词。}截稿时封存段共否决四个候选形态：
+run11-study-3（发生率水平，$t$ 保持率 17.6\%）、run16-study-3（未决质量，18.7\%，
+秩相关同塌）、dip\_barrier（十行样本的 underpowered 假象经束缺陷混入，
+还原后 51\% 但发现段证据无效）、belief\_jump（12.7\%）。共同形态：
+发现段的强度来自该段特有的样本构成（2024 年伊朗事件簇），
+不是跨段稳定的关系。置换检验打乱段内对齐，检验不出跨段构成差异；
+封存段可以 —— 它因此是终审。
+
 \subsection{封存段全记录（""" + str(len(D["sealed"])) + r""" 次开启）}
 \begin{longtable}{@{}p{0.42\textwidth} r r r l l@{}}
 \toprule 特征 & $t$ & IC$_\rho$ & 行 & 时间样本外 & 分类法干净 \\ \midrule\endhead
@@ -513,6 +566,19 @@ min\_clusters 被 episode 命名稀释 $N$ 倍（underpowered 偏少）；$h_i=1
 口径不同的 $n$；提案器读到的地板说明写 $\sqrt{2\ln n}$ 与实现不符；0.35 与 120 无推导。
 \textbf{没有一处能把 null 翻成 candidate}：candidate 被失效表结构性挡住，与数值无关。
 
+\paragraph{束的四连修（B6--B9）。}束位即自动封存的名额，四类占位缺陷先后被实跑暴露：
+基线假象以 $+7.1$ 的奖励霸占束位（B6：Baseline Control 不占另类束位）；
+十行样本的 underpowered 以假奖励进榜并烧掉封条（B7：样本不足不进束）；
+束不按族过滤，事件族的收尾封存烧在旧族特征上（B8）；评价证据的族标签被写死为
+旧族，按族过滤后束反而为空（B9：族由调用方传入）。B9 的一个后果须如实声明：
+run17 至 run24 期间的评价载荷 family 字段不可靠，族归属应按运行前缀判定 ——
+本文全部按此口径。
+
+\paragraph{provider 的四课。}CLI 对管道按块缓冲堵死推理流（伪终端修复）；
+思考阶段不发增量（如实标注，无法修复）；超时线 900s 卡在实测思考时长分布中间
+（提为 1800s）；pty 阻塞读使超时永远不触发（实测挂死 103 分钟，
+select 五秒一拍轮询修复，挂死调用三十分钟必被回收）。每课带回归护栏。
+
 \section{结论（每条附证否条件）}\label{sec:conclusions}
 \begin{enumerate}
 \item \textbf{结构（已解除）：截至 M11 之前，「candidate=0」不是经验结论。}
@@ -520,8 +586,9 @@ cost\_model\_missing 曾对全部 Study 成立且其失效集合含 candidate。
 决定 0007 建成最小成本模型后该约束解除；回溯投影（\S\ref{sec:retro}）显示
 16 条历史 blocked 在新制度下为 candidate 形态。\emph{证否（更正后）：
 新制度下一条各闸门全过的 Study 仍被判 blocked。}
-\item \textbf{经验：已检验机制上，Polymarket 特征相对基线的线性增量预测力未过
-预注册证否闸门。}\emph{证否：残差化后在族地板上方且置换 $\le0.1$ 并在封存段保住的
+\item \textbf{经验：已检验机制上，Polymarket 特征相对基线的线性增量预测力，
+在两种问题形态（永远在线；事件条件窗口）上都未过预注册证否闸门。}
+\emph{证否：任一形态下，残差化后在其族地板上方且置换 $\le0.1$ 并在封存段保住的
 一条特征。}
 \item \textbf{经验（已按自身证否条件更正）：残差化之前，四条波动假象的自罚奖励
 为正（最高 $+7.1$）；残差化的另类构造中，第一条奖励为正的出现在 run16-study-3
@@ -546,6 +613,10 @@ candidate。}\emph{证否：修正后重跑，判决分布改变。}
 发现段上越过地板、通过置换的构造，其强度主要来自该段特有的样本构成 ——
 封存段正是为识别这一点而存在。
 \emph{证否：一条开封后保持率不低于 0.35 的同类构造。}
+\item \textbf{经验（新）：事件条件形态下结论不变。}触发器由模型自主声明并预注册
+（进 content id），两轮四十回合、十一个互异触发源、本族独立地板 ——
+最好 $|t|=1.87$ 未越线。「概率大幅移动之后的窗口」并没有比「永远在线」
+更可预测。\emph{证否：一条事件条件构造越过本族地板、置换通过并在封存段保住。}
 \end{enumerate}
 
 \section{下一步（全部需人决定）}
@@ -581,6 +652,11 @@ candidate。}\emph{证否：修正后重跑，判决分布改变。}
 叙述由人撰写且不含数字；数字一律由快照渲染，二者不会不一致。}
 \end{document}
 """)
+    ne = D.get("event_denominators", {}).get("statistical_denominator", 0)
+    ef = D.get("event_floor")
+    tex = tex.replace("{EVENT_N}", str(ne))
+    tex = tex.replace("{EVENT_FLOOR}", f"{ef:.3f}" if ef else "—")
+    return tex
 
 
 def main() -> None:

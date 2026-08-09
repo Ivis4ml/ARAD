@@ -209,6 +209,9 @@ def arad_search_curve() -> None:
             t = (e["payload"].get("effects") or {}).get("t_stat")
             if not isinstance(t, (int, float)) or math.isnan(t):
                 continue
+            # 族归属按运行前缀：B9 时代评价载荷的族标签写死为旧族，不可靠
+            if sid.split("-study-")[0] in ("run23", "run24"):
+                continue          # 事件族另有一张图，n 计数也各自独立
             sp = specs.get(sid, {})
             if "commodity_bar" in sp.get("srcs", set()) and "pm_market" not in sp.get("srcs", set()):
                 grp = "baseline"
@@ -259,7 +262,53 @@ def arad_search_curve() -> None:
     print("arad_search_curve.png 完成")
 
 
+
+
+def event_search_curve() -> None:
+    """事件条件族（决定 0008）自己的搜索曲线：分母独立、地板从头起。"""
+    import sys as _sys
+
+    _sys.path.insert(0, "src")
+    from arad.evaluation.selection import expected_max_abs_z
+    from arad.memory.ledger import EvidenceLedger, Role
+
+    with EvidenceLedger("data/ledger/service.db") as ledger:
+        events = list(ledger.read_events(role=Role.HUMAN))
+    pts = []
+    n = 0
+    for e in events:
+        sid = e.get("study_id") or ""
+        if sid.split("-study-")[0] not in ("run23", "run24"):
+            continue
+        if e["event_type"] == "outcome_read":
+            n += 1
+        elif e["event_type"] == "evaluation_result":
+            t = (e["payload"].get("effects") or {}).get("t_stat")
+            if isinstance(t, (int, float)) and not math.isnan(t):
+                pts.append((n, abs(t), sid))
+    if not pts:
+        return
+    n_max = max(x for x, *_ in pts)
+    xs = list(range(1, n_max + 1))
+    fig, ax = plt.subplots(figsize=(6.4, 2.8), dpi=200)
+    ax.plot(xs, [expected_max_abs_z(k) for k in xs], color=PRICE, lw=1.5, ls="--",
+            label="零假设地板（本族独立分母）")
+    ax.scatter([x for x, *_ in pts], [t for _, t, _ in pts], s=22, color=SIGNAL,
+               zorder=3, label="事件条件构造（每点一条 Study）")
+    ax.set_xlabel("本族已读 outcome 次数 n", fontsize=8)
+    ax.set_ylabel("|t|", fontsize=8)
+    ax.tick_params(labelsize=7)
+    ax.legend(fontsize=6.6, frameon=False, loc="upper left")
+    for spx in ("top", "right"):
+        ax.spines[spx].set_visible(False)
+    fig.tight_layout(pad=0.4)
+    fig.savefig(OUT / "event_search_curve.png")
+    plt.close(fig)
+    print("event_search_curve.png 完成")
+
+
 if __name__ == "__main__":
     main()
     hillclimb_baseline()
     arad_search_curve()
+    event_search_curve()

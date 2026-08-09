@@ -1,4 +1,4 @@
-% 由 scripts/build_report_tex.py 生成；数字全部来自账本快照 seq 1657
+% 由 scripts/build_report_tex.py 生成；数字全部来自账本快照 seq 2723
 \documentclass[11pt]{ctexart}
 \usepackage[a4paper,margin=2.4cm]{geometry}
 \usepackage{array,booktabs,longtable,graphicx,amsmath,amssymb,url,xcolor,caption}
@@ -8,16 +8,16 @@
 \captionsetup{font=small,labelfont=bf}
 \setlength{\parskip}{2pt}
 \title{\textbf{ARAD：另类数据自主因子研究}\\
-\large 从计划到九十次检验的全部证据 —— 方法、数学与逐条可证否的结论}
+\large 从计划到120次检验的全部证据 —— 方法、数学与逐条可证否的结论}
 \author{ARAD 项目}
 \date{2026 年 8 月 8 日}
 \begin{document}
 \maketitle
 \begin{abstract}
 研究者是大语言模型（claude-opus-5，经 \path{claude -p} 调用），确定性框架负责使其产出
-可信且可累积。截至账本冻结点（事件 seq 1657），系统在
-Polymarket 预测市场 $\times$ 中国商品期货（以 SC 原油为主）上共冻结 \textbf{112 个互异假设}，读取 outcome \textbf{90 次}，
-判决为 null \textbf{55}、blocked \textbf{49}、underpowered \textbf{6}、candidate \textbf{0}；噪声地板升至 \textbf{2.731}。三条主结果：（一）不加控制时最大的统计量
+可信且可累积。截至账本冻结点（事件 seq 2723），系统在
+Polymarket 预测市场 $\times$ 中国商品期货（以 SC 原油为主）上共冻结 \textbf{144 个互异假设}，读取 outcome \textbf{120 次}，
+判决为 null \textbf{114}、blocked \textbf{54}、underpowered \textbf{11}、candidate \textbf{0}；噪声地板升至 \textbf{2.825}。三条主结果：（一）不加控制时最大的统计量
 （$|t|$ 至 9.30）全部是波动率聚集这一教科书事实；
 （二）对品种自身波动或国际油价残差化后，Polymarket 特征大面积失去线性预测力；
 （三）第一条走完全流程的候选在一次性的封存段被否决；
@@ -25,8 +25,11 @@ Polymarket 预测市场 $\times$ 中国商品期货（以 SC 原油为主）上�
 16 条 blocked 会翻为 candidate，其中唯一同时满足「纯 Polymarket、已残差化、
 越过评价时地板」的是 run16-study-3（$t=+4.39$ 对地板 $2.60$，置换 $0/200$，
 自罚奖励 $+1.79$，为残差化另类构造首次）；人随后决定开封，封存段
-\textbf{未保住}（$t$ 保持率 18.7\%，秩相关同塌），按预注册条件判 sealed\_failed。本文第 \ref{sec:conclusions} 节把经验结论与结构约束分开陈述，
-每条结论附证否条件。全部数字由脚本从同一次账本快照派生。
+\textbf{未保住} —— 至截稿封存段共否决\textbf{四个}候选形态；
+（五）把问题换成\textbf{事件条件形态}（决定 0008：只在 PM 概率大幅移动后的窗口上
+评价，独立问题族、地板从头起）后，两轮四十回合、33 次检验（触发源十一个互异族），
+仍无一越过本族地板 2.381。本文第 \ref{sec:conclusions} 节把经验结论与
+结构约束分开陈述，每条结论附证否条件。全部数字由脚本从同一次账本快照派生。
 \end{abstract}
 \tableofcontents
 
@@ -199,8 +202,38 @@ $|z|$ 带取 $\tau=2$（搜索接受任一方向），$n=1$ 时取半正态均�
 25 & 2.276 \\
 40 & 2.451 \\
 50 & 2.531 \\
-90 & 2.731 \\
+120 & 2.825 \\
 \bottomrule\end{tabular}\caption{零假设带的实际抬升轨迹（账本快照）。}\end{table}
+
+\subsection{信号侧事前筛（prescreen-v1）}
+置换检验按 Episode 整块打乱；一个在决策节奏上几乎不动的信号，打乱前后难以区分，
+读 outcome 只能得到一条注定的 null 并抬高地板。该性质只依赖特征值本身，
+可在读之前判定：
+\[ \hat\rho=\frac{\sum_t (x_t-\bar x)(x_{t+1}-\bar x)}{\sum_t (x_t-\bar x)^2},\qquad
+   n_{\mathrm{eff}}=n\,\frac{1-\hat\rho}{1+\hat\rho}. \]
+$n_{\mathrm{eff}}<30$ 或互异值 $<3$（防退化；主责在 $n_{\mathrm{eff}}$）时判 blocked：
+不读 outcome、不占统计分母、地板不抬。检验机理同时作为方法说明写进提案器上下文
+（预注册规则的说明，不是任何结果的泄漏）。生产实测：run24 两版被拦
+（$n_{\mathrm{eff}}$ 13.9 与 23.1），预算一分未花。
+
+\subsection{事件条件形态（决定 0008）}
+预测市场的信息天然是事件性的：概率长期钉着不动，事件来临才跳变。「永远在线」的
+检验把无事时段与事件时段混进同一条回归，信号被稀释。事件条件形态由提案声明触发器
+$(\text{field}, L, \delta)$：决策时点 $t$ 活跃当且仅当
+\[ \bigl|\,p^{\,\text{last}}_{<t} - p^{\,\text{last}}_{<t-L}\,\bigr| \ge \delta, \]
+两值取自\textbf{严格早于}边界的分桶（与特征窗口同一右端点排他约定）。
+不活跃时点记入预注册排除，不读其 outcome —— 触发只依赖决策前可见信息，
+不是结果依赖过滤。触发器进 content id：同一机制加不同触发是不同的提案。
+事件条件研究以独立问题族记账：分母从零、地板从 $0.798$ 起；旧族账目原样保留
+（分账纪律同 Alpha-Data 主族／扩展族）。
+
+\subsection{候选族菜单的三层设计（M12）}
+「起点选择」此前是按成交量取前 30 的默认。现为预注册结构：
+资格筛（qualify-v1，纯 PM 侧：跨度、桶数、未决性 $\overline{p(1-p)}$、活动度，
+1{,}998 族筛得 1{,}404 合格）；事前经济映射（只读引入 Alpha-Data P1 的 tier
+registry，验证只用外部 ETF 证据，以声明先验标注、不过滤）；分层轮换
+（每轮 30 = 先验 4 + 安慰剂 3 + 头部 8 + 轮换 15，确定性轮换使全部合格族长期
+都有出场机会）。评价侧按需装载：轮到谁就能评价谁，不合格族即使被引用也不装载。
 
 \subsection{封存段}
 \[ \text{seal\_key}=\mathrm{SHA256}(\text{feature\_id},\ \text{segment},\ \text{version}), \]
@@ -224,14 +257,14 @@ auto-study-5 & \path{rv_innovation_z_1d_vs_14d}\newline {\scriptsize\color{gray}
 auto-study-6 & \path{pm_iran_belief_churn_innov_z}\newline {\scriptsize\color{gray}rv\_next\_session}\newline {\scriptsize\color{warn}审计拦下：magnitude\_vs\_signed\_label} & — & — & blocked \\
 auto-study-7 & \path{cb_rv_short_over_base_z}\newline {\scriptsize\color{gray}rv\_next\_session}\newline {\scriptsize\color{warn}审计拦下：magnitude\_vs\_signed\_label} & — & — & blocked \\
 \bottomrule\end{longtable}}
-\noindent\includegraphics[width=\textwidth]{figures/auto-study-0.png}\par\vspace{-2pt}{\scriptsize \texttt{auto-study-0}：\path{pm_iran_trade_arrival_z}。有定义 520/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/auto-study-1.png}\par\vspace{-2pt}{\scriptsize \texttt{auto-study-1}：\path{pm_iran_notional_innovation_z}。有定义 506/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/auto-study-2.png}\par\vspace{-2pt}{\scriptsize \texttt{auto-study-2}：\path{pm_geo_attention_share_z_iran_over_be_1d}。有定义 520/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/auto-study-3.png}\par\vspace{-2pt}{\scriptsize \texttt{auto-study-3}：\path{pm_iran_attention_share_z}。有定义 520/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/auto-study-4.png}\par\vspace{-2pt}{\scriptsize \texttt{auto-study-4}：\path{pm_iran_closure_p_innovation}。有定义 498/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/auto-study-5.png}\par\vspace{-2pt}{\scriptsize \texttt{auto-study-5}：\path{rv_innovation_z_1d_vs_14d}。有定义 835/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/auto-study-6.png}\par\vspace{-2pt}{\scriptsize \texttt{auto-study-6}：\path{pm_iran_belief_churn_innov_z}。有定义 476/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/auto-study-7.png}\par\vspace{-2pt}{\scriptsize \texttt{auto-study-7}：\path{cb_rv_short_over_base_z}。有定义 879/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/auto-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{auto-study-0}：\path{pm_iran_trade_arrival_z}。有定义 520/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/auto-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{auto-study-1}：\path{pm_iran_notional_innovation_z}。有定义 506/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/auto-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{auto-study-2}：\path{pm_geo_attention_share_z_iran_over_be_1d}。有定义 520/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/auto-study-3.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{auto-study-3}：\path{pm_iran_attention_share_z}。有定义 520/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/auto-study-4.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{auto-study-4}：\path{pm_iran_closure_p_innovation}。有定义 498/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/auto-study-5.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{auto-study-5}：\path{rv_innovation_z_1d_vs_14d}。有定义 835/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/auto-study-6.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{auto-study-6}：\path{pm_iran_belief_churn_innov_z}。有定义 476/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/auto-study-7.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{auto-study-7}：\path{cb_rv_short_over_base_z}。有定义 879/1040 点。\par}\vspace{6pt}
 
 \clearpage
 \subsection{run3 · 结构性误拦}
@@ -250,15 +283,15 @@ run3-study-6 & \path{sc_signed_shock_norm_rank_2d}\newline {\scriptsize\color{gr
 run3-study-7 & \path{pm_iran_notional_innov_rank_90d}\newline {\scriptsize\color{gray}rv\_next\_session} & -0.716 & -0.014 & null \\
 run3-study-8 & \path{sc_signed_ret_1d_z}\newline {\scriptsize\color{gray}rv\_next\_session} & -1.262 & -0.054 & null \\
 \bottomrule\end{longtable}}
-\noindent\includegraphics[width=\textwidth]{figures/run3-study-0.png}\par\vspace{-2pt}{\scriptsize \texttt{run3-study-0}：\path{sc_directional_efficiency_rank_v1}。有定义 395/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run3-study-1.png}\par\vspace{-2pt}{\scriptsize \texttt{run3-study-1}：\path{rv_dispersion_ratio_rank_10d}。有定义 786/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run3-study-2.png}\par\vspace{-2pt}{\scriptsize \texttt{run3-study-2}：\path{sc_sessret_scaled_by_baseline_vol_rankpct}。有定义 768/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run3-study-3.png}\par\vspace{-2pt}{\scriptsize \texttt{run3-study-3}：\path{sc_vol_scaled_session_reversal_v1}。有定义 567/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run3-study-4.png}\par\vspace{-2pt}{\scriptsize \texttt{run3-study-4}：\path{sc_vol_scaled_daily_displacement_v1}。有定义 910/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run3-study-5.png}\par\vspace{-2pt}{\scriptsize \texttt{run3-study-5}：\path{sc_vol_scaled_session_return_rankpct_v1}。有定义 808/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run3-study-6.png}\par\vspace{-2pt}{\scriptsize \texttt{run3-study-6}：\path{sc_signed_shock_norm_rank_2d}。有定义 495/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run3-study-7.png}\par\vspace{-2pt}{\scriptsize \texttt{run3-study-7}：\path{pm_iran_notional_innov_rank_90d}。有定义 506/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run3-study-8.png}\par\vspace{-2pt}{\scriptsize \texttt{run3-study-8}：\path{sc_signed_ret_1d_z}。有定义 635/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run3-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run3-study-0}：\path{sc_directional_efficiency_rank_v1}。有定义 395/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run3-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run3-study-1}：\path{rv_dispersion_ratio_rank_10d}。有定义 786/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run3-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run3-study-2}：\path{sc_sessret_scaled_by_baseline_vol_rankpct}。有定义 768/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run3-study-3.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run3-study-3}：\path{sc_vol_scaled_session_reversal_v1}。有定义 567/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run3-study-4.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run3-study-4}：\path{sc_vol_scaled_daily_displacement_v1}。有定义 910/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run3-study-5.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run3-study-5}：\path{sc_vol_scaled_session_return_rankpct_v1}。有定义 808/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run3-study-6.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run3-study-6}：\path{sc_signed_shock_norm_rank_2d}。有定义 495/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run3-study-7.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run3-study-7}：\path{pm_iran_notional_innov_rank_90d}。有定义 506/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run3-study-8.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run3-study-8}：\path{sc_signed_ret_1d_z}。有定义 635/1040 点。\par}\vspace{6pt}
 
 \clearpage
 \subsection{run4 · 循环第一次真正转起来}
@@ -280,18 +313,18 @@ run4-study-9 & \path{sc_vol_normalised_drift_rank_3d}\newline {\scriptsize\color
 run4-study-10 & \path{pm_iran_p_churn_over_sc_rv_1d_rank}\newline {\scriptsize\color{gray}rv\_next\_session}\newline {\scriptsize\color{warn}审计拦下：magnitude\_vs\_signed\_label} & — & — & blocked \\
 run4-study-11 & \path{pm_russia_avg_ticket_rank_1d_120d}\newline {\scriptsize\color{gray}rv\_next\_session} & -0.461 & -0.007 & null \\
 \bottomrule\end{longtable}}
-\noindent\includegraphics[width=\textwidth]{figures/run4-study-0.png}\par\vspace{-2pt}{\scriptsize \texttt{run4-study-0}：\path{sc_upside_share_rank_5d}。有定义 901/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run4-study-1.png}\par\vspace{-2pt}{\scriptsize \texttt{run4-study-1}：\path{sc_cumret_7d_rank}。有定义 868/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run4-study-2.png}\par\vspace{-2pt}{\scriptsize \texttt{run4-study-2}：\path{sc_prev_day_return_rank_pct_2d_over_90d}。有定义 823/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run4-study-3.png}\par\vspace{-2pt}{\scriptsize \texttt{run4-study-3}：\path{sc_session_return_rank_3d_120d}。有定义 867/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run4-study-4.png}\par\vspace{-2pt}{\scriptsize \texttt{run4-study-4}：\path{pm_ceasefire_p_state_innovation_12h_30d}。有定义 683/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run4-study-5.png}\par\vspace{-2pt}{\scriptsize \texttt{run4-study-5}：\path{sc_studentised_range_6h_rankpct_120d}。有定义 0/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run4-study-6.png}\par\vspace{-2pt}{\scriptsize \texttt{run4-study-6}：\path{sc_vol_scaled_drawdown_pct_v1}。有定义 878/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run4-study-7.png}\par\vspace{-2pt}{\scriptsize \texttt{run4-study-7}：\path{pm_iran_attention_rank_24h_60d}。有定义 509/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run4-study-8.png}\par\vspace{-2pt}{\scriptsize \texttt{run4-study-8}：\path{sc_cum_ret_5d_rank_pct}。有定义 942/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run4-study-9.png}\par\vspace{-2pt}{\scriptsize \texttt{run4-study-9}：\path{sc_vol_normalised_drift_rank_3d}。有定义 887/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run4-study-10.png}\par\vspace{-2pt}{\scriptsize \texttt{run4-study-10}：\path{pm_iran_p_churn_over_sc_rv_1d_rank}。有定义 423/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run4-study-11.png}\par\vspace{-2pt}{\scriptsize \texttt{run4-study-11}：\path{pm_russia_avg_ticket_rank_1d_120d}。有定义 722/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run4-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run4-study-0}：\path{sc_upside_share_rank_5d}。有定义 901/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run4-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run4-study-1}：\path{sc_cumret_7d_rank}。有定义 868/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run4-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run4-study-2}：\path{sc_prev_day_return_rank_pct_2d_over_90d}。有定义 823/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run4-study-3.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run4-study-3}：\path{sc_session_return_rank_3d_120d}。有定义 867/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run4-study-4.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run4-study-4}：\path{pm_ceasefire_p_state_innovation_12h_30d}。有定义 683/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run4-study-5.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run4-study-5}：\path{sc_studentised_range_6h_rankpct_120d}。有定义 0/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run4-study-6.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run4-study-6}：\path{sc_vol_scaled_drawdown_pct_v1}。有定义 878/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run4-study-7.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run4-study-7}：\path{pm_iran_attention_rank_24h_60d}。有定义 509/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run4-study-8.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run4-study-8}：\path{sc_cum_ret_5d_rank_pct}。有定义 942/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run4-study-9.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run4-study-9}：\path{sc_vol_normalised_drift_rank_3d}。有定义 887/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run4-study-10.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run4-study-10}：\path{pm_iran_p_churn_over_sc_rv_1d_rank}。有定义 423/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run4-study-11.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run4-study-11}：\path{pm_russia_avg_ticket_rank_1d_120d}。有定义 722/1040 点。\par}\vspace{6pt}
 
 \clearpage
 \subsection{run5 · 面板首测与假象初现}
@@ -304,9 +337,9 @@ run5-study-0 & \path{pm_up_arrival_concentration_6h_over_24h_rank}\newline {\scr
 run5-study-1 & \path{pm_iran_belief_impact_per_notional_rank_1d}\newline {\scriptsize\color{gray}rv\_next\_session} & -0.840 & -0.054 & null \\
 run5-study-2 & \path{sc_lowfreq_over_highfreq_vol_rank_2d_180d}\newline {\scriptsize\color{gray}rv\_next\_session} & -9.300 & -0.180 & blocked \\
 \bottomrule\end{longtable}}
-\noindent\includegraphics[width=\textwidth]{figures/run5-study-0.png}\par\vspace{-2pt}{\scriptsize \texttt{run5-study-0}：\path{pm_up_arrival_concentration_6h_over_24h_rank}。有定义 134/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run5-study-1.png}\par\vspace{-2pt}{\scriptsize \texttt{run5-study-1}：\path{pm_iran_belief_impact_per_notional_rank_1d}。有定义 489/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run5-study-2.png}\par\vspace{-2pt}{\scriptsize \texttt{run5-study-2}：\path{sc_lowfreq_over_highfreq_vol_rank_2d_180d}。有定义 630/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run5-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run5-study-0}：\path{pm_up_arrival_concentration_6h_over_24h_rank}。有定义 134/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run5-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run5-study-1}：\path{pm_iran_belief_impact_per_notional_rank_1d}。有定义 489/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run5-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run5-study-2}：\path{sc_lowfreq_over_highfreq_vol_rank_2d_180d}。有定义 630/1040 点。\par}\vspace{6pt}
 
 \clearpage
 \subsection{run6 · universe 自主选择首轮}
@@ -328,16 +361,16 @@ run6-study-9 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进
 run6-study-10 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
 run6-study-11 & \path{pm_israel_closed_window_arrival_resid_own_rv_6h_off6h_90d}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & +0.296 & -0.012 & null \\
 \bottomrule\end{longtable}}
-\noindent\includegraphics[width=\textwidth]{figures/run6-study-0.png}\par\vspace{-2pt}{\scriptsize \texttt{run6-study-0}：\path{sc_rv_close_concentration_rank_3h_180d}。有定义 0/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run6-study-1.png}\par\vspace{-2pt}{\scriptsize \texttt{run6-study-1}：\path{cb_rv_acceleration_1d_rank_180d}。有定义 545/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run6-study-2.png}\par\vspace{-2pt}{\scriptsize \texttt{run6-study-2}：\path{pm_iran_minus_israel_p_innov_z_12h_60d}。有定义 478/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run6-study-3.png}\par\vspace{-2pt}{\scriptsize \texttt{run6-study-3}：\path{pm_russia_arrival_burstiness_rank_1d_120d}。有定义 646/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run6-study-4.png}\par\vspace{-2pt}{\scriptsize \texttt{run6-study-4}：\path{sc_downside_jump_severity_rank_5d_120d}。有定义 870/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run6-study-5.png}\par\vspace{-2pt}{\scriptsize \texttt{run6-study-5}：\path{cb_terminal_rv_concentration_rank_30m_over_1d_120d}。有定义 0/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run6-study-6.png}\par\vspace{-2pt}{\scriptsize \texttt{run6-study-6}：\path{pm_ukraine_arrival_minus_own_rv_innov_rank_1d_90d}。有定义 610/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run6-study-7.png}\par\vspace{-2pt}{\scriptsize \texttt{run6-study-7}：\path{pm_up_closed_window_arrival_rank_6h_off6h_90d}。有定义 84/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run6-study-8.png}\par\vspace{-2pt}{\scriptsize \texttt{run6-study-8}：\path{pm_ceasefire_belief_churn_resid_own_rv_1d_90d}。有定义 626/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run6-study-11.png}\par\vspace{-2pt}{\scriptsize \texttt{run6-study-11}：\path{pm_israel_closed_window_arrival_resid_own_rv_6h_off6h_90d}。有定义 503/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run6-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run6-study-0}：\path{sc_rv_close_concentration_rank_3h_180d}。有定义 0/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run6-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run6-study-1}：\path{cb_rv_acceleration_1d_rank_180d}。有定义 545/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run6-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run6-study-2}：\path{pm_iran_minus_israel_p_innov_z_12h_60d}。有定义 478/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run6-study-3.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run6-study-3}：\path{pm_russia_arrival_burstiness_rank_1d_120d}。有定义 646/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run6-study-4.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run6-study-4}：\path{sc_downside_jump_severity_rank_5d_120d}。有定义 870/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run6-study-5.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run6-study-5}：\path{cb_terminal_rv_concentration_rank_30m_over_1d_120d}。有定义 0/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run6-study-6.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run6-study-6}：\path{pm_ukraine_arrival_minus_own_rv_innov_rank_1d_90d}。有定义 610/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run6-study-7.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run6-study-7}：\path{pm_up_closed_window_arrival_rank_6h_off6h_90d}。有定义 84/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run6-study-8.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run6-study-8}：\path{pm_ceasefire_belief_churn_resid_own_rv_1d_90d}。有定义 626/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run6-study-11.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run6-study-11}：\path{pm_israel_closed_window_arrival_resid_own_rv_6h_off6h_90d}。有定义 503/1040 点。\par}\vspace{6pt}
 
 \clearpage
 \subsection{run7 · 记忆时代第一轮（中止）}
@@ -352,10 +385,10 @@ run7-study-2 & \path{pm_dip_over_reach_notional_rank_1d_120d}\newline {\scriptsi
 run7-study-3 & \path{pm_iran_belief_settlement_within_range_1d}\newline {\scriptsize\color{gray}rv\_next\_session} & +0.058 & -0.011 & null \\
 run7-study-4 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
 \bottomrule\end{longtable}}
-\noindent\includegraphics[width=\textwidth]{figures/run7-study-0.png}\par\vspace{-2pt}{\scriptsize \texttt{run7-study-0}：\path{sc_sessret_resid_brent_12h_90d}。有定义 825/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run7-study-1.png}\par\vspace{-2pt}{\scriptsize \texttt{run7-study-1}：\path{pm_russia_escalation_p_innov_resid_brent_12h_30d_90d}。有定义 656/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run7-study-2.png}\par\vspace{-2pt}{\scriptsize \texttt{run7-study-2}：\path{pm_dip_over_reach_notional_rank_1d_120d}。有定义 72/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run7-study-3.png}\par\vspace{-2pt}{\scriptsize \texttt{run7-study-3}：\path{pm_iran_belief_settlement_within_range_1d}。有定义 556/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run7-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run7-study-0}：\path{sc_sessret_resid_brent_12h_90d}。有定义 825/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run7-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run7-study-1}：\path{pm_russia_escalation_p_innov_resid_brent_12h_30d_90d}。有定义 656/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run7-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run7-study-2}：\path{pm_dip_over_reach_notional_rank_1d_120d}。有定义 72/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run7-study-3.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run7-study-3}：\path{pm_iran_belief_settlement_within_range_1d}。有定义 556/1040 点。\par}\vspace{6pt}
 
 \clearpage
 \subsection{run8 · 零 Study 事故}
@@ -383,17 +416,17 @@ run9-study-9 & \path{pm_iran_arrival_accel_same_phase_6h_vs_1d_rank_90d}\newline
 run9-study-10 & \path{pm_iran_p_innov_x_own_vol_state_over_belief_churn_12h_30d}\newline {\scriptsize\color{gray}ret\_next\_session} & +2.261 & +0.043 & blocked \\
 run9-study-11 & \path{—}\newline {\scriptsize\color{gray}open\_gap\_absorption} & — & — & 进行中 \\
 \bottomrule\end{longtable}}
-\noindent\includegraphics[width=\textwidth]{figures/run9-study-0.png}\par\vspace{-2pt}{\scriptsize \texttt{run9-study-0}：\path{cb_ret_1d_minus_prior_13d_rank_diff_90d}。有定义 808/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run9-study-1.png}\par\vspace{-2pt}{\scriptsize \texttt{run9-study-1}：\path{pm_ceasefire_terminal_drift_over_churn_rank_12h_90d}。有定义 527/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run9-study-2.png}\par\vspace{-2pt}{\scriptsize \texttt{run9-study-2}：\path{pm_iran_closed_minus_open_belief_range_rank_6h_90d}。有定义 281/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run9-study-3.png}\par\vspace{-2pt}{\scriptsize \texttt{run9-study-3}：\path{pm_iran_active_hour_share_1d_over_prior_30d_rank_90d}。有定义 504/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run9-study-4.png}\par\vspace{-2pt}{\scriptsize \texttt{run9-study-4}：\path{pm_reach_over_dip_breach_odds_tilt_rank_12h_90d}。有定义 54/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run9-study-5.png}\par\vspace{-2pt}{\scriptsize \texttt{run9-study-5}：\path{pm_ukraine_over_russia_notional_tilt_rank_1d_120d}。有定义 679/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run9-study-6.png}\par\vspace{-2pt}{\scriptsize \texttt{run9-study-6}：\path{sc_terminal_signed_impulse_rank_30m_120d}。有定义 0/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run9-study-7.png}\par\vspace{-2pt}{\scriptsize \texttt{run9-study-7}：\path{pm_ceasefire_over_israel_belief_churn_rank_1d_90d}。有定义 530/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run9-study-8.png}\par\vspace{-2pt}{\scriptsize \texttt{run9-study-8}：\path{pm_ukraine_strike_p_innov_closed_6h_z_30d_90d}。有定义 539/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run9-study-9.png}\par\vspace{-2pt}{\scriptsize \texttt{run9-study-9}：\path{pm_iran_arrival_accel_same_phase_6h_vs_1d_rank_90d}。有定义 178/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run9-study-10.png}\par\vspace{-2pt}{\scriptsize \texttt{run9-study-10}：\path{pm_iran_p_innov_x_own_vol_state_over_belief_churn_12h_30d}。有定义 488/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run9-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run9-study-0}：\path{cb_ret_1d_minus_prior_13d_rank_diff_90d}。有定义 808/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run9-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run9-study-1}：\path{pm_ceasefire_terminal_drift_over_churn_rank_12h_90d}。有定义 527/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run9-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run9-study-2}：\path{pm_iran_closed_minus_open_belief_range_rank_6h_90d}。有定义 281/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run9-study-3.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run9-study-3}：\path{pm_iran_active_hour_share_1d_over_prior_30d_rank_90d}。有定义 504/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run9-study-4.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run9-study-4}：\path{pm_reach_over_dip_breach_odds_tilt_rank_12h_90d}。有定义 54/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run9-study-5.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run9-study-5}：\path{pm_ukraine_over_russia_notional_tilt_rank_1d_120d}。有定义 679/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run9-study-6.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run9-study-6}：\path{sc_terminal_signed_impulse_rank_30m_120d}。有定义 0/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run9-study-7.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run9-study-7}：\path{pm_ceasefire_over_israel_belief_churn_rank_1d_90d}。有定义 530/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run9-study-8.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run9-study-8}：\path{pm_ukraine_strike_p_innov_closed_6h_z_30d_90d}。有定义 539/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run9-study-9.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run9-study-9}：\path{pm_iran_arrival_accel_same_phase_6h_vs_1d_rank_90d}。有定义 178/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run9-study-10.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run9-study-10}：\path{pm_iran_p_innov_x_own_vol_state_over_belief_churn_12h_30d}。有定义 488/1040 点。\par}\vspace{6pt}
 
 \clearpage
 \subsection{run10 · residualise 全面采用，暴露接线缺口}
@@ -409,11 +442,11 @@ run10-study-3 & \path{pm_iran_minus_ceasefire_net_escalation_resid_brent_12h_30d
 run10-study-4 & \path{pm_iran_intrasession_belief_drift_resid_brent_6h_90d}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & — & — & blocked \\
 run10-study-5 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
 \bottomrule\end{longtable}}
-\noindent\includegraphics[width=\textwidth]{figures/run10-study-0.png}\par\vspace{-2pt}{\scriptsize \texttt{run10-study-0}：\path{pm_ceasefire_arrival_innov_resid_own_rv_12h_30d_90d}。有定义 592/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run10-study-1.png}\par\vspace{-2pt}{\scriptsize \texttt{run10-study-1}：\path{pm_iran_p_innov_closed_6h_resid_brent_30d_90d}。有定义 360/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run10-study-2.png}\par\vspace{-2pt}{\scriptsize \texttt{run10-study-2}：\path{pm_iran_avg_ticket_closed_6h_resid_own_rv_90d}。有定义 378/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run10-study-3.png}\par\vspace{-2pt}{\scriptsize \texttt{run10-study-3}：\path{pm_iran_minus_ceasefire_net_escalation_resid_brent_12h_30d_90d}。有定义 416/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run10-study-4.png}\par\vspace{-2pt}{\scriptsize \texttt{run10-study-4}：\path{pm_iran_intrasession_belief_drift_resid_brent_6h_90d}。有定义 350/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run10-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run10-study-0}：\path{pm_ceasefire_arrival_innov_resid_own_rv_12h_30d_90d}。有定义 592/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run10-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run10-study-1}：\path{pm_iran_p_innov_closed_6h_resid_brent_30d_90d}。有定义 360/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run10-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run10-study-2}：\path{pm_iran_avg_ticket_closed_6h_resid_own_rv_90d}。有定义 378/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run10-study-3.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run10-study-3}：\path{pm_iran_minus_ceasefire_net_escalation_resid_brent_12h_30d_90d}。有定义 416/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run10-study-4.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run10-study-4}：\path{pm_iran_intrasession_belief_drift_resid_brent_6h_90d}。有定义 350/1040 点。\par}\vspace{6pt}
 
 \clearpage
 \subsection{run11 · 质量最高的一轮}
@@ -430,13 +463,13 @@ run11-study-4 & \path{pm_ceasefire_over_iran_money_tilt_resid_own_rv_1d_90d}\new
 run11-study-5 & \path{pm_ceasefire_over_iran_avg_ticket_resid_brent_1d_90d}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +1.084 & +0.040 & null \\
 run11-study-6 & \path{pm_up_direction_belief_dispersion_resid_own_rv_12h_90d}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -1.818 & -0.119 & null \\
 \bottomrule\end{longtable}}
-\noindent\includegraphics[width=\textwidth]{figures/run11-study-0.png}\par\vspace{-2pt}{\scriptsize \texttt{run11-study-0}：\path{pm_iran_money_concentration_max_hour_share_resid_own_rv_1d_90d}。有定义 469/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run11-study-1.png}\par\vspace{-2pt}{\scriptsize \texttt{run11-study-1}：\path{pm_iran_belief_floor_ratchet_wow_resid_brent_7d_90d}。有定义 495/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run11-study-2.png}\par\vspace{-2pt}{\scriptsize \texttt{run11-study-2}：\path{pm_iran_closed_money_share_resid_own_rv_6h_over_1d_90d}。有定义 378/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run11-study-3.png}\par\vspace{-2pt}{\scriptsize \texttt{run11-study-3}：\path{pm_iran_hazard_level_30d_resid_own_rv_90d}。有定义 616/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run11-study-4.png}\par\vspace{-2pt}{\scriptsize \texttt{run11-study-4}：\path{pm_ceasefire_over_iran_money_tilt_resid_own_rv_1d_90d}。有定义 469/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run11-study-5.png}\par\vspace{-2pt}{\scriptsize \texttt{run11-study-5}：\path{pm_ceasefire_over_iran_avg_ticket_resid_brent_1d_90d}。有定义 468/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run11-study-6.png}\par\vspace{-2pt}{\scriptsize \texttt{run11-study-6}：\path{pm_up_direction_belief_dispersion_resid_own_rv_12h_90d}。有定义 151/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run11-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run11-study-0}：\path{pm_iran_money_concentration_max_hour_share_resid_own_rv_1d_90d}。有定义 469/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run11-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run11-study-1}：\path{pm_iran_belief_floor_ratchet_wow_resid_brent_7d_90d}。有定义 495/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run11-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run11-study-2}：\path{pm_iran_closed_money_share_resid_own_rv_6h_over_1d_90d}。有定义 378/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run11-study-3.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run11-study-3}：\path{pm_iran_hazard_level_30d_resid_own_rv_90d}。有定义 616/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run11-study-4.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run11-study-4}：\path{pm_ceasefire_over_iran_money_tilt_resid_own_rv_1d_90d}。有定义 469/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run11-study-5.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run11-study-5}：\path{pm_ceasefire_over_iran_avg_ticket_resid_brent_1d_90d}。有定义 468/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run11-study-6.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run11-study-6}：\path{pm_up_direction_belief_dispersion_resid_own_rv_12h_90d}。有定义 151/1040 点。\par}\vspace{6pt}
 
 \clearpage
 \subsection{run12 · 重复启动被守卫拦下}
@@ -460,9 +493,9 @@ run13-study-1 & \path{pm_dip_barrier_pricing_closed_6h_over_norm_resid_own_rv_90
 run13-study-2 & \path{pm_iran_belief_churn_term_structure_7d_over_30d_resid_own_rv_90d}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & +1.436 & +0.014 & blocked \\
 run13-study-3 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
 \bottomrule\end{longtable}}
-\noindent\includegraphics[width=\textwidth]{figures/run13-study-0.png}\par\vspace{-2pt}{\scriptsize \texttt{run13-study-0}：\path{pm_launch_over_be_speculative_demand_resid_own_rv_1d_90d}。有定义 435/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run13-study-1.png}\par\vspace{-2pt}{\scriptsize \texttt{run13-study-1}：\path{pm_dip_barrier_pricing_closed_6h_over_norm_resid_own_rv_90d}。有定义 10/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run13-study-2.png}\par\vspace{-2pt}{\scriptsize \texttt{run13-study-2}：\path{pm_iran_belief_churn_term_structure_7d_over_30d_resid_own_rv_90d}。有定义 509/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run13-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run13-study-0}：\path{pm_launch_over_be_speculative_demand_resid_own_rv_1d_90d}。有定义 435/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run13-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run13-study-1}：\path{pm_dip_barrier_pricing_closed_6h_over_norm_resid_own_rv_90d}。有定义 10/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run13-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run13-study-2}：\path{pm_iran_belief_churn_term_structure_7d_over_30d_resid_own_rv_90d}。有定义 509/1040 点。\par}\vspace{6pt}
 
 \clearpage
 \subsection{run14 · thinking 捕获缺失暴露}
@@ -476,9 +509,9 @@ run14-study-1 & \path{pm_out_policy_turnover_belief_range_closed_6h_resid_own_rv
 run14-study-2 & \path{pm_iran_closed_window_belief_range_resid_own_rv_6h_off6h_90d}\newline {\scriptsize\color{gray}open\_gap\_absorption · 控制 own\_realised\_volatility} & +0.086 & -0.102 & null \\
 run14-study-3 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
 \bottomrule\end{longtable}}
-\noindent\includegraphics[width=\textwidth]{figures/run14-study-0.png}\par\vspace{-2pt}{\scriptsize \texttt{run14-study-0}：\path{pm_ceasefire_closed_minus_open_arrival_coverage_resid_own_rv_6h_90d}。有定义 487/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run14-study-1.png}\par\vspace{-2pt}{\scriptsize \texttt{run14-study-1}：\path{pm_out_policy_turnover_belief_range_closed_6h_resid_own_rv_90d}。有定义 793/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run14-study-2.png}\par\vspace{-2pt}{\scriptsize \texttt{run14-study-2}：\path{pm_iran_closed_window_belief_range_resid_own_rv_6h_off6h_90d}。有定义 378/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run14-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run14-study-0}：\path{pm_ceasefire_closed_minus_open_arrival_coverage_resid_own_rv_6h_90d}。有定义 487/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run14-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run14-study-1}：\path{pm_out_policy_turnover_belief_range_closed_6h_resid_own_rv_90d}。有定义 793/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run14-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run14-study-2}：\path{pm_iran_closed_window_belief_range_resid_own_rv_6h_off6h_90d}。有定义 378/1040 点。\par}\vspace{6pt}
 
 \clearpage
 \subsection{run15 · 管道块缓冲暴露}
@@ -491,9 +524,9 @@ run15-study-0 & \path{pm_a_postseason_arrival_innov_resid_own_rv_12h_30d_90d_pla
 run15-study-1 & \path{pm_iran_avg_ticket_closed_over_open_resid_own_rv_6h_90d}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & +2.081 & +0.023 & blocked \\
 run15-study-2 & \path{pm_ceasefire_p_innov_accel_same_phase_resid_own_rv_12h_30d_90d}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & — & — & 进行中 \\
 \bottomrule\end{longtable}}
-\noindent\includegraphics[width=\textwidth]{figures/run15-study-0.png}\par\vspace{-2pt}{\scriptsize \texttt{run15-study-0}：\path{pm_a_postseason_arrival_innov_resid_own_rv_12h_30d_90d_placebo}。有定义 792/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run15-study-1.png}\par\vspace{-2pt}{\scriptsize \texttt{run15-study-1}：\path{pm_iran_avg_ticket_closed_over_open_resid_own_rv_6h_90d}。有定义 294/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run15-study-2.png}\par\vspace{-2pt}{\scriptsize \texttt{run15-study-2}：\path{pm_ceasefire_p_innov_accel_same_phase_resid_own_rv_12h_30d_90d}。有定义 527/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run15-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run15-study-0}：\path{pm_a_postseason_arrival_innov_resid_own_rv_12h_30d_90d_placebo}。有定义 792/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run15-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run15-study-1}：\path{pm_iran_avg_ticket_closed_over_open_resid_own_rv_6h_90d}。有定义 294/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run15-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run15-study-2}：\path{pm_ceasefire_p_innov_accel_same_phase_resid_own_rv_12h_30d_90d}。有定义 527/1040 点。\par}\vspace{6pt}
 
 \clearpage
 \subsection{run16 · 流式全程生效，并产出首个越过地板的残差化另类构造}
@@ -523,29 +556,29 @@ run16-study-17 & \path{pm_up_closed_window_ticket_premium_over_30d_norm_resid_ow
 run16-study-18 & \path{pm_iran_belief_drift_agreement_prod_resid_own_rv_12h_adj_90d}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & +0.396 & +0.009 & null \\
 run16-study-19 & \path{pm_iran_arrival_intensity_per_active_hour_over_30d_norm_resid_own_rv_1d_90d}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -0.266 & -0.033 & null \\
 \bottomrule\end{longtable}}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-0.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-0}：\path{pm_iran_p_innov_sq_over_churn_resid_own_rv_12h_30d_90d}。有定义 419/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-1.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-1}：\path{pm_ukraine_minus_russia_belief_range_closed_6h_resid_own_rv_90d}。有定义 298/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-2.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-2}：\path{pm_a_clinch_closed_window_belief_range_resid_own_rv_6h_off6h_90d_control}。有定义 752/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-3.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-3}：\path{pm_iran_outstanding_resolution_mass_resid_own_rv_12h_90d}。有定义 420/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-4.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-4}：\path{pm_ukraine_belief_occupancy_share_resid_own_rv_1d_90d}。有定义 632/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-5.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-5}：\path{pm_iran_over_israel_money_share_resid_own_rv_1d_90d}。有定义 469/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-6.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-6}：\path{pm_reach_minus_dip_terminal_drift_resid_brent_12h_90d}。有定义 9/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-7.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-7}：\path{pm_iran_belief_jump_studentised_range_resid_own_rv_7d_90d}。有定义 509/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-8.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-8}：\path{pm_iran_closed_minus_open_belief_drift_resid_brent_6h_90d}。有定义 269/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-9.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-9}：\path{pm_reach_plus_dip_corridor_exit_innov_resid_own_rv_12h_30d_90d}。有定义 11/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-11.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-11}：\path{pm_iran_peak_hour_ticket_premium_resid_own_rv_1d_90d}。有定义 469/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-12.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-12}：\path{pm_iran_over_dip_unabsorbed_risk_dev_ratio_resid_own_rv_12h_30d_90d}。有定义 11/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-13.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-13}：\path{pm_iran_active_hour_coverage_expansion_wow_resid_own_rv_7d_90d}。有定义 501/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-14.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-14}：\path{pm_israel_closed_share_of_day_belief_range_resid_own_rv_6h_over_1d_90d}。有定义 501/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-15.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-15}：\path{pm_geo_escalation_breadth_zsum_3theatre_resid_own_rv_12h_30d_90d}。有定义 353/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-16.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-16}：\path{pm_iran_over_out_arrival_share_dev_resid_own_rv_1d_30d_90d}。有定义 469/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-17.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-17}：\path{pm_up_closed_window_ticket_premium_over_30d_norm_resid_own_rv_6h_90d}。有定义 148/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-18.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-18}：\path{pm_iran_belief_drift_agreement_prod_resid_own_rv_12h_adj_90d}。有定义 337/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run16-study-19.png}\par\vspace{-2pt}{\scriptsize \texttt{run16-study-19}：\path{pm_iran_arrival_intensity_per_active_hour_over_30d_norm_resid_own_rv_1d_90d}。有定义 469/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-0}：\path{pm_iran_p_innov_sq_over_churn_resid_own_rv_12h_30d_90d}。有定义 419/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-1}：\path{pm_ukraine_minus_russia_belief_range_closed_6h_resid_own_rv_90d}。有定义 298/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-2}：\path{pm_a_clinch_closed_window_belief_range_resid_own_rv_6h_off6h_90d_control}。有定义 752/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-3.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-3}：\path{pm_iran_outstanding_resolution_mass_resid_own_rv_12h_90d}。有定义 420/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-4.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-4}：\path{pm_ukraine_belief_occupancy_share_resid_own_rv_1d_90d}。有定义 632/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-5.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-5}：\path{pm_iran_over_israel_money_share_resid_own_rv_1d_90d}。有定义 469/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-6.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-6}：\path{pm_reach_minus_dip_terminal_drift_resid_brent_12h_90d}。有定义 9/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-7.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-7}：\path{pm_iran_belief_jump_studentised_range_resid_own_rv_7d_90d}。有定义 509/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-8.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-8}：\path{pm_iran_closed_minus_open_belief_drift_resid_brent_6h_90d}。有定义 269/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-9.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-9}：\path{pm_reach_plus_dip_corridor_exit_innov_resid_own_rv_12h_30d_90d}。有定义 11/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-11.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-11}：\path{pm_iran_peak_hour_ticket_premium_resid_own_rv_1d_90d}。有定义 469/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-12.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-12}：\path{pm_iran_over_dip_unabsorbed_risk_dev_ratio_resid_own_rv_12h_30d_90d}。有定义 11/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-13.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-13}：\path{pm_iran_active_hour_coverage_expansion_wow_resid_own_rv_7d_90d}。有定义 501/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-14.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-14}：\path{pm_israel_closed_share_of_day_belief_range_resid_own_rv_6h_over_1d_90d}。有定义 501/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-15.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-15}：\path{pm_geo_escalation_breadth_zsum_3theatre_resid_own_rv_12h_30d_90d}。有定义 353/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-16.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-16}：\path{pm_iran_over_out_arrival_share_dev_resid_own_rv_1d_30d_90d}。有定义 469/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-17.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-17}：\path{pm_up_closed_window_ticket_premium_over_30d_norm_resid_own_rv_6h_90d}。有定义 148/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-18.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-18}：\path{pm_iran_belief_drift_agreement_prod_resid_own_rv_12h_adj_90d}。有定义 337/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run16-study-19.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run16-study-19}：\path{pm_iran_arrival_intensity_per_active_hour_over_30d_norm_resid_own_rv_1d_90d}。有定义 469/1040 点。\par}\vspace{6pt}
 
 \clearpage
-\subsection{run17 · 人类研究方向通道首用（进行中）}
-首轮通过入账的研究方向指令（标的不限于 sc）运行；首版即选 36 品种面板。截稿时仍在进行。
+\subsection{run17 · 人类研究方向通道首用}
+首轮通过入账的研究方向指令（标的不限于 sc）运行。标的确实铺开（面板为主，另有黄金与燃油单品种），十六版判决全为否定。为加载最小成本模型（决定 0007）主动停止。
 
 {\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.50\textwidth} r r l@{}}
 \toprule Study & 特征（第二行：target · 控制） & $t$ & IC$_\rho$ & 判决 \\ \midrule
@@ -564,12 +597,233 @@ run17-study-10 & \path{pm_russia_belief_churn_accel_over_30d_scale_resid_own_rv_
 run17-study-11 & \path{pm_up_active_hour_breadth_dow_matched_1d_resid_own_rv_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & +1.688 & +0.088 & blocked \\
 run17-study-12 & \path{pm_iran_over_be_arrival_growth_dow_matched_resid_own_rv_1d_90d_fu}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -2.257 & -0.240 & null \\
 run17-study-13 & \path{pm_out_arrival_accel_dow_matched_did_resid_own_rv_1d_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -0.359 & -0.007 & null \\
-run17-study-14 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
+run17-study-14 & \path{pm_iran_arrival_floor_over_30d_norm_resid_own_rv_1d_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -0.008 & -0.015 & null \\
+run17-study-15 & \path{pm_iran_over_be_closed_open_arrival_tilt_resid_own_rv_6h_90d_au}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & +0.051 & -0.117 & blocked \\
+run17-study-16 & \path{pm_out_avg_ticket_growth_wow_resid_own_rv_7d_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & +0.272 & -0.020 & null \\
+run17-study-17 & \path{pm_russia_belief_churn_per_notional_growth_wow_resid_own_rv_7d_90d_p}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -1.798 & +0.009 & null \\
+run17-study-18 & \path{pm_russia_escalation_level_trend_wow_resid_own_rv_7d_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -0.670 & -0.019 & null \\
+run17-study-19 & \path{pm_out_count_concentration_max_hour_share_resid_own_rv_1d_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & +0.675 & +0.006 & null \\
 \bottomrule\end{longtable}}
-\noindent\includegraphics[width=\textwidth]{figures/run17-study-0.png}\par\vspace{-2pt}{\scriptsize \texttt{run17-study-0}：\path{pm_dip_over_up_tail_attention_share_dev_resid_own_rv_1d_30d_90d}。有定义 12/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run17-study-1.png}\par\vspace{-2pt}{\scriptsize \texttt{run17-study-1}：\path{pm_out_uncertainty_creation_dod_resid_own_rv_1d_90d_panel}。有定义 851/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run17-study-2.png}\par\vspace{-2pt}{\scriptsize \texttt{run17-study-2}：\path{pm_russia_belief_path_skew_7d_resid_own_rv_90d_panel}。有定义 773/1040 点。}\par\vspace{6pt}
-\noindent\includegraphics[width=\textwidth]{figures/run17-study-3.png}\par\vspace{-2pt}{\scriptsize \texttt{run17-study-3}：\path{pm_out_studentised_closed_range_over_30d_churn_resid_own_rv_6h_off6h_90d}。有定义 771/1040 点。}\par\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-0}：\path{pm_dip_over_up_tail_attention_share_dev_resid_own_rv_1d_30d_90d}。有定义 12/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-1}：\path{pm_out_uncertainty_creation_dod_resid_own_rv_1d_90d_panel}。有定义 851/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-2}：\path{pm_russia_belief_path_skew_7d_resid_own_rv_90d_panel}。有定义 773/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-3.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-3}：\path{pm_out_studentised_closed_range_over_30d_churn_resid_own_rv_6h_off6h_90d}。有定义 771/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-4.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-4}：\path{pm_out_arrival_growth_wow_ratio_resid_own_rv_7d_90d_panel}。有定义 840/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-5.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-5}：\path{pm_reach_level_normalised_belief_churn_resid_own_rv_1d_over_30d_90d_panel}。有定义 343/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-6.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-6}：\path{pm_ukraine_strike_level_dev_1d_over_30d_resid_brent_90d}。有定义 663/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-7.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-7}：\path{pm_out_terminal_bucket_arrival_over_day_norm_resid_own_rv_1d_90d_panel}。有定义 855/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-8.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-8}：\path{pm_russia_arrival_growth_dow_matched_1d_resid_own_rv_90d_panel}。有定义 698/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-9.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-9}：\path{pm_russia_plus_ceasefire_arrival_growth_breadth_resid_own_rv_1d_30d_90d_panel}。有定义 612/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-10.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-10}：\path{pm_russia_belief_churn_accel_over_30d_scale_resid_own_rv_1d_90d_panel}。有定义 554/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-11.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-11}：\path{pm_up_active_hour_breadth_dow_matched_1d_resid_own_rv_90d_panel}。有定义 149/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-12.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-12}：\path{pm_iran_over_be_arrival_growth_dow_matched_resid_own_rv_1d_90d_fu}。有定义 376/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-13.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-13}：\path{pm_out_arrival_accel_dow_matched_did_resid_own_rv_1d_90d_panel}。有定义 834/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-14.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-14}：\path{pm_iran_arrival_floor_over_30d_norm_resid_own_rv_1d_90d_panel}。有定义 469/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-15.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-15}：\path{pm_iran_over_be_closed_open_arrival_tilt_resid_own_rv_6h_90d_au}。有定义 282/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-16.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-16}：\path{pm_out_avg_ticket_growth_wow_resid_own_rv_7d_90d_panel}。有定义 840/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-17.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-17}：\path{pm_russia_belief_churn_per_notional_growth_wow_resid_own_rv_7d_90d_p}。有定义 763/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-18.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-18}：\path{pm_russia_escalation_level_trend_wow_resid_own_rv_7d_90d_panel}。有定义 763/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run17-study-19.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run17-study-19}：\path{pm_out_count_concentration_max_hour_share_resid_own_rv_1d_90d_panel}。有定义 855/1040 点。\par}\vspace{6pt}
+
+\clearpage
+\subsection{run18 · 成本模型时代首轮}
+决定 0007 后第一轮：cost\_model\_missing 从判决理由中绝迹，真实成本诊断（盈亏平衡捕捉率）入账 —— 首版即显示成本仅占典型幅度约百分之九，构造死于统计而非成本。为错配教训跨运行回放修复让位。
+
+{\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.50\textwidth} r r l@{}}
+\toprule Study & 特征（第二行：target · 控制） & $t$ & IC$_\rho$ & 判决 \\ \midrule
+\endhead
+run18-study-0 & \path{pm_iran_terminal_drift_x_ticket_premium_resid_brent_1d_30d_90d_pg}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.348 & +0.003 & null \\
+run18-study-1 & \path{pm_out_arrival_excess_x_own_vol_state_resid_own_rv_1d_30d_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -0.058 & +0.023 & null \\
+run18-study-2 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
+\bottomrule\end{longtable}}
+\noindent\includegraphics[width=\textwidth]{figures/run18-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run18-study-0}：\path{pm_iran_terminal_drift_x_ticket_premium_resid_brent_1d_30d_90d_pg}。有定义 468/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run18-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run18-study-1}：\path{pm_out_arrival_excess_x_own_vol_state_resid_own_rv_1d_30d_90d_panel}。有定义 730/1040 点。\par}\vspace{6pt}
+
+\clearpage
+\subsection{run19 · 错配教训回放首轮}
+语义错配码此前每次运行清零重学（run3 用七轮撞出的教训 run18 并不知道），修为初值从账本回放全历史。为分层轮换菜单（M12）让位。
+
+{\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.50\textwidth} r r l@{}}
+\toprule Study & 特征（第二行：target · 控制） & $t$ & IC$_\rho$ & 判决 \\ \midrule
+\endhead
+run19-study-0 & \path{pm_ukraine_belief_band_translation_wow_resid_brent_7d_90d_fu}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +0.643 & -0.001 & null \\
+run19-study-1 & \path{pm_iran_level_vs_prior_week_band_center_over_churn_resid_brent_1d_7d_30d_90d_lu}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.154 & +0.010 & null \\
+run19-study-2 & \path{pm_iran_belief_revision_dod_over_churn_resid_brent_1d_30d_90d_pg}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +0.082 & +0.027 & null \\
+run19-study-3 & \path{pm_up_money_over_count_dispersion_ratio_resid_own_rv_1d_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -0.014 & +0.008 & null \\
+run19-study-4 & \path{pm_iran_belief_level_curvature_3x3d_resid_brent_90d_au}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -1.349 & -0.038 & null \\
+run19-study-5 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
+\bottomrule\end{longtable}}
+\noindent\includegraphics[width=\textwidth]{figures/run19-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run19-study-0}：\path{pm_ukraine_belief_band_translation_wow_resid_brent_7d_90d_fu}。有定义 687/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run19-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run19-study-1}：\path{pm_iran_level_vs_prior_week_band_center_over_churn_resid_brent_1d_7d_30d_90d_lu}。有定义 456/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run19-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run19-study-2}：\path{pm_iran_belief_revision_dod_over_churn_resid_brent_1d_30d_90d_pg}。有定义 415/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run19-study-3.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run19-study-3}：\path{pm_up_money_over_count_dispersion_ratio_resid_own_rv_1d_90d_panel}。有定义 161/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run19-study-4.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run19-study-4}：\path{pm_iran_belief_level_curvature_3x3d_resid_brent_90d_au}。有定义 469/1040 点。\par}\vspace{6pt}
+
+\clearpage
+\subsection{run20 · 分层轮换菜单首轮，provider 三连超时}
+M12 菜单（先验 4 + 安慰剂 3 + 头部 8 + 轮换 15）首轮。第 2 至 4 轮provider 连续三次 900 秒超时触发保护性停机（行为正确），但暴露两处strict 投影被半途 Study 炸掉（归档为崩溃而生却在崩溃现场先崩），以及超时线卡在实测思考时长分布中间。仅一版判决。
+
+{\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.50\textwidth} r r l@{}}
+\toprule Study & 特征（第二行：target · 控制） & $t$ & IC$_\rho$ & 判决 \\ \midrule
+\endhead
+run20-study-0 & \path{pm_iran_x_russia_belief_drift_agreement_resid_own_rv_1d_30d_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -0.183 & +0.058 & null \\
+run20-study-1 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
+run20-study-2 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
+run20-study-3 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
+\bottomrule\end{longtable}}
+\noindent\includegraphics[width=\textwidth]{figures/run20-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run20-study-0}：\path{pm_iran_x_russia_belief_drift_agreement_resid_own_rv_1d_30d_90d_panel}。有定义 369/1040 点。\par}\vspace{6pt}
+
+\clearpage
+\subsection{run21 · 阻塞读吞超时（零判决）}
+pty 改造的阻塞读使超时永远不触发：CLI 一个字节不发时，检查超时的代码轮不到执行 —— 进程挂死 103 分钟（子进程仅 3 秒 CPU）被杀。修为 select 五秒一拍的带超时轮询，挂死调用三十分钟必被回收。
+
+{\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.50\textwidth} r r l@{}}
+\toprule Study & 特征（第二行：target · 控制） & $t$ & IC$_\rho$ & 判决 \\ \midrule
+\endhead
+run21-study-0 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
+\bottomrule\end{longtable}}
+
+\clearpage
+\subsection{run22 · 基础设施首次全程无恙}
+二十轮跑满，两次超时被正确吸收。轮换层的族被真实选中并惰性装载（生产验证）；标的横跨面板与六个单品种。十六条干净 null。收尾自动封存把封条烧在一条十行样本的 underpowered Study 上（B7 由此修复：样本不足不进束）。
+
+{\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.50\textwidth} r r l@{}}
+\toprule Study & 特征（第二行：target · 控制） & $t$ & IC$_\rho$ & 判决 \\ \midrule
+\endhead
+run22-study-0 & \path{pm_up_arrival_excess_dow_x_own_path_jumpiness_resid_own_rv_1d_7d_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -0.532 & +0.004 & null \\
+run22-study-1 & \path{pm_aab_over_own_churn_closed_6h_range_resid_own_rv_30d_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & — & — & underpowered \\
+run22-study-2 & \path{pm_iran_level_dev_1d_vs_prior_7d_resid_brent_90d_bu}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.311 & +0.029 & null \\
+run22-study-3 & \path{pm_israel_arrival_accel_dow_matched_did_resid_own_rv_1d_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & +0.039 & -0.005 & null \\
+run22-study-4 & \path{pm_and_over_a_macro_arrival_growth_dow_matched_resid_own_rv_1d_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -0.918 & +0.013 & null \\
+run22-study-5 & \path{pm_another_seizure_hazard_dev_1d_vs_prior_7d_resid_brent_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +0.274 & -0.023 & null \\
+run22-study-6 & \path{pm_russia_belief_occupancy_share_resid_brent_1d_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.008 & -0.006 & null \\
+run22-study-7 & \path{pm_russia_strike_level_revision_dow_matched_1d_resid_brent_90d_p}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +1.144 & +0.054 & null \\
+run22-study-8 & \path{pm_bank_failure_hazard_dev_1d_vs_prior_7d_resid_own_rv_90d_panel}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & +0.372 & +0.025 & null \\
+run22-study-9 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
+run22-study-10 & \path{pm_ukraine_minus_russia_strike_hazard_dev_1d_vs_prior_7d_resid_brent_90d_fu}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.739 & -0.016 & null \\
+run22-study-11 & \path{pm_blockade_taiwan_hazard_dev_12h_vs_prior_7d_resid_brent_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +0.069 & +0.046 & null \\
+run22-study-12 & \path{pm_russia_strike_hazard_path_curvature_2d_legs_resid_brent_90d_c}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.408 & -0.040 & null \\
+run22-study-13 & \path{pm_iran_belief_drift_3d_x_unabsorbed_vol_state_resid_brent_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.333 & +0.008 & null \\
+run22-study-14 & \path{pm_iran_plus_ukraine_supply_hazard_dev_1d_vs_prior_7d_resid_brent_90d_panel}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.383 & -0.008 & null \\
+run22-study-15 & \path{pm_iran_hazard_level_trend_wow_diff_resid_brent_7d_90d_eg}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.808 & -0.011 & null \\
+run22-study-16 & \path{pm_china_trade_hazard_dev_1d_vs_prior_7d_resid_brent_90d_m}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +1.029 & +0.032 & null \\
+run22-study-17 & \path{pm_closes_over_up_arrival_growth_wow_resid_own_rv_7d_90d_sc}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & — & — & underpowered \\
+run22-study-18 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
+run22-study-19 & \path{pm_iran_lagged_belief_revision_x_arrival_followthrough_resid_brent_1d_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.478 & +0.042 & null \\
+\bottomrule\end{longtable}}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-0}：\path{pm_up_arrival_excess_dow_x_own_path_jumpiness_resid_own_rv_1d_7d_90d_panel}。有定义 93/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-1}：\path{pm_aab_over_own_churn_closed_6h_range_resid_own_rv_30d_90d_panel}。有定义 0/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-2}：\path{pm_iran_level_dev_1d_vs_prior_7d_resid_brent_90d_bu}。有定义 456/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-3.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-3}：\path{pm_israel_arrival_accel_dow_matched_did_resid_own_rv_1d_90d_panel}。有定义 509/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-4.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-4}：\path{pm_and_over_a_macro_arrival_growth_dow_matched_resid_own_rv_1d_90d_panel}。有定义 658/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-5.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-5}：\path{pm_another_seizure_hazard_dev_1d_vs_prior_7d_resid_brent_90d_sc}。有定义 355/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-6.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-6}：\path{pm_russia_belief_occupancy_share_resid_brent_1d_90d_sc}。有定义 644/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-7.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-7}：\path{pm_russia_strike_level_revision_dow_matched_1d_resid_brent_90d_p}。有定义 689/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-8.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-8}：\path{pm_bank_failure_hazard_dev_1d_vs_prior_7d_resid_own_rv_90d_panel}。有定义 332/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-10.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-10}：\path{pm_ukraine_minus_russia_strike_hazard_dev_1d_vs_prior_7d_resid_brent_90d_fu}。有定义 649/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-11.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-11}：\path{pm_blockade_taiwan_hazard_dev_12h_vs_prior_7d_resid_brent_90d_sc}。有定义 402/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-12.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-12}：\path{pm_russia_strike_hazard_path_curvature_2d_legs_resid_brent_90d_c}。有定义 764/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-13.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-13}：\path{pm_iran_belief_drift_3d_x_unabsorbed_vol_state_resid_brent_90d_sc}。有定义 474/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-14.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-14}：\path{pm_iran_plus_ukraine_supply_hazard_dev_1d_vs_prior_7d_resid_brent_90d_panel}。有定义 442/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-15.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-15}：\path{pm_iran_hazard_level_trend_wow_diff_resid_brent_7d_90d_eg}。有定义 495/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-16.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-16}：\path{pm_china_trade_hazard_dev_1d_vs_prior_7d_resid_brent_90d_m}。有定义 468/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-17.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-17}：\path{pm_closes_over_up_arrival_growth_wow_resid_own_rv_7d_90d_sc}。有定义 0/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run22-study-19.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run22-study-19}：\path{pm_iran_lagged_belief_revision_x_arrival_followthrough_resid_brent_1d_90d_sc}。有定义 386/1040 点。\par}\vspace{6pt}
+
+\clearpage
+\subsection{run23 · 事件条件族第一轮}
+决定 0008：只在 PM 概率大幅移动后的窗口上评价，独立问题族、地板从头起。触发器采用 19/19，但 17 版集中在 iran 单一事件源。十九版全为 null ——iran 事件窗口内 SC 仍无线性可预测性。收尾封存越界烧在旧族特征上（B8 由此修复：束按族过滤）。
+
+{\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.50\textwidth} r r l@{}}
+\toprule Study & 特征（第二行：target · 控制） & $t$ & IC$_\rho$ & 判决 \\ \midrule
+\endhead
+run23-study-0 & \path{pm_iran_belief_revision_monotonicity_over_path_range_resid_brent_12h_90d_evt_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +0.039 & -0.016 & null \\
+run23-study-1 & \path{pm_iran_revision_monotonicity_over_path_range_evt_resid_brent_12h_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +0.039 & -0.016 & null \\
+run23-study-2 & \path{pm_israel_plus_ceasefire_churn_corroboration_evt_iran_resid_own_rv_12h_30d_90d_sc}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & +0.856 & +0.015 & null \\
+run23-study-3 & \path{pm_iran_closed_share_of_episode_belief_range_evt_resid_own_rv_6h_over_12h_90d_sc}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & +0.510 & +0.052 & null \\
+run23-study-4 & \path{pm_iran_event_window_ticket_premium_over_30d_norm_resid_own_rv_12h_90d_evt_sc}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -0.259 & +0.012 & null \\
+run23-study-5 & \path{pm_iran_plus_russia_episode_displacement_evt_resid_brent_6h_halves_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.421 & -0.060 & null \\
+run23-study-6 & \path{pm_iran_evt_displacement_x_arrival_corroboration_resid_brent_6h_halves_30d_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -1.345 & -0.034 & null \\
+run23-study-7 & \path{pm_ukraine_strike_episode_displacement_evt_resid_brent_6h_halves_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +1.733 & +0.079 & null \\
+run23-study-8 & \path{pm_iran_logodds_scaled_episode_displacement_evt_resid_brent_6h_halves_prior7d_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.242 & -0.042 & null \\
+run23-study-9 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
+run23-study-10 & \path{pm_ceasefire_resolution_decay_evt_iran_resid_brent_6h_halves_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.751 & -0.017 & null \\
+run23-study-11 & \path{pm_iran_evt_ticket_premium_over_30d_resid_own_rv_12h_90d_sc_v2}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -0.259 & +0.012 & null \\
+run23-study-12 & \path{pm_iran_evt_belief_destination_vs_prior_30d_band_resid_brent_6h_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +1.455 & +0.009 & null \\
+run23-study-13 & \path{pm_iran_minus_israel_z_episode_displacement_evt_resid_brent_6h_halves_30d_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -1.025 & -0.090 & null \\
+run23-study-14 & \path{pm_iran_evt_dose_range_over_prior_week_resid_own_rv_12h_7d_90d_sc}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -0.013 & -0.052 & null \\
+run23-study-15 & \path{pm_iran_evt_disp_x_israel_path_stillness_resid_brent_6h_halves_12h_30d_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +0.124 & -0.004 & null \\
+run23-study-16 & \path{pm_iran_episode_displacement_evt_resid_brent_6h_halves_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.203 & -0.057 & null \\
+run23-study-17 & \path{pm_iran_pre_event_attention_state_over_30d_norm_resid_own_rv_12h_off12h_90d_sc_evt}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & +1.166 & +0.079 & null \\
+run23-study-18 & \path{pm_ceasefire_revision_monotonicity_over_path_range_evt_resid_brent_12h_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +0.350 & +0.021 & null \\
+run23-study-19 & \path{pm_iran_minus_ceasefire_persistence_disp_evt_resid_brent_6h_halves_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.316 & -0.042 & null \\
+\bottomrule\end{longtable}}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-0}：\path{pm_iran_belief_revision_monotonicity_over_path_range_resid_brent_12h_90d_evt_sc}。有定义 268/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-1}：\path{pm_iran_revision_monotonicity_over_path_range_evt_resid_brent_12h_90d_sc}。有定义 268/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-2}：\path{pm_israel_plus_ceasefire_churn_corroboration_evt_iran_resid_own_rv_12h_30d_90d_sc}。有定义 492/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-3.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-3}：\path{pm_iran_closed_share_of_episode_belief_range_evt_resid_own_rv_6h_over_12h_90d_sc}。有定义 333/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-4.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-4}：\path{pm_iran_event_window_ticket_premium_over_30d_norm_resid_own_rv_12h_90d_evt_sc}。有定义 420/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-5.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-5}：\path{pm_iran_plus_russia_episode_displacement_evt_resid_brent_6h_halves_90d_sc}。有定义 177/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-6.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-6}：\path{pm_iran_evt_displacement_x_arrival_corroboration_resid_brent_6h_halves_30d_90d_sc}。有定义 269/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-7.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-7}：\path{pm_ukraine_strike_episode_displacement_evt_resid_brent_6h_halves_90d_sc}。有定义 341/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-8.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-8}：\path{pm_iran_logodds_scaled_episode_displacement_evt_resid_brent_6h_halves_prior7d_90d_sc}。有定义 269/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-10.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-10}：\path{pm_ceasefire_resolution_decay_evt_iran_resid_brent_6h_halves_90d_sc}。有定义 481/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-11.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-11}：\path{pm_iran_evt_ticket_premium_over_30d_resid_own_rv_12h_90d_sc_v2}。有定义 420/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-12.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-12}：\path{pm_iran_evt_belief_destination_vs_prior_30d_band_resid_brent_6h_90d_sc}。有定义 348/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-13.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-13}：\path{pm_iran_minus_israel_z_episode_displacement_evt_resid_brent_6h_halves_30d_90d_sc}。有定义 246/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-14.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-14}：\path{pm_iran_evt_dose_range_over_prior_week_resid_own_rv_12h_7d_90d_sc}。有定义 413/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-15.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-15}：\path{pm_iran_evt_disp_x_israel_path_stillness_resid_brent_6h_halves_12h_30d_90d_sc}。有定义 257/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-16.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-16}：\path{pm_iran_episode_displacement_evt_resid_brent_6h_halves_90d_sc}。有定义 269/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-17.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-17}：\path{pm_iran_pre_event_attention_state_over_30d_norm_resid_own_rv_12h_off12h_90d_sc_evt}。有定义 413/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-18.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-18}：\path{pm_ceasefire_revision_monotonicity_over_path_range_evt_resid_brent_12h_90d_sc}。有定义 474/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run23-study-19.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run23-study-19}：\path{pm_iran_minus_ceasefire_persistence_disp_evt_resid_brent_6h_halves_90d_sc}。有定义 255/1040 点。\par}\vspace{6pt}
+
+\clearpage
+\subsection{run24 · 触发多样化}
+方向指令要求触发源互异：铺开到十一个族（含轮换层新族）。十一 null、三 underpowered、四 blocked（信号事前筛在生产首次拦下两版，读 outcome 之前省下预算）。结论与 run23 一致。束为空暴露 B9：评价证据的族标签曾被写死为旧族。
+
+{\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.50\textwidth} r r l@{}}
+\toprule Study & 特征（第二行：target · 控制） & $t$ & IC$_\rho$ & 判决 \\ \midrule
+\endhead
+run24-study-0 & \path{pm_ukraine_strike_hazard_dev_evt_6h_vs_prior_7d_resid_brent_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +0.384 & +0.028 & null \\
+run24-study-1 & \path{pm_aab_trade_tension_displacement_evt_2d_halves_resid_brent_90d_m}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & — & — & underpowered \\
+run24-study-2 & \path{pm_ukraine_strike_hazard_dev_evt_6h_vs_prior_1d_resid_brent_90d_fu}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -1.868 & -0.083 & blocked \\
+run24-study-3 & \path{pm_russia_escalation_hazard_same_phase_dod_revision_resid_brent_12h_90d_au}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +1.047 & +0.031 & null \\
+run24-study-4 & \path{pm_ceasefire_breakdown_disp_evt_resid_brent_3h_halves_90d_p}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.478 & +0.011 & null \\
+run24-study-5 & \path{pm_out_policy_exit_displacement_evt_resid_brent_3h_halves_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +0.951 & +0.072 & null \\
+run24-study-6 & \path{pm_israel_regional_escalation_disp_evt_6h_halves_resid_brent_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.984 & -0.010 & null \\
+run24-study-7 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
+run24-study-8 & \path{pm_russia_escalation_peak_ratchet_evt_resid_brent_6h_halves_90d_y}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +1.601 & +0.024 & blocked \\
+run24-study-9 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
+run24-study-10 & \path{pm_bill_passage_displacement_evt_resid_brent_3h_halves_90d_cu}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +0.668 & +0.117 & underpowered \\
+run24-study-11 & \path{pm_ukraine_evt_arrival_crowding_over_a_baseline_resid_own_rv_12h_30d_90d_bu}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -0.499 & +0.019 & null \\
+run24-study-12 & \path{pm_ceasefire_terminal_settlement_within_own_range_evt7d_resid_brent_1d_90d_pg}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -1.486 & -0.081 & null \\
+run24-study-13 & \path{pm_aab_trade_tension_disp_evt_3h_halves_resid_brent_90d_m}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & — & — & underpowered \\
+run24-study-14 & \path{pm_call_fed_path_displacement_evt_resid_brent_3h_halves_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & — & — & blocked \\
+run24-study-15 & \path{pm_blockade_taiwan_disp_evt_3h_halves_resid_brent_90d_sc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & — & — & blocked \\
+run24-study-16 & \path{pm_china_trade_tension_disp_evt_6h_halves_resid_brent_90d_m}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & +0.537 & +0.042 & null \\
+run24-study-17 & \path{pm_ukraine_episode_recency_share_1d_over_3d_resid_own_rv_90d_panel_evt}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & +0.440 & -0.024 & null \\
+run24-study-18 & \path{pm_israel_belief_floor_ratchet_evt_1d_halves_resid_brent_90d_l}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent} & -0.724 & +0.008 & null \\
+run24-study-19 & \path{pm_and_macro_arrival_concentration_max_hour_share_evt_resid_own_rv_1d_90d_sc}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 own\_realised\_volatility} & -0.149 & +0.017 & null \\
+\bottomrule\end{longtable}}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-0}：\path{pm_ukraine_strike_hazard_dev_evt_6h_vs_prior_7d_resid_brent_90d_sc}。有定义 474/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-1}：\path{pm_aab_trade_tension_displacement_evt_2d_halves_resid_brent_90d_m}。有定义 0/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-2}：\path{pm_ukraine_strike_hazard_dev_evt_6h_vs_prior_1d_resid_brent_90d_fu}。有定义 463/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-3.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-3}：\path{pm_russia_escalation_hazard_same_phase_dod_revision_resid_brent_12h_90d_au}。有定义 533/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-4.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-4}：\path{pm_ceasefire_breakdown_disp_evt_resid_brent_3h_halves_90d_p}。有定义 351/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-5.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-5}：\path{pm_out_policy_exit_displacement_evt_resid_brent_3h_halves_90d_sc}。有定义 519/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-6.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-6}：\path{pm_israel_regional_escalation_disp_evt_6h_halves_resid_brent_90d_sc}。有定义 481/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-8.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-8}：\path{pm_russia_escalation_peak_ratchet_evt_resid_brent_6h_halves_90d_y}。有定义 260/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-10.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-10}：\path{pm_bill_passage_displacement_evt_resid_brent_3h_halves_90d_cu}。有定义 37/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-11.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-11}：\path{pm_ukraine_evt_arrival_crowding_over_a_baseline_resid_own_rv_12h_30d_90d_bu}。有定义 604/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-12.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-12}：\path{pm_ceasefire_terminal_settlement_within_own_range_evt7d_resid_brent_1d_90d_pg}。有定义 558/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-13.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-13}：\path{pm_aab_trade_tension_disp_evt_3h_halves_resid_brent_90d_m}。有定义 0/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-14.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-14}：\path{pm_call_fed_path_displacement_evt_resid_brent_3h_halves_90d_sc}。有定义 12/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-15.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-15}：\path{pm_blockade_taiwan_disp_evt_3h_halves_resid_brent_90d_sc}。有定义 142/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-16.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-16}：\path{pm_china_trade_tension_disp_evt_6h_halves_resid_brent_90d_m}。有定义 374/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-17.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-17}：\path{pm_ukraine_episode_recency_share_1d_over_3d_resid_own_rv_90d_panel_evt}。有定义 662/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-18.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-18}：\path{pm_israel_belief_floor_ratchet_evt_1d_halves_resid_brent_90d_l}。有定义 514/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run24-study-19.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run24-study-19}：\path{pm_and_macro_arrival_concentration_max_hour_share_evt_resid_own_rv_1d_90d_sc}。有定义 675/1040 点。\par}\vspace{6pt}
 
 \clearpage
 
@@ -579,7 +833,7 @@ run17-study-14 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & �
 统计量最大的构造（$|t|$ 至 9.30）分母为已实现波动、
 目标亦为已实现波动。PIT 无误、置换通过 —— 关系是真的，但它是 Baseline Control，
 不是另类数据 alpha。诊断（离线，不进账本，本文唯一非快照数字）：对最大一条做残差化，
-秩相关由 $-0.5695$ 塌至 $-0.0077$，缩小约 74 倍。此后 58/111 的规格自带控制项。
+秩相关由 $-0.5695$ 塌至 $-0.0077$，缩小约 74 倍。此后 127/180 的规格自带控制项。
 \begin{figure}[htbp]\centering
 \includegraphics[width=0.95\textwidth]{figures/run5-study-2.png}
 \caption{波动假象 \texttt{run5-study-2}（$t=-9.30$）：信号与价格。该信号实为已实现波动的函数，与目标同源。}\label{fig:run5-study-2}
@@ -599,14 +853,14 @@ cand:iran 族归一化概率 30 日均值，残差化掉品种自身波动持续
 \begin{tabular}{@{}lrrrl@{}}\toprule
 段 & $t$ & IC$_\rho$ & 行 & 闸门 \\ \midrule
 发现段 & +2.416 & +0.086 & 616 & 置换 0.05 通过 \\
-封存段（一次性） & — & — & None & $t$ 值比 — $<$ 0.35 $\Rightarrow$ sealed\_failed \\
+封存段（一次性） & +0.426 & +0.128 & 405 & $t$ 值比 17.6\% $<$ 0.35 $\Rightarrow$ sealed\_failed \\
 \bottomrule\end{tabular}\caption{候选在两段上的对比。裁决终身有效，不重开。}\end{table}
 
-\textbf{口径更正}：闸门比的是两个 $t$ 值而非效应量，两段样本量不同（616 对 None 行），即便效应完全不变 $t$ 也按
-$\sqrt{n_s/n_d}\approx —$ 缩小；样本量修正后效应保留率约 —，仍远低于 0.35，\textbf{裁决不变}。该候选在发现段也从未越过当时的
+\textbf{口径更正}：闸门比的是两个 $t$ 值而非效应量，两段样本量不同（616 对 405 行），即便效应完全不变 $t$ 也按
+$\sqrt{n_s/n_d}\approx 0.81$ 缩小；样本量修正后效应保留率约 21.8\%，仍远低于 0.35，\textbf{裁决不变}。该候选在发现段也从未越过当时的
 族地板（评价时已花 46 次检验，地板 2.501，而它是 +2.416，自罚奖励为负）。
 
-另一并如实记录：秩相关在封存段反而由 +0.086 升至 —。线性斜率消失而单调关联
+另一并如实记录：秩相关在封存段反而由 +0.086 升至 +0.128。线性斜率消失而单调关联
 仍在，可能读法有三（非线性关系 / 小样本噪声 / 发现段高杠杆点支撑），本系统无法在
 不花新预算的前提下区分 —— \textbf{它是开放问题，不是结论}。
 \begin{figure}[htbp]\centering
@@ -615,7 +869,7 @@ $\sqrt{n_s/n_d}\approx —$ 缩小；样本量修正后效应保留率约 —，
 \end{figure}
 
 
-\subsection{干净的 null（55 条）}
+\subsection{干净的 null（114 条）}
 残差化普及后，模型系统扫过互异机制：资金集中度、信念下限棘轮、闭市时段资金份额、
 停火/伊朗资金倾斜、平均单笔金额、方向性信念离散度、事件不确定性 $\bar p(1-\bar p)$、
 到达加速度、对娱乐族的安慰剂对照。按判决导出规则 null 只能经由置换检验产出，因此
@@ -637,7 +891,7 @@ $0$ 至 $0.035$），但 $|t|$ 在 $1.2$ 至 $2.3$，自罚奖励为负 —— �
 \end{itemize}
 
 \begin{table}[htbp]\centering\small
-\begin{tabular}{@{}ll@{}}\toprule
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.74\textwidth}@{}}\toprule
 特征 & \path{pm_iran_outstanding_resolution_mass_resid_own_rv_12h_90d} \\
 构造 & $\bar p(1-\bar p)$：iran 族 12 小时窗口均值的伯努利方差（「仍未解决的概率质量」），\\
      & 残差化掉品种自身波动持续性 \\
@@ -669,23 +923,45 @@ $\bar p(1-\bar p)$ 正是这份「未决质量」的读数。谨慎读法同样�
 run11-study-3 在发现段同样通过置换（$0.05$）而封存段未保住；本条的发现段
 统计强得多（$4.39$ 对 $2.42$，且越过地板），但唯一有权裁决的是那次一次性开封。
 
-\subsection{封存段全记录（14 次开启）}
+\subsection{事件条件族：两轮四十回合}
+图~\ref{fig:eventcurve} 是事件族自己的搜索曲线（分母独立、地板从头起）。
+run23 触发器采用 19/19 但 17 版集中在 iran 单一事件源，十九版全 null；
+run24 经方向指令铺开到十一个互异触发族（含轮换层新族），结论一致。
+两轮合计：即使只看概率大幅移动后的窗口、即使换了十一个事件源，
+线性可预测性仍然缺席。本族最好 $|t|=1.87$，从未越过本族地板。
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.9\textwidth]{figures/event_search_curve.png}
+\caption{事件条件族的搜索曲线。分母独立（决定 0008），地板从 $0.798$ 起。}
+\label{fig:eventcurve}
+\end{figure}
+
+\paragraph{四次封存否决的共同判词。}截稿时封存段共否决四个候选形态：
+run11-study-3（发生率水平，$t$ 保持率 17.6\%）、run16-study-3（未决质量，18.7\%，
+秩相关同塌）、dip\_barrier（十行样本的 underpowered 假象经束缺陷混入，
+还原后 51\% 但发现段证据无效）、belief\_jump（12.7\%）。共同形态：
+发现段的强度来自该段特有的样本构成（2024 年伊朗事件簇），
+不是跨段稳定的关系。置换检验打乱段内对齐，检验不出跨段构成差异；
+封存段可以 —— 它因此是终审。
+
+\subsection{封存段全记录（16 次开启）}
 \begin{longtable}{@{}p{0.42\textwidth} r r r l l@{}}
 \toprule 特征 & $t$ & IC$_\rho$ & 行 & 时间样本外 & 分类法干净 \\ \midrule\endhead
-\path{pm_iran_attention_share_z} & — & — & — & 是 & \textcolor{bad}{否} \\
-\path{pm_iran_notional_innovation_z} & — & — & — & 是 & \textcolor{bad}{否} \\
-\path{pm_geo_attention_share_z_iran_over_be_1d} & — & — & — & 是 & \textcolor{bad}{否} \\
-\path{pm_iran_closure_p_innovation} & — & — & — & 是 & \textcolor{bad}{否} \\
-\path{pm_iran_trade_arrival_z} & — & — & — & 是 & \textcolor{bad}{否} \\
-\path{pm_ceasefire_p_state_innovation_12h_30d} & — & — & — & 是 & \textcolor{bad}{否} \\
-\path{sc_signed_ret_1d_z} & — & — & — & 是 & 是 \\
-\path{sc_prev_day_return_rank_pct_2d_over_90d} & — & — & — & 是 & 是 \\
-\path{sc_lowfreq_over_highfreq_vol_rank_2d_180d} & — & — & — & 是 & 是 \\
-\path{sc_downside_jump_severity_rank_5d_120d} & — & — & — & 是 & 是 \\
-\path{pm_ukraine_arrival_minus_own_rv_innov_rank_1d_90d} & — & — & — & 是 & \textcolor{bad}{否} \\
-\path{pm_up_closed_window_arrival_rank_6h_off6h_90d} & — & — & — & 是 & \textcolor{bad}{否} \\
-\path{pm_iran_hazard_level_30d_resid_own_rv_90d} & — & — & — & 是 & \textcolor{bad}{否} \\
-\path{pm_iran_outstanding_resolution_mass_resid_own_rv_12h_90d} & — & — & — & 是 & \textcolor{bad}{否} \\
+\path{pm_iran_attention_share_z} & -0.040 & -0.082 & 476 & 是 & \textcolor{bad}{否} \\
+\path{pm_iran_notional_innovation_z} & -0.649 & -0.067 & 476 & 是 & \textcolor{bad}{否} \\
+\path{pm_geo_attention_share_z_iran_over_be_1d} & +1.836 & -0.007 & 476 & 是 & \textcolor{bad}{否} \\
+\path{pm_iran_closure_p_innovation} & +1.082 & +0.074 & 475 & 是 & \textcolor{bad}{否} \\
+\path{pm_iran_trade_arrival_z} & -0.579 & -0.042 & 476 & 是 & \textcolor{bad}{否} \\
+\path{pm_ceasefire_p_state_innovation_12h_30d} & -1.034 & -0.045 & 476 & 是 & \textcolor{bad}{否} \\
+\path{sc_signed_ret_1d_z} & +0.842 & +0.050 & 131 & 是 & 是 \\
+\path{sc_prev_day_return_rank_pct_2d_over_90d} & +0.388 & +0.038 & 321 & 是 & 是 \\
+\path{sc_lowfreq_over_highfreq_vol_rank_2d_180d} & -0.816 & -0.074 & 193 & 是 & 是 \\
+\path{sc_downside_jump_severity_rank_5d_120d} & -0.819 & +0.028 & 322 & 是 & 是 \\
+\path{pm_ukraine_arrival_minus_own_rv_innov_rank_1d_90d} & +0.443 & +0.036 & 291 & 是 & \textcolor{bad}{否} \\
+\path{pm_up_closed_window_arrival_rank_6h_off6h_90d} & -0.398 & -0.003 & 476 & 是 & \textcolor{bad}{否} \\
+\path{pm_iran_hazard_level_30d_resid_own_rv_90d} & +0.426 & +0.128 & 405 & 是 & \textcolor{bad}{否} \\
+\path{pm_iran_outstanding_resolution_mass_resid_own_rv_12h_90d} & +0.823 & +0.029 & 14297 & 是 & \textcolor{bad}{否} \\
+\path{pm_dip_barrier_pricing_closed_6h_over_norm_resid_own_rv_90d} & +1.617 & +0.036 & 405 & 是 & \textcolor{bad}{否} \\
+\path{pm_iran_belief_jump_studentised_range_resid_own_rv_7d_90d} & +0.413 & +0.014 & 405 & 是 & \textcolor{bad}{否} \\
 \bottomrule\end{longtable}
 
 \section{测量装置本身的局限}
@@ -699,6 +975,19 @@ min\_clusters 被 episode 命名稀释 $N$ 倍（underpowered 偏少）；$h_i=1
 口径不同的 $n$；提案器读到的地板说明写 $\sqrt{2\ln n}$ 与实现不符；0.35 与 120 无推导。
 \textbf{没有一处能把 null 翻成 candidate}：candidate 被失效表结构性挡住，与数值无关。
 
+\paragraph{束的四连修（B6--B9）。}束位即自动封存的名额，四类占位缺陷先后被实跑暴露：
+基线假象以 $+7.1$ 的奖励霸占束位（B6：Baseline Control 不占另类束位）；
+十行样本的 underpowered 以假奖励进榜并烧掉封条（B7：样本不足不进束）；
+束不按族过滤，事件族的收尾封存烧在旧族特征上（B8）；评价证据的族标签被写死为
+旧族，按族过滤后束反而为空（B9：族由调用方传入）。B9 的一个后果须如实声明：
+run17 至 run24 期间的评价载荷 family 字段不可靠，族归属应按运行前缀判定 ——
+本文全部按此口径。
+
+\paragraph{provider 的四课。}CLI 对管道按块缓冲堵死推理流（伪终端修复）；
+思考阶段不发增量（如实标注，无法修复）；超时线 900s 卡在实测思考时长分布中间
+（提为 1800s）；pty 阻塞读使超时永远不触发（实测挂死 103 分钟，
+select 五秒一拍轮询修复，挂死调用三十分钟必被回收）。每课带回归护栏。
+
 \section{结论（每条附证否条件）}\label{sec:conclusions}
 \begin{enumerate}
 \item \textbf{结构（已解除）：截至 M11 之前，「candidate=0」不是经验结论。}
@@ -706,8 +995,9 @@ cost\_model\_missing 曾对全部 Study 成立且其失效集合含 candidate。
 决定 0007 建成最小成本模型后该约束解除；回溯投影（\S\ref{sec:retro}）显示
 16 条历史 blocked 在新制度下为 candidate 形态。\emph{证否（更正后）：
 新制度下一条各闸门全过的 Study 仍被判 blocked。}
-\item \textbf{经验：已检验机制上，Polymarket 特征相对基线的线性增量预测力未过
-预注册证否闸门。}\emph{证否：残差化后在族地板上方且置换 $\le0.1$ 并在封存段保住的
+\item \textbf{经验：已检验机制上，Polymarket 特征相对基线的线性增量预测力，
+在两种问题形态（永远在线；事件条件窗口）上都未过预注册证否闸门。}
+\emph{证否：任一形态下，残差化后在其族地板上方且置换 $\le0.1$ 并在封存段保住的
 一条特征。}
 \item \textbf{经验（已按自身证否条件更正）：残差化之前，四条波动假象的自罚奖励
 为正（最高 $+7.1$）；残差化的另类构造中，第一条奖励为正的出现在 run16-study-3
@@ -732,6 +1022,10 @@ candidate。}\emph{证否：修正后重跑，判决分布改变。}
 发现段上越过地板、通过置换的构造，其强度主要来自该段特有的样本构成 ——
 封存段正是为识别这一点而存在。
 \emph{证否：一条开封后保持率不低于 0.35 的同类构造。}
+\item \textbf{经验（新）：事件条件形态下结论不变。}触发器由模型自主声明并预注册
+（进 content id），两轮四十回合、十一个互异触发源、本族独立地板 ——
+最好 $|t|=1.87$ 未越线。「概率大幅移动之后的窗口」并没有比「永远在线」
+更可预测。\emph{证否：一条事件条件构造越过本族地板、置换通过并在封存段保住。}
 \end{enumerate}
 
 \section{下一步（全部需人决定）}
@@ -753,7 +1047,7 @@ candidate。}\emph{证否：修正后重跑，判决分布改变。}
 \end{enumerate}
 
 \appendix
-\section{全部 121 个 Study}
+\section{全部 200 个 Study}
 {\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.42\textwidth} r r r l@{}}
 \toprule Study & 特征 & $t$ & IC & 置换 $p$ & 判决 \\ \midrule\endhead
 auto-study-0 & \path{pm_iran_trade_arrival_z} & +0.776 & +0.047 & 0.55 & null \\
@@ -876,10 +1170,89 @@ run17-study-10 & \path{pm_russia_belief_churn_accel_over_30d_scale_resid_own_rv_
 run17-study-11 & \path{pm_up_active_hour_breadth_dow_matched_1d_resid_own_rv_90d_panel} & +1.688 & +0.088 & 0.0 & blocked \\
 run17-study-12 & \path{pm_iran_over_be_arrival_growth_dow_matched_resid_own_rv_1d_90d_fu} & -2.257 & -0.240 & 0.145 & null \\
 run17-study-13 & \path{pm_out_arrival_accel_dow_matched_did_resid_own_rv_1d_90d_panel} & -0.359 & -0.007 & 0.685 & null \\
-run17-study-14 & \path{—} & — & — & — & 进行中 \\
+run17-study-14 & \path{pm_iran_arrival_floor_over_30d_norm_resid_own_rv_1d_90d_panel} & -0.008 & -0.015 & 0.99 & null \\
+run17-study-15 & \path{pm_iran_over_be_closed_open_arrival_tilt_resid_own_rv_6h_90d_au} & +0.051 & -0.117 & 0.94 & blocked \\
+run17-study-16 & \path{pm_out_avg_ticket_growth_wow_resid_own_rv_7d_90d_panel} & +0.272 & -0.020 & 0.605 & null \\
+run17-study-17 & \path{pm_russia_belief_churn_per_notional_growth_wow_resid_own_rv_7d_90d_p} & -1.798 & +0.009 & 0.175 & null \\
+run17-study-18 & \path{pm_russia_escalation_level_trend_wow_resid_own_rv_7d_90d_panel} & -0.670 & -0.019 & 0.275 & null \\
+run17-study-19 & \path{pm_out_count_concentration_max_hour_share_resid_own_rv_1d_90d_panel} & +0.675 & +0.006 & 0.185 & null \\
+run18-study-0 & \path{pm_iran_terminal_drift_x_ticket_premium_resid_brent_1d_30d_90d_pg} & -0.348 & +0.003 & 0.73 & null \\
+run18-study-1 & \path{pm_out_arrival_excess_x_own_vol_state_resid_own_rv_1d_30d_90d_panel} & -0.058 & +0.023 & 0.91 & null \\
+run18-study-2 & \path{—} & — & — & — & 进行中 \\
+run19-study-0 & \path{pm_ukraine_belief_band_translation_wow_resid_brent_7d_90d_fu} & +0.643 & -0.001 & 0.505 & null \\
+run19-study-1 & \path{pm_iran_level_vs_prior_week_band_center_over_churn_resid_brent_1d_7d_30d_90d_lu} & -0.154 & +0.010 & 0.855 & null \\
+run19-study-2 & \path{pm_iran_belief_revision_dod_over_churn_resid_brent_1d_30d_90d_pg} & +0.082 & +0.027 & 0.94 & null \\
+run19-study-3 & \path{pm_up_money_over_count_dispersion_ratio_resid_own_rv_1d_90d_panel} & -0.014 & +0.008 & 0.98 & null \\
+run19-study-4 & \path{pm_iran_belief_level_curvature_3x3d_resid_brent_90d_au} & -1.349 & -0.038 & 0.45 & null \\
+run19-study-5 & \path{—} & — & — & — & 进行中 \\
+run20-study-0 & \path{pm_iran_x_russia_belief_drift_agreement_resid_own_rv_1d_30d_90d_panel} & -0.183 & +0.058 & 0.92 & null \\
+run20-study-1 & \path{—} & — & — & — & 进行中 \\
+run20-study-2 & \path{—} & — & — & — & 进行中 \\
+run20-study-3 & \path{—} & — & — & — & 进行中 \\
+run21-study-0 & \path{—} & — & — & — & 进行中 \\
+run22-study-0 & \path{pm_up_arrival_excess_dow_x_own_path_jumpiness_resid_own_rv_1d_7d_90d_panel} & -0.532 & +0.004 & 0.275 & null \\
+run22-study-1 & \path{pm_aab_over_own_churn_closed_6h_range_resid_own_rv_30d_90d_panel} & — & — & — & underpowered \\
+run22-study-2 & \path{pm_iran_level_dev_1d_vs_prior_7d_resid_brent_90d_bu} & -0.311 & +0.029 & 0.835 & null \\
+run22-study-3 & \path{pm_israel_arrival_accel_dow_matched_did_resid_own_rv_1d_90d_panel} & +0.039 & -0.005 & 0.97 & null \\
+run22-study-4 & \path{pm_and_over_a_macro_arrival_growth_dow_matched_resid_own_rv_1d_90d_panel} & -0.918 & +0.013 & 0.695 & null \\
+run22-study-5 & \path{pm_another_seizure_hazard_dev_1d_vs_prior_7d_resid_brent_90d_sc} & +0.274 & -0.023 & 0.87 & null \\
+run22-study-6 & \path{pm_russia_belief_occupancy_share_resid_brent_1d_90d_sc} & -0.008 & -0.006 & 0.995 & null \\
+run22-study-7 & \path{pm_russia_strike_level_revision_dow_matched_1d_resid_brent_90d_p} & +1.144 & +0.054 & 0.29 & null \\
+run22-study-8 & \path{pm_bank_failure_hazard_dev_1d_vs_prior_7d_resid_own_rv_90d_panel} & +0.372 & +0.025 & 0.385 & null \\
+run22-study-9 & \path{—} & — & — & — & 进行中 \\
+run22-study-10 & \path{pm_ukraine_minus_russia_strike_hazard_dev_1d_vs_prior_7d_resid_brent_90d_fu} & -0.739 & -0.016 & 0.47 & null \\
+run22-study-11 & \path{pm_blockade_taiwan_hazard_dev_12h_vs_prior_7d_resid_brent_90d_sc} & +0.069 & +0.046 & 0.92 & null \\
+run22-study-12 & \path{pm_russia_strike_hazard_path_curvature_2d_legs_resid_brent_90d_c} & -0.408 & -0.040 & 0.78 & null \\
+run22-study-13 & \path{pm_iran_belief_drift_3d_x_unabsorbed_vol_state_resid_brent_90d_sc} & -0.333 & +0.008 & 0.815 & null \\
+run22-study-14 & \path{pm_iran_plus_ukraine_supply_hazard_dev_1d_vs_prior_7d_resid_brent_90d_panel} & -0.383 & -0.008 & 0.28 & null \\
+run22-study-15 & \path{pm_iran_hazard_level_trend_wow_diff_resid_brent_7d_90d_eg} & -0.808 & -0.011 & 0.575 & null \\
+run22-study-16 & \path{pm_china_trade_hazard_dev_1d_vs_prior_7d_resid_brent_90d_m} & +1.029 & +0.032 & 0.305 & null \\
+run22-study-17 & \path{pm_closes_over_up_arrival_growth_wow_resid_own_rv_7d_90d_sc} & — & — & — & underpowered \\
+run22-study-18 & \path{—} & — & — & — & 进行中 \\
+run22-study-19 & \path{pm_iran_lagged_belief_revision_x_arrival_followthrough_resid_brent_1d_90d_sc} & -0.478 & +0.042 & 0.655 & null \\
+run23-study-0 & \path{pm_iran_belief_revision_monotonicity_over_path_range_resid_brent_12h_90d_evt_sc} & +0.039 & -0.016 & 0.95 & null \\
+run23-study-1 & \path{pm_iran_revision_monotonicity_over_path_range_evt_resid_brent_12h_90d_sc} & +0.039 & -0.016 & 0.95 & null \\
+run23-study-2 & \path{pm_israel_plus_ceasefire_churn_corroboration_evt_iran_resid_own_rv_12h_30d_90d_sc} & +0.856 & +0.015 & 0.52 & null \\
+run23-study-3 & \path{pm_iran_closed_share_of_episode_belief_range_evt_resid_own_rv_6h_over_12h_90d_sc} & +0.510 & +0.052 & 0.645 & null \\
+run23-study-4 & \path{pm_iran_event_window_ticket_premium_over_30d_norm_resid_own_rv_12h_90d_evt_sc} & -0.259 & +0.012 & 0.8 & null \\
+run23-study-5 & \path{pm_iran_plus_russia_episode_displacement_evt_resid_brent_6h_halves_90d_sc} & -0.421 & -0.060 & 0.615 & null \\
+run23-study-6 & \path{pm_iran_evt_displacement_x_arrival_corroboration_resid_brent_6h_halves_30d_90d_sc} & -1.345 & -0.034 & 0.295 & null \\
+run23-study-7 & \path{pm_ukraine_strike_episode_displacement_evt_resid_brent_6h_halves_90d_sc} & +1.733 & +0.079 & 0.185 & null \\
+run23-study-8 & \path{pm_iran_logodds_scaled_episode_displacement_evt_resid_brent_6h_halves_prior7d_90d_sc} & -0.242 & -0.042 & 0.775 & null \\
+run23-study-9 & \path{—} & — & — & — & 进行中 \\
+run23-study-10 & \path{pm_ceasefire_resolution_decay_evt_iran_resid_brent_6h_halves_90d_sc} & -0.751 & -0.017 & 0.525 & null \\
+run23-study-11 & \path{pm_iran_evt_ticket_premium_over_30d_resid_own_rv_12h_90d_sc_v2} & -0.259 & +0.012 & 0.8 & null \\
+run23-study-12 & \path{pm_iran_evt_belief_destination_vs_prior_30d_band_resid_brent_6h_90d_sc} & +1.455 & +0.009 & 0.2 & null \\
+run23-study-13 & \path{pm_iran_minus_israel_z_episode_displacement_evt_resid_brent_6h_halves_30d_90d_sc} & -1.025 & -0.090 & 0.305 & null \\
+run23-study-14 & \path{pm_iran_evt_dose_range_over_prior_week_resid_own_rv_12h_7d_90d_sc} & -0.013 & -0.052 & 0.985 & null \\
+run23-study-15 & \path{pm_iran_evt_disp_x_israel_path_stillness_resid_brent_6h_halves_12h_30d_90d_sc} & +0.124 & -0.004 & 0.92 & null \\
+run23-study-16 & \path{pm_iran_episode_displacement_evt_resid_brent_6h_halves_90d_sc} & -0.203 & -0.057 & 0.915 & null \\
+run23-study-17 & \path{pm_iran_pre_event_attention_state_over_30d_norm_resid_own_rv_12h_off12h_90d_sc_evt} & +1.166 & +0.079 & 0.485 & null \\
+run23-study-18 & \path{pm_ceasefire_revision_monotonicity_over_path_range_evt_resid_brent_12h_90d_sc} & +0.350 & +0.021 & 0.74 & null \\
+run23-study-19 & \path{pm_iran_minus_ceasefire_persistence_disp_evt_resid_brent_6h_halves_90d_sc} & -0.316 & -0.042 & 0.725 & null \\
+run24-study-0 & \path{pm_ukraine_strike_hazard_dev_evt_6h_vs_prior_7d_resid_brent_90d_sc} & +0.384 & +0.028 & 0.715 & null \\
+run24-study-1 & \path{pm_aab_trade_tension_displacement_evt_2d_halves_resid_brent_90d_m} & — & — & — & underpowered \\
+run24-study-2 & \path{pm_ukraine_strike_hazard_dev_evt_6h_vs_prior_1d_resid_brent_90d_fu} & -1.868 & -0.083 & 0.075 & blocked \\
+run24-study-3 & \path{pm_russia_escalation_hazard_same_phase_dod_revision_resid_brent_12h_90d_au} & +1.047 & +0.031 & 0.375 & null \\
+run24-study-4 & \path{pm_ceasefire_breakdown_disp_evt_resid_brent_3h_halves_90d_p} & -0.478 & +0.011 & 0.715 & null \\
+run24-study-5 & \path{pm_out_policy_exit_displacement_evt_resid_brent_3h_halves_90d_sc} & +0.951 & +0.072 & 0.425 & null \\
+run24-study-6 & \path{pm_israel_regional_escalation_disp_evt_6h_halves_resid_brent_90d_sc} & -0.984 & -0.010 & 0.39 & null \\
+run24-study-7 & \path{—} & — & — & — & 进行中 \\
+run24-study-8 & \path{pm_russia_escalation_peak_ratchet_evt_resid_brent_6h_halves_90d_y} & +1.601 & +0.024 & 0.075 & blocked \\
+run24-study-9 & \path{—} & — & — & — & 进行中 \\
+run24-study-10 & \path{pm_bill_passage_displacement_evt_resid_brent_3h_halves_90d_cu} & +0.668 & +0.117 & 0.7 & underpowered \\
+run24-study-11 & \path{pm_ukraine_evt_arrival_crowding_over_a_baseline_resid_own_rv_12h_30d_90d_bu} & -0.499 & +0.019 & 0.635 & null \\
+run24-study-12 & \path{pm_ceasefire_terminal_settlement_within_own_range_evt7d_resid_brent_1d_90d_pg} & -1.486 & -0.081 & 0.14 & null \\
+run24-study-13 & \path{pm_aab_trade_tension_disp_evt_3h_halves_resid_brent_90d_m} & — & — & — & underpowered \\
+run24-study-14 & \path{pm_call_fed_path_displacement_evt_resid_brent_3h_halves_90d_sc} & — & — & — & blocked \\
+run24-study-15 & \path{pm_blockade_taiwan_disp_evt_3h_halves_resid_brent_90d_sc} & — & — & — & blocked \\
+run24-study-16 & \path{pm_china_trade_tension_disp_evt_6h_halves_resid_brent_90d_m} & +0.537 & +0.042 & 0.695 & null \\
+run24-study-17 & \path{pm_ukraine_episode_recency_share_1d_over_3d_resid_own_rv_90d_panel_evt} & +0.440 & -0.024 & 0.485 & null \\
+run24-study-18 & \path{pm_israel_belief_floor_ratchet_evt_1d_halves_resid_brent_90d_l} & -0.724 & +0.008 & 0.33 & null \\
+run24-study-19 & \path{pm_and_macro_arrival_concentration_max_hour_share_evt_resid_own_rv_1d_90d_sc} & -0.149 & +0.017 & 0.91 & null \\
 \bottomrule\end{longtable}}
 
 \vfill\noindent\rule{\textwidth}{0.4pt}\\
-{\small 账本冻结点：事件 seq 1657（2026-08-08T22:48:33，run16 当时仍在进行）；事件 1657 条，哈希链完整。
+{\small 账本冻结点：事件 seq 2723（2026-08-09T21:40:48，run16 当时仍在进行）；事件 2723 条，哈希链完整。
 叙述由人撰写且不含数字；数字一律由快照渲染，二者不会不一致。}
 \end{document}
