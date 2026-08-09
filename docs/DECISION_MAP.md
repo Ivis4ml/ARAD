@@ -1031,3 +1031,9 @@ project 均为 strict=True，被停机留下的半途 Study 炸掉 —— 归档
 崩溃现场先崩，且掩盖原始异常；两处改 strict=False（半途 Study 是常态不是账本缺口，
 与 /api/live/projection 的 503 修复同一论断）。超时 900s 卡在实测思考时长分布
 中间（run14 实测 11 分钟思考），提为 1800s。run21 重启。
+
+M12.2（B7：underpowered 不进束）：run22 收尾的自动封存把封条烧在 run13-study-1 上 ——
+该 Study 发现段仅 10 行观测（判 underpowered），|t|=3.17 与 IC=0.72 无统计含义，
+但束只挡「无取值」不挡「样本不足」，假奖励 +0.63 进榜；封存段 405 行还原形
+（t=1.617、IC 0.036、置换 13% 未通过）。修：demo 侧 offer 前过滤 underpowered ——
+null/blocked/candidate 都过了样本闸门，t 值可比，照旧进束。

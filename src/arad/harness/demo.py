@@ -1259,6 +1259,13 @@ def run_service_demo(
                 )
                 if spec_id is None:
                     continue
+                # B7：underpowered 不进束。样本不足的 t 值不可比 —— 实测
+                # run13-study-1 以 10 行观测算出 |t|=3.17（IC 0.72），带着
+                # 假奖励 +0.63 进榜并在 run22 收尾被自动封存烧掉一个封条
+                # （封存段 405 行还原形：t=1.617、IC 0.036、置换 13% 未通过）。
+                # null/blocked/candidate 都过了样本闸门，t 值可比；它们照旧。
+                if study.get("verdict") == "underpowered":
+                    continue
                 beam.offer(Candidate(
                     feature_id=spec_id, study_id=study_id,
                     value=study["metrics"].get("abs_t"),
