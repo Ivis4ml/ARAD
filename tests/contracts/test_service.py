@@ -718,3 +718,14 @@ def test_event_trigger_filters_rows_pit_safely():
     assert [r.row_key for r in active] == ["hit"]
     assert set(excluded) == {"quiet", "undecidable"}
     assert "预注册" in next(iter(excluded.values()))
+
+
+def test_evaluation_requests_carry_the_run_family():
+    """B9：族由调用方传入而不是写死。事件族的评价被贴上旧族标签后，
+    按族过滤的束一个成员都认不出（run24 实测束为空）。"""
+    import inspect
+
+    from arad.harness.demo import _build_evaluation, sealed_pass
+
+    assert "family" in inspect.signature(_build_evaluation).parameters
+    assert "family" in inspect.signature(sealed_pass).parameters

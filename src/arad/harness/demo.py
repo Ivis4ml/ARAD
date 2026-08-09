@@ -700,7 +700,8 @@ def _apply_event_trigger(eval_rows, series, trigger: dict):
 
 
 def _build_evaluation(sc: dict, rows: list[dict], visible: dict,
-                      loader=None, default_universe: str = "sc_dominant_t1"):
+                      loader=None, default_universe: str = "sc_dominant_t1",
+                      family: str = FAMILY):
     """返回 harness 需要的 build_evaluation 回调。
 
     `loader(product)` 按品种装载 spine，缺省时只有 `default_universe` 那一个品种，
@@ -776,7 +777,9 @@ def _build_evaluation(sc: dict, rows: list[dict], visible: dict,
         request = EvaluationRequest(
             study_id=study_id,
             confirmatory_id=spec.content_id,
-            family=FAMILY,
+            # B9：族由调用方传入。写死旧族曾使事件族的全部评价证据被贴错标签，
+            # 按族过滤的束因此一个成员都认不出（run24 实测束为空）。
+            family=family,
             rows=eval_rows,
             authoritative_keys=authoritative,
             preregistered_exclusions=exclusions,
@@ -1141,7 +1144,7 @@ def _signal_values(ledger, sc: dict, rows: list[dict],
 
 def sealed_pass(
     ledger, *, target_path: str, families_manifest: str, top_features: list[str],
-    segment: str = "historical_validation",
+    segment: str = "historical_validation", family: str = FAMILY,
 ) -> list[dict]:
     """封闭段评估：**每个特征只开一次**。
 
@@ -1160,7 +1163,8 @@ def sealed_pass(
     # UnknownUniverse —— 但那已经消耗了封条吗？没有：open_sealed 在评估
     # 之后才写账。仍要修在开封之前 —— 一次不可比的评估同样烧掉封条。
     build = _build_evaluation(
-        sc, rows, visible, loader=lambda product: _load_product(product, segment))
+        sc, rows, visible, loader=lambda product: _load_product(product, segment),
+        family=family)
     contaminate = _contamination(visible, families_manifest)
 
     specs: dict[str, FeatureSpec] = {}
@@ -1276,7 +1280,8 @@ def run_service_demo(
                 provider=provider,
                 family=fam, owner="auto-worker",
                 assemble=_assembler(ledger, manifest_dir, visible, sc, direction, fam),
-                build_evaluation=_build_evaluation(sc, rows, visible, loader=_load_product),
+                build_evaluation=_build_evaluation(
+                    sc, rows, visible, loader=_load_product, family=fam),
                 audit_input=_audit_input(sc, visible, record),
                 contamination=_contamination(visible, FAMILIES_MANIFEST),
                 seed_task={}, max_rounds=max_rounds, now=now,
@@ -1335,6 +1340,7 @@ def run_service_demo(
             sealed = sealed_pass(
                 ledger, target_path=target_path, families_manifest=FAMILIES_MANIFEST,
                 top_features=[m["feature_id"] for m in beam.summary()["members"]],
+                family=fam,
             )
             ledger.append("sealed_pass", {"entries": sealed})
 
