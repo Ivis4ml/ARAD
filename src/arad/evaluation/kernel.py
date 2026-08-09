@@ -20,9 +20,9 @@
 from __future__ import annotations
 
 import math
-from itertools import pairwise
 from dataclasses import dataclass, field
 from datetime import datetime
+from itertools import pairwise
 
 from ..registry.specs import Verdict, content_id
 from . import stats
