@@ -28,7 +28,7 @@ import json
 import math
 import os
 from bisect import bisect_left
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -663,6 +663,42 @@ def _cost_model_for(members: list[str]) -> dict | None:
             "round_trip_cost_ret": statistics.median(costs)}
 
 
+def _apply_event_trigger(eval_rows, series, trigger: dict):
+    """按触发器把行分成（活跃行, 预注册排除）。M14。
+
+    触发定义：在决策时点 t，取 field 序列中**严格早于 t** 的最后一个值 a 与
+    严格早于 t − lookback 的最后一个值 b，|a − b| ≥ min_abs_move 即活跃。
+    只用决策前分桶（与特征窗口同一 end-exclusive 约定），因此是预注册的
+    样本限制，不是结果依赖过滤。两值任一无定义 → 该时点判不活跃并排除
+    （「触发不可判」与「触发未活跃」都不读 outcome）。
+    """
+    from bisect import bisect_left
+
+    fam_field = trigger["field"]
+    lookback = int(trigger["lookback_seconds"])
+    bar = series.get((Source.PM_MARKET, fam_field))
+    if bar is None:
+        return [], {r.row_key: f"触发器序列 {fam_field} 不可用" for r in eval_rows}
+
+    def last_before(t):
+        i = bisect_left(bar.times, t) - 1
+        return bar.values[i] if i >= 0 else None
+
+    active, excluded = [], {}
+    reason = (
+        f"事件触发未活跃：|Δ{fam_field}| < {trigger['min_abs_move']}"
+        f"（回看 {lookback}s）。触发只用决策前分桶，属预注册样本限制"
+    )
+    for row in eval_rows:
+        a = last_before(row.decision_time)
+        b = last_before(row.decision_time - timedelta(seconds=lookback))
+        if a is None or b is None or abs(a - b) < trigger["min_abs_move"]:
+            excluded[row.row_key] = reason
+        else:
+            active.append(row)
+    return active, excluded
+
+
 def _build_evaluation(sc: dict, rows: list[dict], visible: dict,
                       loader=None, default_universe: str = "sc_dominant_t1"):
     """返回 harness 需要的 build_evaluation 回调。
@@ -728,6 +764,11 @@ def _build_evaluation(sc: dict, rows: list[dict], visible: dict,
         }
         eval_rows = [r for r in eval_rows if r.row_key in chosen_labels]
         authoritative = [k for k in authoritative if k in chosen_labels]
+        trigger = getattr(proposal, "event_trigger", None) if proposal else None
+        if trigger:
+            eval_rows, trig_excluded = _apply_event_trigger(
+                eval_rows, sc["series"], trigger)
+            exclusions = {**exclusions, **trig_excluded}
         detail = {**visible, "feature_coverage": coverage,
                   "evaluated_target": target_name}
         if len(eval_rows) < 3:
@@ -753,7 +794,7 @@ def _build_evaluation(sc: dict, rows: list[dict], visible: dict,
 
 
 def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dict,
-               direction: str | None = None):
+               direction: str | None = None, family: str = FAMILY):
     legacy_menu = _menu(manifest_dir, visible)
     # M12：分层轮换菜单。资格与先验清单存在时按轮组装；否则退回旧菜单。
     try:
@@ -784,7 +825,7 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dic
         menu = menu_for(task)
         return assemble_proposer_context(
             ledger=ledger,
-            family=FAMILY,
+            family=family,
             research_direction=direction,
             data_facts={
                 "sources": data_freshness(manifest_dir),
@@ -1194,9 +1235,14 @@ def run_service_demo(
     provider_kind: str = "mutator",
     model: str = "claude-opus-5",
     direction: str | None = None,
+    family: str | None = None,
 ) -> dict:
     """连续研究：一轮接一轮，直到到达外部边界或停滞。不靠任何写死的变体表。"""
     from ..harness.service import AutoProposer, run_service
+
+    # M14：问题族可选。事件条件程序（决定 0008）用独立的族 ——
+    # 新问题新分母，地板从 0.8 重新开始；与旧族的账互不污染。
+    fam = family or FAMILY
 
     if not os.path.exists(target_path):
         raise FileNotFoundError(f"缺少 SC 目标表 {target_path}；请先运行 spine build")
@@ -1228,8 +1274,8 @@ def run_service_demo(
             result = run_service(
                 ledger=ledger, queue=queue,
                 provider=provider,
-                family=FAMILY, owner="auto-worker",
-                assemble=_assembler(ledger, manifest_dir, visible, sc, direction),
+                family=fam, owner="auto-worker",
+                assemble=_assembler(ledger, manifest_dir, visible, sc, direction, fam),
                 build_evaluation=_build_evaluation(sc, rows, visible, loader=_load_product),
                 audit_input=_audit_input(sc, visible, record),
                 contamination=_contamination(visible, FAMILIES_MANIFEST),
@@ -1247,7 +1293,7 @@ def run_service_demo(
             beam = Beam(width=4)
             # strict=False：run_service 因停滞或 provider 失败结束时，最后几轮
             # 可能只有 context_assembled —— 半途 Study 是常态不是账本缺口。
-            proj = project(ledger, family=FAMILY, strict=False)
+            proj = project(ledger, family=fam, strict=False)
             tests_at = {c["study_id"]: c["tests_so_far"]
                         for chain in proj.lineage for c in chain["curves"]["abs_t"]}
             by_study = {st["study_id"]: st for st in proj.studies}
@@ -1310,7 +1356,7 @@ def run_service_demo(
             # 快照只是它的投影，没有理由只给"善终"的运行拍照。
             # strict=False：崩溃现场必然有半途 Study —— 归档为崩溃而生，
             # 却曾在崩溃现场先崩（run20 实测，且掩盖了原始异常）。
-            projection = project(ledger, family=FAMILY, strict=False,
+            projection = project(ledger, family=fam, strict=False,
                                  service=queue.service_state())
             fresh = data_freshness(manifest_dir)
             paths = render_app(projection, atlas_dir, freshness=fresh)
@@ -1322,7 +1368,7 @@ def run_service_demo(
         return {
             "service": {**result.summary(), "provider": provider_kind},
             **extras,
-            "denominators": ledger.denominators(FAMILY),
+            "denominators": ledger.denominators(fam),
             "ledger_events": ledger.require_intact(),
             "atlas": paths,
         }

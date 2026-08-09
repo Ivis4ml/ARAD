@@ -147,6 +147,14 @@ PROPOSAL_OUTPUT_TYPES: dict[str, str] = {
     "falsifiable_condition": "字符串。什么样的观测结果会使你判定该机制不成立",
     "feature_spec": "对象，字段以 primitives.feature_spec_schema 为准",
     "rationale": "字符串，可选。为什么在本轮选这个方向",
+    "event_trigger": (
+        "对象，可选。事件条件窗口：只在触发活跃的决策时点上评价。"
+        "字段：field（字符串，如 \"cand:iran:p\"）、lookback_seconds（正整数）、"
+        "min_abs_move（正浮点，概率的绝对移动阈值）。触发只用决策前的分桶，"
+        "是预注册的样本限制；不活跃时点记入排除清单，不读它们的 outcome。"
+        "预测市场的信息天然是事件性的 —— 长期在线的线性关系在本程序里"
+        "已被反复证伪，事件窗口是对着它的长处提问"
+    ),
     "change_summary": "字符串，可选。若在某一版基础上迭代，一句话说明改了什么",
 }
 

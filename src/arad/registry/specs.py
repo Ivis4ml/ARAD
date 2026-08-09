@@ -113,6 +113,9 @@ class ProposalSpec(FrozenSpec):
     direction: int
     falsifiable_condition: str
     proposed_by: str
+    #: M14：事件条件窗口的触发器（可选）。进 content id：同一机制加不同触发
+    #: 是不同的提案。旧提案载荷无此字段，默认 None，加载不受影响。
+    event_trigger: dict | None = None
     rationale: str = ""
 
     @field_validator("direction")

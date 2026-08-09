@@ -679,3 +679,42 @@ def test_lazy_pm_series_loads_qualified_families_on_demand(tmp_path, monkeypatch
     # 不合格族：三个入口都不装载
     assert lazy.get((Source.PM_MARKET, "cand:dead:p")) is None
     assert (Source.PM_MARKET, "cand:dead:p") not in lazy
+
+
+def test_event_trigger_filters_rows_pit_safely():
+    """M14：事件触发只用决策前分桶（严格 end-exclusive），不活跃与不可判的
+    时点都进预注册排除。恰在决策时刻完成的分桶不参与触发 —— 与特征窗口
+    同一右端点约定。"""
+    import datetime as dt
+
+    from arad.evaluation.kernel import EvaluationRow
+    from arad.features.interpreter import BarSeries, Source
+    from arad.harness.demo import _apply_event_trigger
+
+    t0 = dt.datetime(2024, 1, 1, 12, 0, tzinfo=dt.UTC)
+    hours = [t0 + dt.timedelta(hours=h) for h in range(-6, 1)]   # 含恰在 t0 的分桶
+    series = {(Source.PM_MARKET, "cand:x:p"): BarSeries(
+        field="cand:x:p", times=hours,
+        values=[0.50, 0.50, 0.50, 0.50, 0.62, 0.62, 0.99],       # 最后一桶恰在 t0
+        coverage_start=hours[0],
+    )}
+
+    def row(t, key):
+        return EvaluationRow(
+            row_key=key, episode_id="e", date_cluster="d", product_cluster="sc",
+            decision_time=t, label_start=t + dt.timedelta(minutes=1),
+            availability_times={}, prediction=1.0,
+        )
+
+    trigger = {"field": "cand:x:p", "lookback_seconds": 3 * 3600,
+               "min_abs_move": 0.10}
+    # t0：严格早于 t0 的最后值是 0.62（0.99 恰在 t0，按右端点排他不参与）；
+    # 早于 t0−3h 的最后值是 0.50 → |Δ|=0.12 ≥ 0.10 → 活跃
+    # t0−4h：两侧都是 0.50 → 不活跃
+    # 太早的时点：回看窗之前无值 → 不可判 → 排除
+    rows = [row(t0, "hit"), row(t0 - dt.timedelta(hours=4), "quiet"),
+            row(hours[0], "undecidable")]
+    active, excluded = _apply_event_trigger(rows, series, trigger)
+    assert [r.row_key for r in active] == ["hit"]
+    assert set(excluded) == {"quiet", "undecidable"}
+    assert "预注册" in next(iter(excluded.values()))

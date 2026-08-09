@@ -77,6 +77,33 @@ _DIRECTION_WORDS: dict[str, int] = {
 }
 
 
+class EventTrigger(BaseModel):
+    """事件条件窗口的触发器声明（M14）。
+
+    只在「某个 PM 族的概率在决策前 lookback 秒内移动了至少 min_abs_move」的
+    决策时点上评价。触发只用**决策前**的分桶（严格 end-exclusive），是预注册的
+    样本限制，不是结果依赖过滤 —— 不活跃时点记入 preregistered_exclusions。
+    """
+
+    field: str                       # 如 "cand:iran:p"
+    lookback_seconds: int
+    min_abs_move: float
+
+    @field_validator("lookback_seconds")
+    @classmethod
+    def _positive_lb(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("lookback_seconds 必须为正")
+        return v
+
+    @field_validator("min_abs_move")
+    @classmethod
+    def _positive_move(cls, v: float) -> float:
+        if not v > 0:
+            raise ValueError("min_abs_move 必须为正")
+        return v
+
+
 class ProposalOutput(BaseModel):
     """提案器的结构化产出。要么是一个完整提案，要么是一条原语缺口声明。"""
 
@@ -90,6 +117,7 @@ class ProposalOutput(BaseModel):
     rationale: str = ""
     change_summary: str = ""
     feature_spec: FeatureSpec | None = None
+    event_trigger: EventTrigger | None = None
     unsupported_mechanism: UnsupportedMechanism | None = None
 
     @field_validator("direction", mode="before")
@@ -119,6 +147,8 @@ class ProposalOutput(BaseModel):
             falsifiable_condition=self.falsifiable_condition or "",
             proposed_by="llm_proposer",
             rationale=self.rationale,
+            event_trigger=(self.event_trigger.model_dump()
+                           if self.event_trigger else None),
         )
 
 

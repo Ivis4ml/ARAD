@@ -1047,3 +1047,10 @@ n_eff = n(1−ρ)/(1+ρ)，n_eff < 30 或互异值 < 3（防退化；主责在 n
 同时把置换检验的机理与事前筛写进提案器上下文（evaluation_mechanics）——
 这是预注册规则的方法说明，不是任何结果的泄漏。事件 signal_prescreen 记录每次
 筛查的统计量（含通过者），合同测试钉住「拦下者不动分母」。
+
+M14（事件条件研究计划，决定 0008）：146 个构造证明「永远在线的线性检验」问题族
+无信号后，把问题换成对着 PM 长处提问 —— 事件窗口。Proposal 契约新增 event_trigger
+（field/lookback/min_abs_move，进 content id），触发只用严格早于边界的分桶
+（PIT 合同测试钉住右端点排他），不活跃时点按预注册排除不读 outcome。
+run_service_demo 与 CLI 增 --family：事件程序用独立问题族，分母从零、地板从 0.798
+起，旧族账目原样保留（分账纪律同 Alpha-Data 主族/扩展族）。
