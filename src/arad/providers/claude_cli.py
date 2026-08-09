@@ -102,18 +102,32 @@ class ClaudeCliProvider:
         result_text: str | None = None
 
         def _lines():
+            import select as _select
+
             buf = b""
             while True:
-                if time.monotonic() > deadline:
+                # 阻塞读会让超时失效：CLI 思考阶段一个字节都不发时，
+                # os.read 永远等待，deadline 检查根本轮不到执行 ——
+                # 实测 run21 挂死 103 分钟而 1800s 超时从未触发。
+                # select 以 5s 为拍轮询：无数据也回来查一次表。
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
                     proc.kill()
                     raise ProviderError(
                         f"{self.executable} 在 {self.timeout_seconds}s 内未返回；"
                         "任务交由队列重排"
                     )
-                try:
-                    chunk = _os.read(master, 65536)
-                except OSError:          # pty 关闭（进程结束）
-                    chunk = b""
+                ready, _, _ = _select.select([master], [], [], min(5.0, remaining))
+                if not ready:
+                    if proc.poll() is not None:
+                        chunk = b""      # 进程已退出且无残留输出
+                    else:
+                        continue         # 还在跑，只是没输出：回去查表
+                else:
+                    try:
+                        chunk = _os.read(master, 65536)
+                    except OSError:      # pty 关闭（进程结束）
+                        chunk = b""
                 if not chunk:
                     if buf.strip():
                         yield buf.decode("utf-8", errors="replace")
