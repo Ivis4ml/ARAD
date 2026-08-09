@@ -102,6 +102,20 @@ class ServiceResult:
         }
 
 
+def replay_learned_mismatches(ledger) -> tuple[str, ...]:
+    """从账本回放全部语义错配码（去重保序）。"""
+    from ..memory.ledger import Role
+
+    codes: list[str] = []
+    for event in ledger.read_events(role=Role.HUMAN):
+        if event["event_type"] != "semantic_audit":
+            continue
+        for m in event["payload"].get("mismatches", []):
+            if m.get("code"):
+                codes.append(m["code"])
+    return tuple(dict.fromkeys(codes))
+
+
 def run_service(
     *,
     ledger: EvidenceLedger,
@@ -134,7 +148,10 @@ def run_service(
     current = now or datetime.now(UTC)
     parent: str | None = None
     seen: set[str] = set()
-    learned: tuple[str, ...] = ()
+    # 累积的语义错配码从**账本回放**起步，而不是从空集：错配教训是全历史的
+    # （run3 用七轮撞出 magnitude_vs_signed_label），只在运行内累积等于每次
+    # 新运行都把学费重交一遍。回放只取码，不取任何数值或效应 —— 与盲化无涉。
+    learned: tuple[str, ...] = replay_learned_mismatches(ledger)
     stale = 0
     broken = 0
     index = 0

@@ -622,3 +622,24 @@ def test_every_registered_control_series_is_actually_loaded():
         assert key in sc["series"], (
             f"控制项 {name!r} 已登记为 {key}，但装载器没有提供该序列"
         )
+
+
+def test_learned_mismatches_survive_across_runs():
+    """错配教训是全历史的：新运行的初始 learned 从账本回放，
+    不再每次运行从空集重学（实测 run3 用七轮撞出的教训 run18 并不知道）。"""
+    import tempfile
+
+    from arad.harness.service import replay_learned_mismatches
+    from arad.memory.ledger import EvidenceLedger
+
+    with tempfile.TemporaryDirectory() as tmp, \
+            EvidenceLedger(f"{tmp}/l.db") as ledger:
+        ledger.append("semantic_audit", {"mismatches": [
+            {"code": "magnitude_vs_signed_label", "explanation": "x"},
+        ]}, study_id="old-run-study-0")
+        ledger.append("semantic_audit", {"mismatches": [
+            {"code": "magnitude_vs_signed_label", "explanation": "重复"},
+            {"code": "window_shorter_than_claim", "explanation": "y"},
+        ]}, study_id="old-run-study-1")
+        assert replay_learned_mismatches(ledger) == (
+            "magnitude_vs_signed_label", "window_shorter_than_claim")
