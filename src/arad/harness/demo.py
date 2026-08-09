@@ -1297,7 +1297,19 @@ def run_service_demo(
             tests_at = {c["study_id"]: c["tests_so_far"]
                         for chain in proj.lineage for c in chain["curves"]["abs_t"]}
             by_study = {st["study_id"]: st for st in proj.studies}
+            # B8：束按**族**过滤。投影包含账本里全部 Study，不筛会把旧族的
+            # 高分老面孔捞进新族的束（实测 run23 的束全是旧族成员，收尾封存
+            # 把封条烧在旧族特征上）。族归属以该 Study 的 evaluation_result
+            # 载荷为准 —— 评价请求携带 family，证据即索引。
+            def _family_of(study_id: str) -> str | None:
+                for e in ledger.read_events(role=LedgerRole.HUMAN, study_id=study_id):
+                    if e["event_type"] == "evaluation_result":
+                        return e["payload"].get("family")
+                return None
+
             for study_id, study in by_study.items():
+                if _family_of(study_id) != fam:
+                    continue
                 spec_id = next(
                     (e["payload"]["feature_id"]
                      for e in ledger.read_events(role=LedgerRole.HUMAN, study_id=study_id)

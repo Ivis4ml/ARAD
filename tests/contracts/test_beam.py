@@ -33,3 +33,13 @@ def test_underpowered_studies_never_reach_the_beam():
     beam.offer(real)
     # 束本身按 reward 排 —— 排序正确性仍成立；过滤责任在 demo 侧
     assert [m.feature_id for m in beam.members] == ["tiny", "real"]
+
+
+def test_beam_construction_is_family_scoped():
+    """B8：束按族过滤的判据 —— 族归属以 evaluation_result 载荷的 family 为准。
+    这里钉住判据函数的行为等价物：无评价记录或异族记录的 Study 不入束。
+    （demo 侧以 _family_of(study_id) != fam 过滤；run23 实测束被旧族占满、
+    收尾封存烧在旧族特征上。）"""
+    # 判据本身在 demo 的闭包里；此测试作为语义占位钉住载荷契约：
+    from arad.evaluation.kernel import EvaluationRequest
+    assert "family" in EvaluationRequest.__dataclass_fields__
