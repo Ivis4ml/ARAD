@@ -643,3 +643,39 @@ def test_learned_mismatches_survive_across_runs():
         ]}, study_id="old-run-study-1")
         assert replay_learned_mismatches(ledger) == (
             "magnitude_vs_signed_label", "window_shorter_than_claim")
+
+
+def test_lazy_pm_series_loads_qualified_families_on_demand(tmp_path, monkeypatch):
+    """M12：轮换菜单的前提是「轮到谁就能装载谁」。三个访问入口
+    （[]、get、in）都要触发惰性装载；不合格族即使被引用也不装载。"""
+    import datetime as dt
+
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    from arad.features.interpreter import Source
+    from arad.harness import demo
+    from arad.harness.demo import LazyPMSeries
+
+    times = [dt.datetime(2024, 1, 1, h, tzinfo=dt.UTC) for h in range(5)]
+    table = pa.table({
+        "family_id": ["cand:rot"] * 5 + ["cand:dead"] * 5,
+        "bucket_end": times * 2,
+        "p": [0.4, 0.5, 0.6, 0.5, 0.4] * 2,
+        "notional": [100.0] * 10,
+        "trades": [3.0] * 10,
+    })
+    path = tmp_path / "all.parquet"
+    pq.write_table(table, path)
+    monkeypatch.setattr(demo, "PM_ALL_SERIES_PATH", str(path))
+
+    lazy = LazyPMSeries({}, qualified={"cand:rot"})
+    # get 入口
+    assert lazy.get((Source.PM_MARKET, "cand:rot:p")) is not None
+    # in 入口（族已缓存）
+    assert (Source.PM_MARKET, "cand:rot:notional") in lazy
+    # [] 入口
+    assert lazy[(Source.PM_MARKET, "cand:rot:trades")].values == [3.0] * 5
+    # 不合格族：三个入口都不装载
+    assert lazy.get((Source.PM_MARKET, "cand:dead:p")) is None
+    assert (Source.PM_MARKET, "cand:dead:p") not in lazy

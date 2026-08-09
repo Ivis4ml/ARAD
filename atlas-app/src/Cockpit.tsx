@@ -225,7 +225,7 @@ export function Cockpit() {
               </h4>
               {(state.thinking.chars ?? 0) === 0 ? (
                 <p className="ck-dim small" style={{ margin: '6px 0 2px' }}>
-                  已连接，等待首批增量……（模型先思考再落笔，这一段可能持续几十秒）
+                  已连接。此 CLI 版本在思考阶段不发增量——静默数分钟属正常，正文一开始就会逐秒流出
                 </p>
               ) : (
                 <pre className="ck-stream mono" ref={(el) => { if (el) el.scrollTop = el.scrollHeight }}>
