@@ -1,0 +1,47 @@
+{
+ "source": "/Users/xinyu/Code/AR-Polymarket/AlternativeAR/Alpha-Data/data/polymarket/features/tier_registry.parquet",
+ "source_sha256_16": "d0b9263687bfd566",
+ "provenance": "Alpha-Data 扩展轮 P1 事前映射强度表：判定材料先于期货收益，验证只用外部 ETF 证据（pre-2026 HAC），从未接触期货收益",
+ "themes": {
+  "fed_policy": {
+   "tier": "primary",
+   "theme_axis": "+1 = 宽松（降息）",
+   "pairs": 4
+  },
+  "metal_price": {
+   "tier": "primary",
+   "theme_axis": "+1 = 金银价格上行",
+   "pairs": 4
+  },
+  "mideast_conflict": {
+   "tier": "primary",
+   "theme_axis": "+1 = 冲突升级",
+   "pairs": 6
+  },
+  "oil_price": {
+   "tier": "primary",
+   "theme_axis": "+1 = 油价上行",
+   "pairs": 5
+  },
+  "russia_ukraine": {
+   "tier": "primary",
+   "theme_axis": "+1 = 冲突升级",
+   "pairs": 5
+  },
+  "taiwan_risk": {
+   "tier": "secondary",
+   "theme_axis": "+1 = 台海风险升级",
+   "pairs": 8
+  },
+  "us_china_trade": {
+   "tier": "primary",
+   "theme_axis": "+1 = 贸易紧张升级",
+   "pairs": 9
+  },
+  "us_shutdown": {
+   "tier": "secondary",
+   "theme_axis": "+1 = 政府停摆发生",
+   "pairs": 4
+  }
+ }
+}

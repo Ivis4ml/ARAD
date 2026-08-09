@@ -400,11 +400,90 @@ def _load_sc(target_path: str, segment: str = SEGMENT) -> tuple[list[dict], dict
 
     pm = _load_pm_series(PM_SERIES_PATH)
     series.update(pm["series"])
+    qualified = _qualified_families()
+    if qualified:
+        # M12：合格族按需装载。预装的 30 族仍然即时可用；
+        # 菜单轮换到的其他合格族在首次被规格引用时装载。
+        series = LazyPMSeries(series, qualified)
     visible["pm_families"] = pm["families"]
     visible["pm_note"] = pm["note"]
     return rows, {"series": series, "labels": labels,
                   "labels_by_target": labels_by_target,
                   "periods_per_year": visible["sessions_per_year"]}, visible
+
+
+PM_ALL_SERIES_PATH = "data/pm_series/family_hourly_all.parquet"
+PM_QUALIFICATION_PATH = "artifacts/manifests/pm_family_qualification.json"
+PM_PRIORS_PATH = "artifacts/manifests/pm_theme_priors.json"
+
+
+class LazyPMSeries(dict):
+    """(Source, field) → BarSeries 的惰性映射（M12）。
+
+    菜单轮换后模型可能引用任何合格族；一次性装载 1,998 族约六百万行的
+    纯 Python 列表要数 GB 内存。改为按需：首次访问某族的字段时，从全量
+    parquet 过滤读入该族三个字段并缓存。不合格的族即使被引用也不装载 ——
+    资格筛是可用性合同的一部分。dict 的三个入口（[]、get、in）都要覆写：
+    解释器两种访问方式都在用。
+    """
+
+    def __init__(self, base: dict, qualified: set[str]):
+        super().__init__(base)
+        self._qualified = qualified
+        self._attempted: set[str] = set()
+
+    def _try_load(self, key) -> None:
+        source, field = key if isinstance(key, tuple) and len(key) == 2 else (None, "")
+        if source != Source.PM_MARKET or ":" not in (field or ""):
+            return
+        family = field.rsplit(":", 1)[0]
+        if family in self._attempted or family not in self._qualified:
+            return
+        self._attempted.add(family)
+        if not os.path.exists(PM_ALL_SERIES_PATH):
+            return
+        table = pq.read_table(
+            PM_ALL_SERIES_PATH,
+            columns=["family_id", "bucket_end", "p", "notional", "trades"],
+            filters=[("family_id", "=", family)],
+        )
+        rows = sorted(table.to_pylist(), key=lambda r: r["bucket_end"])
+        if not rows:
+            return
+        start = rows[0]["bucket_end"]
+        for f in ("p", "notional", "trades"):
+            keep = [(r["bucket_end"], float(r[f])) for r in rows if r[f] is not None]
+            if len(keep) < 2:
+                continue
+            dict.__setitem__(self, (Source.PM_MARKET, f"{family}:{f}"), BarSeries(
+                field=f"{family}:{f}", times=[k[0] for k in keep],
+                values=[k[1] for k in keep], coverage_start=start,
+            ))
+
+    def __missing__(self, key):
+        self._try_load(key)
+        if dict.__contains__(self, key):
+            return dict.__getitem__(self, key)
+        raise KeyError(key)
+
+    def get(self, key, default=None):
+        if not dict.__contains__(self, key):
+            self._try_load(key)
+        return dict.get(self, key, default)
+
+    def __contains__(self, key) -> bool:
+        if dict.__contains__(self, key):
+            return True
+        self._try_load(key)
+        return dict.__contains__(self, key)
+
+
+def _qualified_families() -> set[str]:
+    try:
+        doc = json.loads(Path(PM_QUALIFICATION_PATH).read_text(encoding="utf-8"))
+    except OSError:
+        return set()
+    return set(doc.get("qualified", []))
 
 
 def _load_pm_series(path: str) -> dict:
@@ -675,9 +754,34 @@ def _build_evaluation(sc: dict, rows: list[dict], visible: dict,
 
 def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dict,
                direction: str | None = None):
-    menu = _menu(manifest_dir, visible)
+    legacy_menu = _menu(manifest_dir, visible)
+    # M12：分层轮换菜单。资格与先验清单存在时按轮组装；否则退回旧菜单。
+    try:
+        qualification = json.loads(
+            Path(PM_QUALIFICATION_PATH).read_text(encoding="utf-8"))
+        priors = json.loads(
+            Path(PM_PRIORS_PATH).read_text(encoding="utf-8")).get("themes", {})
+        cand = json.loads(
+            (Path(manifest_dir) / "pm_candidate_families.json").read_text(
+                encoding="utf-8"))
+        tokens_meta = {f["family_id"]: f for f in cand.get("families", [])}
+    except OSError:
+        qualification, priors, tokens_meta = None, {}, {}
+
+    def menu_for(task: dict) -> list[dict]:
+        if not qualification:
+            return legacy_menu
+        try:
+            round_index = int(str(task.get("task_id", "0")).rsplit("-", 1)[-1])
+        except ValueError:
+            round_index = 0
+        from .pm_menu import build_menu
+
+        return build_menu(round_index=round_index, qualification=qualification,
+                          priors=priors, tokens_meta=tokens_meta)
 
     def assemble(task: dict):
+        menu = menu_for(task)
         return assemble_proposer_context(
             ledger=ledger,
             family=FAMILY,
@@ -688,8 +792,7 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dic
                 "available_series": {
                     "commodity_bar": ["realised_volatility", "log_return"],
                     "pm_market": sorted(
-                        f"{f['family_id']}:{k}" for f in visible.get("pm_families", [])
-                        for k in ("p", "notional", "trades")
+                        field for f in menu for field in f.get("fields", [])
                     ),
                     "note": (
                         "解释器当前只提供这些序列；引用其他 field 会判 blocked。"
