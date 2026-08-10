@@ -11,3 +11,6 @@ run.log
 .DS_Store
 atlas-app/node_modules/
 atlas-app/dist/
+
+# GitHub 100MB 硬限：原始文件仅保留在本地，仓库存 gzip 副本
+runs/run24/events.jsonl
