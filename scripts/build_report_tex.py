@@ -229,6 +229,107 @@ Polymarket 预测市场 $\times$ 中国商品期货（以 SC 原油为主）上�
 \end{abstract}
 \tableofcontents
 
+\section{给零背景读者：这份报告在讲什么}\label{sec:primer}
+本节假设读者从未听说过本项目、也不熟悉量化因子研究。读完本节即可读懂全文。
+
+\subsection{被研究的两样东西}
+\textbf{Polymarket} 是一个公开的预测市场：人们用真金白银买卖「某件事会不会发生」的
+合约，例如「以色列与哈马斯是否在某日前停火」。一份合约的价格若是 0.30，
+粗略地说市场认为该事件有 30\% 的概率发生。价格随消息实时变动，
+因此它是一条关于世界局势的、连续的、带钱背书的观点序列。
+
+\textbf{中国商品期货}是在上海、大连、郑州等交易所交易的标准化合约，
+标的是原油、铜、豆粕、玻璃等实物商品。本文最常出现的 \path{sc} 是
+上海国际能源交易中心的原油期货。它们有固定的交易时段（日盘与夜盘），
+收盘后停市，而 Polymarket 二十四小时连续交易。
+
+\subsection{本项目要回答的问题}
+一句话：\textbf{预测市场里的信息，能不能提前告诉我们中国商品期货接下来会怎么动？}
+
+这个猜想不荒唐。中东冲突的概率变化直接关系原油供给；而中国盘面夜间停市时，
+Polymarket 仍在交易 —— 停市期间到达的信息，理论上要等次日开盘才被本地价格吸收。
+若这条通路真实存在，它应表现为：某个由预测市场数据算出的数字（下称\textbf{信号}），
+与之后一段时间里期货的波动或涨跌，存在稳定的统计关系。
+
+\subsection{为什么这件事需要一套系统，而不是一个人试几次}
+可以从预测市场数据里造出的信号\textbf{数量上没有上限}：换事件族、换时间窗、
+换聚合方式、换归一化方法，组合是无穷的。而只要试得够多，
+\textbf{纯粹的巧合必然会产出看起来很显著的结果} —— 这不是手艺问题，是概率的必然。
+
+本项目的前身留下过一个刺眼的实测（图~\ref{fig:hillclimb}）：某次自动搜索迭代 81 次，
+挑出的最好成绩是年化 Sharpe 2.40；而把\textbf{同一套搜索过程}放在纯随机数据上，
+它的期望最好成绩是 2.63。搜索赢了自己的历史最好，却输给了噪声。
+
+因此本项目造的不是「一个能找因子的程序」，而是
+\textbf{一套让「找到了」这件事变得可信的记账制度}。
+研究本身由大语言模型执行（它提出假设、写下构造），
+但可信性不托付给模型，而由框架用不可绕过的规则保证。
+
+\subsection{一轮研究是怎么走的}
+\begin{enumerate}\itemsep2pt
+\item 框架向模型提供一份\textbf{屏蔽了全部结果信息}的材料：有哪些数据、
+  有哪些可用的运算、以前试过哪些构造、再试一次的「代价」是多少。
+  模型看不到任何历史成绩。
+\item 模型提出一个假设：经济机制是什么、用什么数据、预测什么、
+  \textbf{以及什么样的结果会判定它错}（这一条必须事先写下）。
+\item 框架把提案\textbf{冻结}并写入账本（只能追加、带哈希链的数据库）。
+  冻结之后任何改动都是新的一次提案，改不了旧的。
+\item 一位「语义审计员」检查提案里的文字与实际构造是否说的是同一件事。
+  \textbf{对不上就在读取答案之前拦下} —— 被拦下的提案不消耗检验预算。
+\item 评价机是全流程中\textbf{唯一能看到真实答案}的组件。它算出统计量、
+  逐项检查预先声明的关卡，并给出判决。
+\item 判决入账，搜索的「价格」随之上升（见下）。
+\end{enumerate}
+
+\subsection{读懂全文所需的十二个词}
+\begin{center}\footnotesize
+\begin{tabular}{@{}l p{0.72\textwidth}@{}}\toprule
+术语 & 含义 \\ \midrule
+Study & 一次完整的研究：从提出假设到得出判决。本文共 {N_STUDIES} 个。 \\
+族（family） & 按上下文两义：（一）\textbf{事件族}，Polymarket 上语义相近的一批
+  市场合成的一条序列，如 \path{cand:iran}；（二）\textbf{问题族}，共享同一本
+  「搜索代价账」的一批研究，见「地板」。 \\
+target & 要预测的东西。本文主要两个：下一交易时段的\textbf{已实现波动}
+  （价格摆动的剧烈程度）与\textbf{对数收益}（涨跌幅）。 \\
+universe & 在哪些品种上做这次检验：单个品种，或 36 个品种的面板。 \\
+决策时点 & 做出预测的那一刻（某交易时段开盘前一分钟）。此刻之后的任何信息
+  都不允许进入信号 —— 这条纪律叫 PIT（point-in-time）。 \\
+信号 & 由数据算出的一个数，用来预测 target。也叫特征、因子。 \\
+Baseline Control & 已知的、不新鲜的解释变量（如「今天波动大，明天多半也大」）。
+  另类数据的主张必须是\textbf{在它之上的增量}。 \\
+残差化 & 把 Baseline Control 从信号里减掉：先用过去数据拟合「信号与基线的关系」，
+  再看当前信号\textbf{超出}这条关系多少。 \\
+两个分母 & \textbf{提案分母}数「提了多少想法」，\textbf{统计分母}只数
+  「真正看过答案多少次」。后者只增不减，由数据库触发器保证。 \\
+地板 & 搜索的价格。看过 $n$ 次答案后，即使全是噪声，最好的那次也会达到某个高度；
+  该高度即地板，随 $n$ 上升。一个结果要算数，必须\textbf{越过它被检验时的地板}。 \\
+置换检验 & 把答案打乱后重做一遍，看多少次「假数据」能做得和真数据一样好。
+  假数据赢得多，说明真数据没本事。 \\
+封存段 & 一段被封存、从未参与筛选的历史数据。每个构造\textbf{终身只能开封一次}，
+  由账本强制。这是终审。 \\
+\bottomrule\end{tabular}\end{center}
+
+\subsection{四种判决的意思}
+\begin{center}\footnotesize
+\begin{tabular}{@{}l p{0.74\textwidth}@{}}\toprule
+判决 & 意思 \\ \midrule
+\textbf{candidate} & 通过全部关卡，值得进一步验证。\textbf{本文至今为零}。 \\
+\textbf{null} & 有把握的否定：不仅「没看出关系」，而且置换检验表明打乱的假数据
+  也做得一样好。这是本项目的主要产出。 \\
+\textbf{blocked} & 某个前置条件不满足（例如样本结构不足以做某项检验），
+  本次检验不足以支持任何肯定结论。 \\
+\textbf{underpowered} & 样本太小，本来就看不出东西，与结果无关。 \\
+\bottomrule\end{tabular}\end{center}
+
+\subsection{这份报告怎么读}
+第~\ref{sec:worked} 节把一个具体的数从原始数据一路算到最终统计量 ——
+\textbf{只想知道「指标到底怎么定义」的读者，读那一节即可}。
+第~\ref{sec:math} 节是全部公式的精确定义与实现出处；第~\ref{sec:results} 节是结果；
+第~\ref{sec:limits} 节列出本次核对中发现的、测量装置自身的十二处缺陷；
+第~\ref{sec:conclusions} 节是逐条附带证否条件的结论。
+全部数字由脚本从同一次账本快照生成，叙述由人撰写且不含数字，
+因此正文与表格不会互相矛盾。
+
 \paragraph{符号约定}$n$ 为本族已读取 outcome 的次数（统计分母）；$t=\hat\beta/\mathrm{SE}$
 为一元回归斜率对双向 cluster 标准误之比；IC$_\rho$ 为预测与标签的 Spearman 秩相关；
 $E_\tau(n)$ 为 $n$ 次搜索在零假设下的期望最大统计量（\S\ref{sec:selection}）；
@@ -305,13 +406,28 @@ SC 每交易日两个时段（夜盘、日盘），discovery 段共 1{,}040 个�
 成交笔数 trades 三个字段。族定义由归纳产生，归纳语料的时间切点被记为
 taxonomy\_freeze\_at 并进入前向门（\S1 第六段）。
 
+\paragraph{字段字典（可被特征引用的全部序列）。}
+\begin{center}\footnotesize
+\begin{tabular}{@{}l l p{0.52\textwidth}@{}}\toprule
+源 & 字段 & 含义与单位 \\ \midrule
+pm\_market & \path{<族>:p} & 该族的名义额加权归一化概率，小时分桶，无量纲 $\in[0,1]$ \\
+pm\_market & \path{<族>:notional} & 该桶内成交名义额，USDC \\
+pm\_market & \path{<族>:trades} & 该桶内成交笔数，计数 \\
+commodity\_bar & \path{realised_volatility} & 该品种上一时段已实现波动的\textbf{对数}，
+  可用时刻为该时段 label\_end（波动只有窗口结束后才可知） \\
+commodity\_bar & \path{log_return} & 该品种上一时段的对数收益 \\
+intl & \path{brent} & 布伦特原油日频价格（外生控制） \\
+\bottomrule\end{tabular}\end{center}
+引用其他字段判 blocked：菜单必须反映真实可用的东西，否则「自主选择」
+变成在一张有空头支票的表上选。
+
 \paragraph{目标。}三类，逐品种命名，声明即被评（M8.2 硬校验）：
 \path{rv_next_session}（下一时段已实现波动，主目标 —— 波动可预测性是另类数据最可能
 先出现的地方）、\path{ret_next_session}（入场到收盘对数收益，唯一可交易主张）、
 \path{open_gap_absorption}（诊断用）。universe 由模型自选：36 品种面板或任一单品种
 主力视图。
 
-\section{方法与数学定义}
+\section{方法与数学定义}\label{sec:math}
 \paragraph{一轮的流水线。}一条 Study 固定走十一步，缺步本身是信息：
 （1）组装盲化上下文 $\to$（2）冻结提案（机制、target、universe、方向、证否条件）
 $\to$（3）冻结假设 $\to$（4）冻结检验规格 $\to$（5）建立 Study $\to$
@@ -430,10 +546,112 @@ registry，验证只用外部 ETF 证据，以声明先验标注、不过滤）�
 $|t_{\text{封存}}|/|t_{\text{发现}}|$ 对阈值 0.35 —— 该阈值与 min\_rows=120
 均为写死常量，\textbf{无文档推导}；且分子分母是 $t$ 值而非效应量（\S\ref{sec:hero}）。
 
-\section{十六次运行编年}
+\section{一条特征的完整算术：从原始数据到 $t$ 值}\label{sec:worked}
+前一节给出的是定义。本节把\textbf{一个具体的数}算给读者看：取 run16-study-3
+（回溯投影下唯一的完整候选形态，\S\ref{sec:retro}），在一个真实决策时点上把
+信号侧、标签侧、回归侧三层算术逐位展开。全部数值取自账本与 spine，
+并与解释器的记忆表逐位核对一致。
+
+\subsection{特征名怎么读}
+\path{pm_iran_outstanding_resolution_mass_resid_own_rv_12h_90d} 由提案器自行命名，
+是\textbf{约定而非合同}（真正的身份是冻结规格的内容哈希）。按约定它读作：
+\path{pm}（源为 pm\_market）· \path{iran}（族 cand:iran）·
+\path{outstanding_resolution_mass}（机制：仍未解决的概率质量）·
+\path{resid_own_rv}（对品种自身已实现波动残差化）· \path{12h}（主窗口 43{,}200 秒）·
+\path{90d}（残差化回看窗 7{,}776{,}000 秒）。
+
+\subsection{冻结规格（七步 DAG）}
+\begin{center}\footnotesize
+\begin{tabular}{@{}rlll@{}}\toprule
+\# & 步骤名 & 原语 & 参数／输入 \\ \midrule
+1 & \path{iran_p_mean_12h} & window & \path{cand:iran:p}，op=mean，$W$=43200s \\
+2 & \path{iran_p_mean_12h_ref} & window & 同上（作为下一步的分母占位） \\
+3 & \path{unity} & ratio & 步 1 ÷ 步 2 $\;\equiv 1$ \\
+4 & \path{iran_p_complement_12h} & difference & \path{unity} $-$ 步 1 $\;=1-\bar p$ \\
+5 & \path{inv_complement_12h} & ratio & \path{unity} ÷ 步 4 $\;=1/(1-\bar p)$ \\
+6 & \path{iran_resolution_mass_12h} & ratio & 步 1 ÷ 步 5 $\;=\bar p\,(1-\bar p)$ \\
+7 & \path{iran_resolution_mass_resid} & residualise & 步 6，控制 own\_realised\_volatility \\
+\bottomrule\end{tabular}\end{center}
+第 2 至 5 步是\textbf{用现有原语表达 $\bar p(1-\bar p)$ 的绕行}：语言里没有「乘法」，
+模型用 $\bar p \div \frac{1}{1-\bar p}$ 达成同一结果。这正是「窄语言 + 缺口声明」
+的设计意图 —— 它让每一次表达都留下可读的痕迹。
+
+\subsection{第一层：信号侧（决策时点 2024-01-26 08:59:00+08:00，合约 sc2403 日盘）}
+\paragraph{原始输入。}Polymarket 侧的 \path{cand:iran:p} 是该族的\textbf{名义额加权
+归一化概率}，按小时分桶。窗口 $[\,$01-25 20:59, 01-26 08:59$)$ 内落入三个桶
+（右端点排他，恰在 08:59 完成的桶不参与）：
+\[ 0.04,\quad 0.05,\quad 0.21948 \;\Longrightarrow\; \bar p=0.10316009. \]
+\paragraph{逐步取值。}
+\begin{center}\footnotesize
+\begin{tabular}{@{}llr@{}}\toprule
+步骤 & 算式 & 取值 \\ \midrule
+\path{iran_p_mean_12h} & 三桶均值 & 0.10316009 \\
+\path{unity} & $0.10316009 \div 0.10316009$ & 1.0 \\
+\path{iran_p_complement_12h} & $1-0.10316009$ & 0.89683991 \\
+\path{inv_complement_12h} & $1 \div 0.89683991$ & 1.11502621 \\
+\path{iran_resolution_mass_12h} & $0.10316009 \div 1.11502621$ & 0.09251809 \\
+\bottomrule\end{tabular}\end{center}
+第五行即 $\bar p(1-\bar p)$：验算 $0.10316009\times0.89683991=0.09251809$。
+
+\paragraph{残差化（第七步）。}回看窗 90 天、采样间隔 1 天，期望 90 个过去时点，
+其中 85 个的特征值与控制值\textbf{同时}有定义，成对入样（$\ge$ min\_samples $=40$）。
+当前点\textbf{不入样}。在这 85 对上作一元 OLS：
+\[ \bar c=-4.33457234,\quad \bar x=0.12809524,\quad
+   \hat\beta=\frac{\sum(c_k-\bar c)(x_k-\bar x)}{\sum(c_k-\bar c)^2}=0.089024,\quad
+   \hat\alpha=\bar x-\hat\beta\bar c=0.51397767. \]
+（控制变量是 SC 自身已实现波动的对数，故 $\bar c$ 为负。）当前时点的控制值
+$c=-4.72389357$，于是
+\[ \text{预测}=\hat\alpha+\hat\beta c=0.09343618,\qquad
+   \boxed{\;\text{信号}=0.09251809-0.09343618=-0.00091809\;} \]
+这个数与解释器记忆表中的 \path{-0.000918090964138904} 逐位一致。它是
+\textbf{样本外预测残差}：当前观测减去用纯过去数据拟合的直线在当前控制值处的预测。
+
+\subsection{第二层：标签侧（同一行）}
+标签是 \path{sc_rv_next_session}：决策时点之后那个交易时段的已实现波动。
+该行的 label 窗口是 2024-01-26 的日盘 09:00–15:00，含三个交易段
+（09:00–10:15、10:30–11:30、13:30–15:00）。已实现波动定义为
+\[ \mathrm{RV}=\sqrt{\textstyle\sum_i r_i^2},\qquad
+   r_i=\ln\frac{C_{i+1}}{C_i}\;\text{（相邻分钟 bar 收盘价，\textbf{跨段不产生收益}）}. \]
+按段分组后得 $74+59+89=222$ 个对数收益，
+$\sum r_i^2=3.717261\times10^{-5}$，$\mathrm{RV}=0.006096934357$ —— 与账本标签值逐位一致。
+
+\paragraph{「跨段不产生收益」不是形式主义。}核对时若把日盘三段并作一段，
+会多出两个跨越午休与上午休市的「收益」，$\mathrm{RV}$ 变成 $0.006538$
+（偏高 7.2\%）—— 那两个数字度量的是休市期间的价格跳变，不是交易中的波动。
+
+\subsection{第三层：从 14{,}923 行到 $t=4.39$}
+同样的两层算术在 36 个品种 $\times$ 全部决策时点上重复，得到评价表：
+\begin{center}\footnotesize
+\begin{tabular}{@{}lr l@{}}\toprule
+量 & 值 & 含义 \\ \midrule
+候选行 & 37{,}245 & 面板上全部（品种，时段）对 \\
+预注册排除 & 22{,}322 & 特征在该时点无定义（窗口内无数据／控制不可识别） \\
+入回归 & \textbf{14{,}923} & \\
+episode 数 & 8{,}290 & Kish $n_{\mathrm{eff}}=7{,}900.1$ \\
+交易日 cluster & 233 & Kish $n_{\mathrm{eff}}=222.3$ \\
+品种 cluster & 36 & Kish $n_{\mathrm{eff}}=35.7$（面板不退化） \\ \midrule
+$\hat\beta$ & 0.00412963 & 信号每增 1 单位，下一时段 RV 增 0.00413 \\
+$V=V_a+V_b-V_{ab}$ & $8.8388\times10^{-7}$ & 双向 cluster 方差（233 日 $\times$ 36 品种） \\
+$\mathrm{SE}=\sqrt V$ & 0.00094015 & \\
+$t=\hat\beta/\mathrm{SE}$ & \textbf{4.392535} & \\
+$\mathrm{MDE}=2.8\,\mathrm{SE}$ & 0.00263241 & 否定时的排除界 \\
+IC$_\rho$ & 0.08531 & 时序秩相关（不入闸门） \\
+DFBETAS & 0.04836 & 最大单点影响，闸门 1.0 \\
+最大杠杆 $h_i$ & 0.00070 & \\
+置换 exceed & 0/200 & 闸门 0.1 \\
+\bottomrule\end{tabular}\end{center}
+
+\paragraph{$t$ 大不等于经济上大。}$\hat\beta$ 的单位是「每单位信号对应的 RV 变化」，
+而信号本身的量纲由构造决定。该信号在 SC 网格上的标准差为 $0.0704$，因此
+\emph{一个标准差}的信号变化对应 RV 变化 $0.004130\times0.0704=0.000291$，
+而 SC 的典型（中位）RV 为 $0.008516$ —— 即约 \textbf{3.4\%} 的典型波动。
+这就是为什么 $t$、IC 与经济幅度必须并列报告：$t=4.39$ 说的是「这个斜率不像是零」，
+不是「这个效应很大」。而在封存段上，这个斜率连「不像是零」也没保住。
+
+\section{二十四次运行编年}
 """ + chronicle(D, figs) + r"""
 
-\section{结果}
+\section{结果}\label{sec:results}
 \subsection{假象家族：重新发现了波动率聚集}
 统计量最大的构造（$|t|$ 至 """ + f"{abs(top[0]['t']):.2f}" + r"""）分母为已实现波动、
 目标亦为已实现波动。PIT 无误、置换通过 —— 关系是真的，但它是 Baseline Control，
@@ -555,7 +773,7 @@ run11-study-3（发生率水平，$t$ 保持率 17.6\%）、run16-study-3（未�
 """ + sealed_rows + r"""
 \bottomrule\end{longtable}
 
-\section{测量装置本身的局限}
+\section{测量装置本身的局限}\label{sec:limits}
 为写第 3 节，对全部参与判决的统计量做了一次逐行提取核对。下列不一致由本次核对发现，
 记入 \path{docs/BLOCKERS.md}，按项目规矩只记录不修：置换兜底把度量失败记成支持
 null（null 偏多）；置换块结构使零分布边缘与样本不同（方向不定）；置换阈值 0.1 较常用
@@ -654,6 +872,7 @@ candidate。}\emph{证否：修正后重跑，判决分布改变。}
 """)
     ne = D.get("event_denominators", {}).get("statistical_denominator", 0)
     ef = D.get("event_floor")
+    tex = tex.replace("{N_STUDIES}", str(len(D["studies"])))
     tex = tex.replace("{EVENT_N}", str(ne))
     tex = tex.replace("{EVENT_FLOOR}", f"{ef:.3f}" if ef else "—")
     return tex
