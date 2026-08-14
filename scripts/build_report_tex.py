@@ -322,6 +322,8 @@ Baseline Control & 已知的、不新鲜的解释变量（如「今天波动大�
 \bottomrule\end{tabular}\end{center}
 
 \subsection{这份报告怎么读}
+赶时间的读者：第~\ref{sec:insights} 节是八句话的核心要点（各带数据），
+第~\ref{sec:conclusions} 节是逐条附证否条件的结论。
 第~\ref{sec:worked} 节把一个具体的数从原始数据一路算到最终统计量 ——
 \textbf{只想知道「指标到底怎么定义」的读者，读那一节即可}。
 第~\ref{sec:math} 节是全部公式的精确定义与实现出处；第~\ref{sec:results} 节是结果；
@@ -336,52 +338,52 @@ $E_\tau(n)$ 为 $n$ 次搜索在零假设下的期望最大统计量（\S\ref{se
 $\bar p$ 为 Polymarket 某事件族的归一化概率均值；「决策时点」指某品种某交易时段
 开始前一分钟，系统在该时刻冻结全部可见信息并作出预测。
 
-\section{动机：每条约束防的是哪一种自欺}
-系统的每个机制对应一种具体的、已经发生过的失败。本节每段先摆失败，再给约束。
+\section{核心要点：八句话与它们背后的数据}\label{sec:insights}
+赶时间的读者读本节与第~\ref{sec:conclusions} 节即可。每条要点先用一句白话概括，
+再给出支撑它的数据与出处。
 
-\paragraph{一条上升的曲线本身不是证据。}选择在纯噪声上必然产出上升的 running-best
-曲线。图~\ref{fig:hillclimb} 是本项目的前身（Alpha-Data 时代）留下的实测：81 次
-爬山选出的最好年化 Sharpe 为 2.40，把\textbf{同一套搜索过程}放在纯噪声上，其期望
-最大值在第 46 次就超过了这个成绩，到第 81 次为 2.63 —— 曲线一直在涨，成绩却
-比噪声还差。这个教训是整个 ARAD 设计的起点：本系统给每条曲线配一条随检验次数抬升
-的零假设带（\S\ref{sec:selection}），且地板对已有与将来的全部结论同时生效。
-\begin{figure}[htbp]\centering
-\includegraphics[width=0.9\textwidth]{figures/hillclimb_baseline.png}
-\caption{旧系统爬山基线：红线为零假设期望（用与本文判决同一套公式计算，
-参数为该搜索自身的试验间离散度），蓝虚线为 81 次爬山的实测最好。三个输入数字
-均有合同测试钉定。}\label{fig:hillclimb}
-\end{figure}
+\paragraph{一、不设防的搜索必然「发现」噪声。}
+本项目前身迭代 81 次选出年化 Sharpe 2.40，而同一搜索在纯噪声上的期望是 2.63
+（图~\ref{fig:hillclimb}）；本项目自身不加控制时也立即产出 $|t|={TOP_T}$ 的
+「发现」。这不是操作失误，是最大值统计量的必然 —— 所以每条结论都必须对照
+「看了多少次答案」计价。
 
-与之成对的是本系统自己的搜索全貌（图~\ref{fig:searchcurve}）：同一条地板公式
-随统计分母抬升；量价假象在第 20 至 26 次检验间越顶（截顶为 $\blacktriangle$，
-按决定 0002 归 Baseline Control）；残差化的 Polymarket 构造几乎全部诚实地
-落在地板之下 —— 唯一的例外在第 61 次检验，见 \S\ref{sec:retro}。
-\begin{figure}[htbp]\centering
-\includegraphics[width=0.94\textwidth]{figures/arad_search_curve.png}
-\caption{ARAD 的搜索全貌：逐次检验的 $|t|$ 对同步抬升的零假设地板。
-每点一条已评价的 Study，按「量价 ／ 未残差化 PM ／ 残差化 PM」着色；
-圈出者为 run16-study-3。}\label{fig:searchcurve}
-\end{figure}
+\paragraph{二、减掉已知的东西之后，新东西大多消失了。}
+$|t|={TOP_T}$ 的构造，其分母与预测目标同为已实现波动 —— 它重新发现的是
+「今天波动大、明天多半也大」这条教科书事实。对它做残差化后秩相关缩小约 74 倍
+（\S\ref{sec:results}）。残差化普及后，Polymarket 构造的绝大多数统计量落回
+噪声区间。
 
-\paragraph{分母会被悄悄做小。}「试过多少次」若由报告者自己数必然缩水。统计分母
-入库且只增不减（\path{statistical_denominator} 表挂 DELETE/UPDATE 触发器，一律
-\path{RAISE(ABORT)}）；提案分母与统计分母分账，被预检拦下的提案不抬高零假设带。
+\paragraph{三、四个走到最后的候选，全部死在终审。}
+四个通过发现段全部关卡的构造，在只能开封一次的封存段上 $t$ 保持率分别为
+17.6\%、18.7\%、51\%（但其发现段仅 10 行样本，证据无效）与 12.7\% ——
+全部低于 35\% 的预注册保持线（\S\ref{sec:retro}）。共同判词：发现段的强度来自
+2024 年伊朗事件簇的样本构成，不是跨时期稳定的关系。
 
-\paragraph{提案者一旦看见效应就不再是提案者。}提案器可见字段由账本按事件类型
-白名单列举。此约束曾被自己违反并被对抗性审查抓出（决定 0006）：判决计数曾被定价为
-「只泄漏存在性」，而该定价的隐含前提是计数指向匿名总体；第 0 层记忆交出具名规格清单后
-匿名被取消，三者可做减法，判决计数遂被移出提案器上下文。
+\paragraph{四、换一种问法，答案没变。}
+「概率大幅移动之后的窗口是否可预测」（事件条件形态，独立记账）：两轮四十回合、
+十一个互异事件源、{EVENT_N} 次检验，最好 $|t|=1.87$，未越过本族地板
+{EVENT_FLOOR}（\S\ref{sec:results}）。
 
-\paragraph{问错的问题不该消耗预算。}语义审计在读 outcome 之前运行，被拦下的 Study
-不进统计分母。判据必须结构化：按散文子串匹配曾把「改用波动率归一的有符号收益」这一
-正确回应连续误拦，判据因此改为沿特征 DAG 判断。
+\paragraph{五、$t$ 大不等于效应大。}
+最强的残差化构造 $t=4.39$，但换算成经济量纲：一个标准差的信号变化只对应
+典型波动的 3.4\%（\S\ref{sec:worked} 末段）。统计显著回答「斜率像不像零」，
+不回答「值不值得交易」。
 
-\paragraph{否定结论必须有处安放。}判决曾由「blocked 与否」二分导出，\path{Verdict.NULL}
-在全仓无产出路径。决定 0005 改由失效集合推出（\S\ref{sec:verdict}），null 成为一等产出。
+\paragraph{六、搜索是有价格的，而且价格必须公开。}
+旧问题族看了 {N_OLD} 次答案，地板升至 {FLOOR_OLD}：今天任何新构造要算数，
+必须比早期强约四分之一。地板对已有与将来的全部结论同时生效 ——
+「多试几次」从来不是免费的（\S\ref{sec:selection}）。
 
-\paragraph{分类法本身可能是后见之明。}Polymarket 族定义由归纳产生，归纳语料的切点
-进入前向门的 $\max$ 项（决定 0004）。当前语料切点覆盖全部三段，故全部 Polymarket
-结论的 taxonomy\_clean 为否，主张被结构性封顶 —— 这是如实标注，不是缺陷。
+\paragraph{七、否定是产出，不是失败。}
+全部 {N_STUDIES} 个 Study 中 {N_NULL} 条是带排除界的可信否定：每条都预注册了证否条件、
+通过了语义审计、并被置换检验确认「打乱的假数据做得一样好」。对「Polymarket
+能否预测中国商品期货」这个问题，这批否定就是当前最可信的答案（\S\ref{sec:conclusions}）。
+
+\paragraph{八、方法的可信度来自它被事故打磨过。}
+本文方法的几乎每条规则都由一次真实事故催生（\S\ref{sec:evolution} 的对应表）；
+测量装置自身的十二处缺陷也一并公开（\S\ref{sec:limits}），并逐条说明影响方向 ——
+没有一处能把否定翻成肯定。
 
 \section{数据}
 \begin{table}[htbp]\centering\footnotesize
@@ -427,17 +429,68 @@ intl & \path{brent} & 布伦特原油日频价格（外生控制） \\
 \path{open_gap_absorption}（诊断用）。universe 由模型自选：36 品种面板或任一单品种
 主力视图。
 
-\section{方法与数学定义}\label{sec:math}
-\paragraph{一轮的流水线。}一条 Study 固定走十一步，缺步本身是信息：
+\section{方法}\label{sec:math}
+本节集中全部方法：设计原则（每条规则防什么）、一轮的流水线、全部统计量的精确定义
+（含实现与教科书不一致处）、以及三项后加的机制（事前筛、事件条件形态、菜单三层设计）。
+方法在项目进行中经历过多次迭代，迭代本身见 \S\ref{sec:evolution}。
+
+\subsection{设计原则：每条约束防的是哪一种自欺}
+系统的每个机制对应一种具体的、已经发生过的失败。本小节每段先摆失败，再给约束。
+
+\paragraph{一条上升的曲线本身不是证据。}选择在纯噪声上必然产出上升的 running-best
+曲线。图~\ref{fig:hillclimb} 是本项目的前身（Alpha-Data 时代）留下的实测：81 次
+爬山选出的最好年化 Sharpe 为 2.40，把\textbf{同一套搜索过程}放在纯噪声上，其期望
+最大值在第 46 次就超过了这个成绩，到第 81 次为 2.63 —— 曲线一直在涨，成绩却
+比噪声还差。这个教训是整个 ARAD 设计的起点：本系统给每条曲线配一条随检验次数抬升
+的零假设带（\S\ref{sec:selection}），且地板对已有与将来的全部结论同时生效。
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.9\textwidth]{figures/hillclimb_baseline.png}
+\caption{旧系统爬山基线：红线为零假设期望（用与本文判决同一套公式计算，
+参数为该搜索自身的试验间离散度），蓝虚线为 81 次爬山的实测最好。三个输入数字
+均有合同测试钉定。}\label{fig:hillclimb}
+\end{figure}
+
+与之成对的是本系统自己的搜索全貌（图~\ref{fig:searchcurve}）：同一条地板公式
+随统计分母抬升；量价假象在第 20 至 26 次检验间越顶（截顶为 $\blacktriangle$，
+按决定 0002 归 Baseline Control）；残差化的 Polymarket 构造几乎全部诚实地
+落在地板之下 —— 唯一的例外在第 61 次检验，见 \S\ref{sec:retro}。
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.94\textwidth]{figures/arad_search_curve.png}
+\caption{ARAD 的搜索全貌：逐次检验的 $|t|$ 对同步抬升的零假设地板。
+每点一条已评价的 Study，按「量价 ／ 未残差化 PM ／ 残差化 PM」着色；
+圈出者为 run16-study-3。}\label{fig:searchcurve}
+\end{figure}
+
+\paragraph{分母会被悄悄做小。}「试过多少次」若由报告者自己数必然缩水。统计分母
+入库且只增不减（\path{statistical_denominator} 表挂 DELETE/UPDATE 触发器，一律
+\path{RAISE(ABORT)}）；提案分母与统计分母分账，被预检拦下的提案不抬高零假设带。
+
+\paragraph{提案者一旦看见效应就不再是提案者。}提案器可见字段由账本按事件类型
+白名单列举。此约束曾被自己违反并被对抗性审查抓出（决定 0006）：判决计数曾被定价为
+「只泄漏存在性」，而该定价的隐含前提是计数指向匿名总体；第 0 层记忆交出具名规格清单后
+匿名被取消，三者可做减法，判决计数遂被移出提案器上下文。
+
+\paragraph{问错的问题不该消耗预算。}语义审计在读 outcome 之前运行，被拦下的 Study
+不进统计分母。判据必须结构化：按散文子串匹配曾把「改用波动率归一的有符号收益」这一
+正确回应连续误拦，判据因此改为沿特征 DAG 判断。
+
+\paragraph{否定结论必须有处安放。}判决曾由「blocked 与否」二分导出，\path{Verdict.NULL}
+在全仓无产出路径。决定 0005 改由失效集合推出（\S\ref{sec:verdict}），null 成为一等产出。
+
+\paragraph{分类法本身可能是后见之明。}Polymarket 族定义由归纳产生，归纳语料的切点
+进入前向门的 $\max$ 项（决定 0004）。当前语料切点覆盖全部三段，故全部 Polymarket
+结论的 taxonomy\_clean 为否，主张被结构性封顶 —— 这是如实标注，不是缺陷。
+
+\subsection{一轮的流水线}
+\paragraph{十一步。}一条 Study 固定走十一步，缺步本身是信息：
 （1）组装盲化上下文 $\to$（2）冻结提案（机制、target、universe、方向、证否条件）
 $\to$（3）冻结假设 $\to$（4）冻结检验规格 $\to$（5）建立 Study $\to$
 （6）冻结特征规格 $\to$（7）语义审计（在读 outcome \textbf{之前}；被拦下的不进
 统计分母）$\to$（8）声明可见数据范围 $\to$（9）读取 outcome（统计分母加一，
 零假设带随之抬升）$\to$（10）评价机出具全部统计量与阻塞理由 $\to$
 （11）判决由理由种类机械推出并入账。提案器全程看不到任何效应的方向与量级；
-评价机是唯一读标签的组件。
-
-以下只写参与判决的量；凡实现与教科书形式或与本仓文档不一致处，一律写明。
+评价机是唯一读标签的组件。以下各小节只写参与判决的量；
+凡实现与教科书形式或与本仓文档不一致处，一律写明。
 
 \subsection{时点与窗口}
 三个时刻的不等式由构造保证并在评价机复查：
@@ -546,6 +599,36 @@ registry，验证只用外部 ETF 证据，以声明先验标注、不过滤）�
 $|t_{\text{封存}}|/|t_{\text{发现}}|$ 对阈值 0.35 —— 该阈值与 min\_rows=120
 均为写死常量，\textbf{无文档推导}；且分子分母是 $t$ 值而非效应量（\S\ref{sec:hero}）。
 
+\subsection{方法的迭代：哪次事故催生了哪条规则}\label{sec:evolution}
+本文的方法不是一次设计成型的：几乎每条规则都由一次真实运行中的事故催生。
+下表是完整对应（事故细节见附录~\ref{sec:chronicle} 的对应运行）：
+\begin{center}\footnotesize
+\begin{tabular}{@{}l p{0.36\textwidth} p{0.38\textwidth}@{}}\toprule
+版本 & 触发事故 & 由此新增／修改的方法 \\ \midrule
+决定 0005 & \path{Verdict.NULL} 在全仓无产出路径，否定结论无处安放 &
+  判决由「每条理由使哪些结论失效」的集合推出，null 成为一等产出 \\
+M7.3 & 审计按散文子串匹配，连续误拦对「幅度对方向」的正确回应 &
+  语义判据改为沿特征 DAG 的结构判定 \\
+M8 & $|t|=9.3$ 的「发现」实为波动率聚集（分母与目标同为已实现波动） &
+  新增 rank\_pct 与 residualise 原语；「另类主张必须是基线之上的增量」写入口径 \\
+决定 0006 & 具名规格清单 + 判决计数可做减法，反推逐条成败 &
+  判决分类退出提案器上下文（匿名前提被记忆架构取消） \\
+M9.8 & residualise 原语可见却零使用（run9 十一版全未用） &
+  发现「可见 $\ne$ 会用」：提示词必须写明\textbf{为什么}要残差化 \\
+M11.3 & 语义错配教训每次运行清零重学 & 错配码初值从账本回放全历史 \\
+决定 0007 & 「未声明成本模型」以每条 Study 的错误形式呈现系统级状态 &
+  最小成本模型（tick 实测 + 声明常量）；新增 uneconomic\_target 闸门 \\
+M12 & 成交量前 30 垄断菜单，1{,}998 族中 98\% 永无出场机会 &
+  资格筛＋事前经济映射标注＋分层轮换菜单＋按需装载 \\
+M13 & run22 十六条 null 的主因是持续性构造对置换无分辨力 &
+  信号侧事前筛：$n_{\mathrm{eff}}<30$ 拦在读 outcome 之前，不花预算 \\
+决定 0008 & 146 个构造证明「永远在线的线性检验」问题族无信号 &
+  事件条件形态：触发器进提案契约，独立问题族独立地板 \\
+B6--B9 & 束位先后被基线假象、十行样本、异族成员、错误族标签占据 &
+  束的四条准入规则（详见 \S\ref{sec:limits}） \\
+\bottomrule\end{tabular}\end{center}
+这张表本身是一条结论的证据：\textbf{对这类系统，最有效的除错器是真实运行}。
+
 \section{一条特征的完整算术：从原始数据到 $t$ 值}\label{sec:worked}
 前一节给出的是定义。本节把\textbf{一个具体的数}算给读者看：取 run16-study-3
 （回溯投影下唯一的完整候选形态，\S\ref{sec:retro}），在一个真实决策时点上把
@@ -647,9 +730,6 @@ DFBETAS & 0.04836 & 最大单点影响，闸门 1.0 \\
 而 SC 的典型（中位）RV 为 $0.008516$ —— 即约 \textbf{3.4\%} 的典型波动。
 这就是为什么 $t$、IC 与经济幅度必须并列报告：$t=4.39$ 说的是「这个斜率不像是零」，
 不是「这个效应很大」。而在封存段上，这个斜率连「不像是零」也没保住。
-
-\section{二十四次运行编年}
-""" + chronicle(D, figs) + r"""
 
 \section{结果}\label{sec:results}
 \subsection{假象家族：重新发现了波动率聚集}
@@ -862,6 +942,12 @@ candidate。}\emph{证否：修正后重跑，判决分布改变。}
 """ + appendix_rows + r"""
 \bottomrule\end{longtable}}
 
+\section{二十四次运行编年（全记录）}\label{sec:chronicle}
+以下是二十四次运行（auto 前缀涵盖最早两次）的完整记录：每次运行的叙述、
+全部 Study 的判决表、以及每条有冻结规格的 Study 的「信号 × SC 收盘价」图。
+正文中的方法迭代（\S\ref{sec:evolution}）多由这些运行触发。
+""" + chronicle(D, figs) + r"""
+
 \vfill\noindent\rule{\textwidth}{0.4pt}\\
 {\small 账本冻结点：事件 seq """ + str(D["frozen_at"]["seq"]) + r"""（"""
             + D["frozen_at"]["at"] + r"""，run16 当时仍在进行）；事件 """
@@ -873,6 +959,10 @@ candidate。}\emph{证否：修正后重跑，判决分布改变。}
     ne = D.get("event_denominators", {}).get("statistical_denominator", 0)
     ef = D.get("event_floor")
     tex = tex.replace("{N_STUDIES}", str(len(D["studies"])))
+    tex = tex.replace("{N_OLD}", str(n))
+    tex = tex.replace("{FLOOR_OLD}", f"{floor:.3f}")
+    tex = tex.replace("{TOP_T}", f"{abs(top[0]['t']):.2f}")
+    tex = tex.replace("{N_NULL}", str(v.get("null", 0)))
     tex = tex.replace("{EVENT_N}", str(ne))
     tex = tex.replace("{EVENT_FLOOR}", f"{ef:.3f}" if ef else "—")
     return tex

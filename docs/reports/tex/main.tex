@@ -126,6 +126,8 @@ Baseline Control & 已知的、不新鲜的解释变量（如「今天波动大�
 \bottomrule\end{tabular}\end{center}
 
 \subsection{这份报告怎么读}
+赶时间的读者：第~\ref{sec:insights} 节是八句话的核心要点（各带数据），
+第~\ref{sec:conclusions} 节是逐条附证否条件的结论。
 第~\ref{sec:worked} 节把一个具体的数从原始数据一路算到最终统计量 ——
 \textbf{只想知道「指标到底怎么定义」的读者，读那一节即可}。
 第~\ref{sec:math} 节是全部公式的精确定义与实现出处；第~\ref{sec:results} 节是结果；
@@ -140,52 +142,52 @@ $E_\tau(n)$ 为 $n$ 次搜索在零假设下的期望最大统计量（\S\ref{se
 $\bar p$ 为 Polymarket 某事件族的归一化概率均值；「决策时点」指某品种某交易时段
 开始前一分钟，系统在该时刻冻结全部可见信息并作出预测。
 
-\section{动机：每条约束防的是哪一种自欺}
-系统的每个机制对应一种具体的、已经发生过的失败。本节每段先摆失败，再给约束。
+\section{核心要点：八句话与它们背后的数据}\label{sec:insights}
+赶时间的读者读本节与第~\ref{sec:conclusions} 节即可。每条要点先用一句白话概括，
+再给出支撑它的数据与出处。
 
-\paragraph{一条上升的曲线本身不是证据。}选择在纯噪声上必然产出上升的 running-best
-曲线。图~\ref{fig:hillclimb} 是本项目的前身（Alpha-Data 时代）留下的实测：81 次
-爬山选出的最好年化 Sharpe 为 2.40，把\textbf{同一套搜索过程}放在纯噪声上，其期望
-最大值在第 46 次就超过了这个成绩，到第 81 次为 2.63 —— 曲线一直在涨，成绩却
-比噪声还差。这个教训是整个 ARAD 设计的起点：本系统给每条曲线配一条随检验次数抬升
-的零假设带（\S\ref{sec:selection}），且地板对已有与将来的全部结论同时生效。
-\begin{figure}[htbp]\centering
-\includegraphics[width=0.9\textwidth]{figures/hillclimb_baseline.png}
-\caption{旧系统爬山基线：红线为零假设期望（用与本文判决同一套公式计算，
-参数为该搜索自身的试验间离散度），蓝虚线为 81 次爬山的实测最好。三个输入数字
-均有合同测试钉定。}\label{fig:hillclimb}
-\end{figure}
+\paragraph{一、不设防的搜索必然「发现」噪声。}
+本项目前身迭代 81 次选出年化 Sharpe 2.40，而同一搜索在纯噪声上的期望是 2.63
+（图~\ref{fig:hillclimb}）；本项目自身不加控制时也立即产出 $|t|=9.30$ 的
+「发现」。这不是操作失误，是最大值统计量的必然 —— 所以每条结论都必须对照
+「看了多少次答案」计价。
 
-与之成对的是本系统自己的搜索全貌（图~\ref{fig:searchcurve}）：同一条地板公式
-随统计分母抬升；量价假象在第 20 至 26 次检验间越顶（截顶为 $\blacktriangle$，
-按决定 0002 归 Baseline Control）；残差化的 Polymarket 构造几乎全部诚实地
-落在地板之下 —— 唯一的例外在第 61 次检验，见 \S\ref{sec:retro}。
-\begin{figure}[htbp]\centering
-\includegraphics[width=0.94\textwidth]{figures/arad_search_curve.png}
-\caption{ARAD 的搜索全貌：逐次检验的 $|t|$ 对同步抬升的零假设地板。
-每点一条已评价的 Study，按「量价 ／ 未残差化 PM ／ 残差化 PM」着色；
-圈出者为 run16-study-3。}\label{fig:searchcurve}
-\end{figure}
+\paragraph{二、减掉已知的东西之后，新东西大多消失了。}
+$|t|=9.30$ 的构造，其分母与预测目标同为已实现波动 —— 它重新发现的是
+「今天波动大、明天多半也大」这条教科书事实。对它做残差化后秩相关缩小约 74 倍
+（\S\ref{sec:results}）。残差化普及后，Polymarket 构造的绝大多数统计量落回
+噪声区间。
 
-\paragraph{分母会被悄悄做小。}「试过多少次」若由报告者自己数必然缩水。统计分母
-入库且只增不减（\path{statistical_denominator} 表挂 DELETE/UPDATE 触发器，一律
-\path{RAISE(ABORT)}）；提案分母与统计分母分账，被预检拦下的提案不抬高零假设带。
+\paragraph{三、四个走到最后的候选，全部死在终审。}
+四个通过发现段全部关卡的构造，在只能开封一次的封存段上 $t$ 保持率分别为
+17.6\%、18.7\%、51\%（但其发现段仅 10 行样本，证据无效）与 12.7\% ——
+全部低于 35\% 的预注册保持线（\S\ref{sec:retro}）。共同判词：发现段的强度来自
+2024 年伊朗事件簇的样本构成，不是跨时期稳定的关系。
 
-\paragraph{提案者一旦看见效应就不再是提案者。}提案器可见字段由账本按事件类型
-白名单列举。此约束曾被自己违反并被对抗性审查抓出（决定 0006）：判决计数曾被定价为
-「只泄漏存在性」，而该定价的隐含前提是计数指向匿名总体；第 0 层记忆交出具名规格清单后
-匿名被取消，三者可做减法，判决计数遂被移出提案器上下文。
+\paragraph{四、换一种问法，答案没变。}
+「概率大幅移动之后的窗口是否可预测」（事件条件形态，独立记账）：两轮四十回合、
+十一个互异事件源、33 次检验，最好 $|t|=1.87$，未越过本族地板
+2.381（\S\ref{sec:results}）。
 
-\paragraph{问错的问题不该消耗预算。}语义审计在读 outcome 之前运行，被拦下的 Study
-不进统计分母。判据必须结构化：按散文子串匹配曾把「改用波动率归一的有符号收益」这一
-正确回应连续误拦，判据因此改为沿特征 DAG 判断。
+\paragraph{五、$t$ 大不等于效应大。}
+最强的残差化构造 $t=4.39$，但换算成经济量纲：一个标准差的信号变化只对应
+典型波动的 3.4\%（\S\ref{sec:worked} 末段）。统计显著回答「斜率像不像零」，
+不回答「值不值得交易」。
 
-\paragraph{否定结论必须有处安放。}判决曾由「blocked 与否」二分导出，\path{Verdict.NULL}
-在全仓无产出路径。决定 0005 改由失效集合推出（\S\ref{sec:verdict}），null 成为一等产出。
+\paragraph{六、搜索是有价格的，而且价格必须公开。}
+旧问题族看了 120 次答案，地板升至 2.825：今天任何新构造要算数，
+必须比早期强约四分之一。地板对已有与将来的全部结论同时生效 ——
+「多试几次」从来不是免费的（\S\ref{sec:selection}）。
 
-\paragraph{分类法本身可能是后见之明。}Polymarket 族定义由归纳产生，归纳语料的切点
-进入前向门的 $\max$ 项（决定 0004）。当前语料切点覆盖全部三段，故全部 Polymarket
-结论的 taxonomy\_clean 为否，主张被结构性封顶 —— 这是如实标注，不是缺陷。
+\paragraph{七、否定是产出，不是失败。}
+全部 200 个 Study 中 114 条是带排除界的可信否定：每条都预注册了证否条件、
+通过了语义审计、并被置换检验确认「打乱的假数据做得一样好」。对「Polymarket
+能否预测中国商品期货」这个问题，这批否定就是当前最可信的答案（\S\ref{sec:conclusions}）。
+
+\paragraph{八、方法的可信度来自它被事故打磨过。}
+本文方法的几乎每条规则都由一次真实事故催生（\S\ref{sec:evolution} 的对应表）；
+测量装置自身的十二处缺陷也一并公开（\S\ref{sec:limits}），并逐条说明影响方向 ——
+没有一处能把否定翻成肯定。
 
 \section{数据}
 \begin{table}[htbp]\centering\footnotesize
@@ -231,17 +233,68 @@ intl & \path{brent} & 布伦特原油日频价格（外生控制） \\
 \path{open_gap_absorption}（诊断用）。universe 由模型自选：36 品种面板或任一单品种
 主力视图。
 
-\section{方法与数学定义}\label{sec:math}
-\paragraph{一轮的流水线。}一条 Study 固定走十一步，缺步本身是信息：
+\section{方法}\label{sec:math}
+本节集中全部方法：设计原则（每条规则防什么）、一轮的流水线、全部统计量的精确定义
+（含实现与教科书不一致处）、以及三项后加的机制（事前筛、事件条件形态、菜单三层设计）。
+方法在项目进行中经历过多次迭代，迭代本身见 \S\ref{sec:evolution}。
+
+\subsection{设计原则：每条约束防的是哪一种自欺}
+系统的每个机制对应一种具体的、已经发生过的失败。本小节每段先摆失败，再给约束。
+
+\paragraph{一条上升的曲线本身不是证据。}选择在纯噪声上必然产出上升的 running-best
+曲线。图~\ref{fig:hillclimb} 是本项目的前身（Alpha-Data 时代）留下的实测：81 次
+爬山选出的最好年化 Sharpe 为 2.40，把\textbf{同一套搜索过程}放在纯噪声上，其期望
+最大值在第 46 次就超过了这个成绩，到第 81 次为 2.63 —— 曲线一直在涨，成绩却
+比噪声还差。这个教训是整个 ARAD 设计的起点：本系统给每条曲线配一条随检验次数抬升
+的零假设带（\S\ref{sec:selection}），且地板对已有与将来的全部结论同时生效。
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.9\textwidth]{figures/hillclimb_baseline.png}
+\caption{旧系统爬山基线：红线为零假设期望（用与本文判决同一套公式计算，
+参数为该搜索自身的试验间离散度），蓝虚线为 81 次爬山的实测最好。三个输入数字
+均有合同测试钉定。}\label{fig:hillclimb}
+\end{figure}
+
+与之成对的是本系统自己的搜索全貌（图~\ref{fig:searchcurve}）：同一条地板公式
+随统计分母抬升；量价假象在第 20 至 26 次检验间越顶（截顶为 $\blacktriangle$，
+按决定 0002 归 Baseline Control）；残差化的 Polymarket 构造几乎全部诚实地
+落在地板之下 —— 唯一的例外在第 61 次检验，见 \S\ref{sec:retro}。
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.94\textwidth]{figures/arad_search_curve.png}
+\caption{ARAD 的搜索全貌：逐次检验的 $|t|$ 对同步抬升的零假设地板。
+每点一条已评价的 Study，按「量价 ／ 未残差化 PM ／ 残差化 PM」着色；
+圈出者为 run16-study-3。}\label{fig:searchcurve}
+\end{figure}
+
+\paragraph{分母会被悄悄做小。}「试过多少次」若由报告者自己数必然缩水。统计分母
+入库且只增不减（\path{statistical_denominator} 表挂 DELETE/UPDATE 触发器，一律
+\path{RAISE(ABORT)}）；提案分母与统计分母分账，被预检拦下的提案不抬高零假设带。
+
+\paragraph{提案者一旦看见效应就不再是提案者。}提案器可见字段由账本按事件类型
+白名单列举。此约束曾被自己违反并被对抗性审查抓出（决定 0006）：判决计数曾被定价为
+「只泄漏存在性」，而该定价的隐含前提是计数指向匿名总体；第 0 层记忆交出具名规格清单后
+匿名被取消，三者可做减法，判决计数遂被移出提案器上下文。
+
+\paragraph{问错的问题不该消耗预算。}语义审计在读 outcome 之前运行，被拦下的 Study
+不进统计分母。判据必须结构化：按散文子串匹配曾把「改用波动率归一的有符号收益」这一
+正确回应连续误拦，判据因此改为沿特征 DAG 判断。
+
+\paragraph{否定结论必须有处安放。}判决曾由「blocked 与否」二分导出，\path{Verdict.NULL}
+在全仓无产出路径。决定 0005 改由失效集合推出（\S\ref{sec:verdict}），null 成为一等产出。
+
+\paragraph{分类法本身可能是后见之明。}Polymarket 族定义由归纳产生，归纳语料的切点
+进入前向门的 $\max$ 项（决定 0004）。当前语料切点覆盖全部三段，故全部 Polymarket
+结论的 taxonomy\_clean 为否，主张被结构性封顶 —— 这是如实标注，不是缺陷。
+
+\subsection{一轮的流水线}
+\paragraph{十一步。}一条 Study 固定走十一步，缺步本身是信息：
 （1）组装盲化上下文 $\to$（2）冻结提案（机制、target、universe、方向、证否条件）
 $\to$（3）冻结假设 $\to$（4）冻结检验规格 $\to$（5）建立 Study $\to$
 （6）冻结特征规格 $\to$（7）语义审计（在读 outcome \textbf{之前}；被拦下的不进
 统计分母）$\to$（8）声明可见数据范围 $\to$（9）读取 outcome（统计分母加一，
 零假设带随之抬升）$\to$（10）评价机出具全部统计量与阻塞理由 $\to$
 （11）判决由理由种类机械推出并入账。提案器全程看不到任何效应的方向与量级；
-评价机是唯一读标签的组件。
-
-以下只写参与判决的量；凡实现与教科书形式或与本仓文档不一致处，一律写明。
+评价机是唯一读标签的组件。以下各小节只写参与判决的量；
+凡实现与教科书形式或与本仓文档不一致处，一律写明。
 
 \subsection{时点与窗口}
 三个时刻的不等式由构造保证并在评价机复查：
@@ -357,6 +410,36 @@ registry，验证只用外部 ETF 证据，以声明先验标注、不过滤）�
 $|t_{\text{封存}}|/|t_{\text{发现}}|$ 对阈值 0.35 —— 该阈值与 min\_rows=120
 均为写死常量，\textbf{无文档推导}；且分子分母是 $t$ 值而非效应量（\S\ref{sec:hero}）。
 
+\subsection{方法的迭代：哪次事故催生了哪条规则}\label{sec:evolution}
+本文的方法不是一次设计成型的：几乎每条规则都由一次真实运行中的事故催生。
+下表是完整对应（事故细节见附录~\ref{sec:chronicle} 的对应运行）：
+\begin{center}\footnotesize
+\begin{tabular}{@{}l p{0.36\textwidth} p{0.38\textwidth}@{}}\toprule
+版本 & 触发事故 & 由此新增／修改的方法 \\ \midrule
+决定 0005 & \path{Verdict.NULL} 在全仓无产出路径，否定结论无处安放 &
+  判决由「每条理由使哪些结论失效」的集合推出，null 成为一等产出 \\
+M7.3 & 审计按散文子串匹配，连续误拦对「幅度对方向」的正确回应 &
+  语义判据改为沿特征 DAG 的结构判定 \\
+M8 & $|t|=9.3$ 的「发现」实为波动率聚集（分母与目标同为已实现波动） &
+  新增 rank\_pct 与 residualise 原语；「另类主张必须是基线之上的增量」写入口径 \\
+决定 0006 & 具名规格清单 + 判决计数可做减法，反推逐条成败 &
+  判决分类退出提案器上下文（匿名前提被记忆架构取消） \\
+M9.8 & residualise 原语可见却零使用（run9 十一版全未用） &
+  发现「可见 $\ne$ 会用」：提示词必须写明\textbf{为什么}要残差化 \\
+M11.3 & 语义错配教训每次运行清零重学 & 错配码初值从账本回放全历史 \\
+决定 0007 & 「未声明成本模型」以每条 Study 的错误形式呈现系统级状态 &
+  最小成本模型（tick 实测 + 声明常量）；新增 uneconomic\_target 闸门 \\
+M12 & 成交量前 30 垄断菜单，1{,}998 族中 98\% 永无出场机会 &
+  资格筛＋事前经济映射标注＋分层轮换菜单＋按需装载 \\
+M13 & run22 十六条 null 的主因是持续性构造对置换无分辨力 &
+  信号侧事前筛：$n_{\mathrm{eff}}<30$ 拦在读 outcome 之前，不花预算 \\
+决定 0008 & 146 个构造证明「永远在线的线性检验」问题族无信号 &
+  事件条件形态：触发器进提案契约，独立问题族独立地板 \\
+B6--B9 & 束位先后被基线假象、十行样本、异族成员、错误族标签占据 &
+  束的四条准入规则（详见 \S\ref{sec:limits}） \\
+\bottomrule\end{tabular}\end{center}
+这张表本身是一条结论的证据：\textbf{对这类系统，最有效的除错器是真实运行}。
+
 \section{一条特征的完整算术：从原始数据到 $t$ 值}\label{sec:worked}
 前一节给出的是定义。本节把\textbf{一个具体的数}算给读者看：取 run16-study-3
 （回溯投影下唯一的完整候选形态，\S\ref{sec:retro}），在一个真实决策时点上把
@@ -459,7 +542,434 @@ DFBETAS & 0.04836 & 最大单点影响，闸门 1.0 \\
 这就是为什么 $t$、IC 与经济幅度必须并列报告：$t=4.39$ 说的是「这个斜率不像是零」，
 不是「这个效应很大」。而在封存段上，这个斜率连「不像是零」也没保住。
 
-\section{二十四次运行编年}
+\section{结果}\label{sec:results}
+\subsection{假象家族：重新发现了波动率聚集}
+统计量最大的构造（$|t|$ 至 9.30）分母为已实现波动、
+目标亦为已实现波动。PIT 无误、置换通过 —— 关系是真的，但它是 Baseline Control，
+不是另类数据 alpha。诊断（离线，不进账本，本文唯一非快照数字）：对最大一条做残差化，
+秩相关由 $-0.5695$ 塌至 $-0.0077$，缩小约 74 倍。此后 127/180 的规格自带控制项。
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.95\textwidth]{figures/run5-study-2.png}
+\caption{波动假象 \texttt{run5-study-2}（$t=-9.30$）：信号与价格。该信号实为已实现波动的函数，与目标同源。}\label{fig:run5-study-2}
+\end{figure}
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.95\textwidth]{figures/run6-study-4.png}
+\caption{波动假象 \texttt{run6-study-4}（$t=+8.87$）：信号与价格。该信号实为已实现波动的函数，与目标同源。}\label{fig:run6-study-4}
+\end{figure}
+
+
+\subsection{唯一走完全流程的候选及其封存裁决}\label{sec:hero}
+\path{pm_iran_hazard_level_30d_resid_own_rv_90d}（\path{run11-study-3}）：
+cand:iran 族归一化概率 30 日均值，残差化掉品种自身波动持续性后预测下一时段已实现波动。
+机制为混合分布假说：波动由信息到达强度决定，到达强度由风险的当前发生率决定；油价已含
+发生率$\times$损失的一阶期望，发生率水平本身另有信息。
+\begin{table}[htbp]\centering\small
+\begin{tabular}{@{}lrrrl@{}}\toprule
+段 & $t$ & IC$_\rho$ & 行 & 闸门 \\ \midrule
+发现段 & +2.416 & +0.086 & 616 & 置换 0.05 通过 \\
+封存段（一次性） & +0.426 & +0.128 & 405 & $t$ 值比 17.6\% $<$ 0.35 $\Rightarrow$ sealed\_failed \\
+\bottomrule\end{tabular}\caption{候选在两段上的对比。裁决终身有效，不重开。}\end{table}
+
+\textbf{口径更正}：闸门比的是两个 $t$ 值而非效应量，两段样本量不同（616 对 405 行），即便效应完全不变 $t$ 也按
+$\sqrt{n_s/n_d}\approx 0.81$ 缩小；样本量修正后效应保留率约 21.8\%，仍远低于 0.35，\textbf{裁决不变}。该候选在发现段也从未越过当时的
+族地板（评价时已花 46 次检验，地板 2.501，而它是 +2.416，自罚奖励为负）。
+
+另一并如实记录：秩相关在封存段反而由 +0.086 升至 +0.128。线性斜率消失而单调关联
+仍在，可能读法有三（非线性关系 / 小样本噪声 / 发现段高杠杆点支撑），本系统无法在
+不花新预算的前提下区分 —— \textbf{它是开放问题，不是结论}。
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.95\textwidth]{figures/run11-study-3.png}
+\caption{唯一走完全流程的候选：信号（蓝，左轴）与 SC 收盘价（红，右轴）。信号由冻结规格在 discovery 决策网格上重新求值，非回放存档。}\label{fig:run11-study-3}
+\end{figure}
+
+
+\subsection{干净的 null（114 条）}
+残差化普及后，模型系统扫过互异机制：资金集中度、信念下限棘轮、闭市时段资金份额、
+停火/伊朗资金倾斜、平均单笔金额、方向性信念离散度、事件不确定性 $\bar p(1-\bar p)$、
+到达加速度、对娱乐族的安慰剂对照。按判决导出规则 null 只能经由置换检验产出，因此
+每一条都是「置换分布里 $\le 10\%$ 的抽样达到实际斜率绝对值」的具体陈述。
+
+\subsection{成本模型建成后的回溯投影}\label{sec:retro}
+最小成本模型（决定 0007）建成后，判决可按失效表机械地重推：从每条已判 Study 的
+阻塞理由种类中移除 cost\_model\_missing，对收益型 target 补入经济闸门投影。
+这不改写任何已入账判决（账本不可回写），它回答的是「若当时就有成本模型，
+判决会是什么」。结果分三组：
+
+\begin{itemize}
+\item \textbf{基线假象组}（4 条，量价源，$|t|$ 至 9.30）：翻为 candidate，
+且确实越过评价时地板（奖励 $+7.1$ 至 $+2.3$）。但按决定 0002 它们归
+Baseline Control 库，\textbf{不计入另类清单} —— 翻转只说明「波动率聚集是真的」。
+\item \textbf{未越地板组}（11 条，Polymarket）：置换全部通过（exceed
+$0$ 至 $0.035$），但 $|t|$ 在 $1.2$ 至 $2.3$，自罚奖励为负 —— 干净而不够高。
+\item \textbf{真形态，一条}：run16-study-3。
+\end{itemize}
+
+\begin{table}[htbp]\centering\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.74\textwidth}@{}}\toprule
+特征 & \path{pm_iran_outstanding_resolution_mass_resid_own_rv_12h_90d} \\
+构造 & $\bar p(1-\bar p)$：iran 族 12 小时窗口均值的伯努利方差（「仍未解决的概率质量」），\\
+     & 残差化掉品种自身波动持续性 \\
+universe & 36 品种面板 · 14{,}923 行 \\
+统计 & $t=+4.393$ · IC$_\rho$ = $0.085$ · 置换 $0/200$ · DFBETAS $0.048$ \\
+地板 & 评价时 $n=61$，$E_2(61)=2.600$ → \textbf{自罚奖励 $+1.79$}（残差化另类构造首次为正）\\
+当时判决 & blocked，唯一理由 cost\_model\_missing —— 该理由今日已不存在 \\
+封存段裁决 & \textbf{未保住}（人于 2026-08-08 决定开封，一次性）：$t=+0.823$、
+IC$_\rho$ = $0.029$、14{,}297 行 —— $t$ 保持率 18.7\%，远低于 0.35 保持线，
+判 sealed\_failed。与 run11-study-3 不同，这次\textbf{秩相关同样塌陷}
+（$0.085\to0.029$），是一次更干净的否决 \\
+\bottomrule\end{tabular}
+\caption{run16-study-3：回溯投影下唯一的完整候选形态，及其封存段裁决。
+裁决终身有效，不重开。}
+\end{table}
+
+一条使它区别于全部前例的证据：\textbf{模型在提案时把当时的地板写进了证否条件}：
+\begin{quote}\small
+「在 full coverage panel 上……若残差对 sc rv next session 的 $|t|$ 不超过
+本轮噪声地板 2.5998，或其系数符号为负，则本机制不被支持。」
+\end{quote}
+随后做到 $4.39$。
+这不是事后从账本里挑出来的幸存者：预注册的证否线就是地板本身，另附三条
+非统计的证否观测（增量在纳入信念波动后消失、预测力由样本组成漂移承担等）。
+
+机制上它是 run11-study-3（发生率水平）与 run15 推理（事件不确定性）的直系后代：
+$\bar p$ 接近 $0.5$ 表示事件悬而未决、任何新证据都会引发实质重定价，
+$\bar p(1-\bar p)$ 正是这份「未决质量」的读数。谨慎读法同样必要：
+run11-study-3 在发现段同样通过置换（$0.05$）而封存段未保住；本条的发现段
+统计强得多（$4.39$ 对 $2.42$，且越过地板），但唯一有权裁决的是那次一次性开封。
+
+\subsection{事件条件族：两轮四十回合}
+图~\ref{fig:eventcurve} 是事件族自己的搜索曲线（分母独立、地板从头起）。
+run23 触发器采用 19/19 但 17 版集中在 iran 单一事件源，十九版全 null；
+run24 经方向指令铺开到十一个互异触发族（含轮换层新族），结论一致。
+两轮合计：即使只看概率大幅移动后的窗口、即使换了十一个事件源，
+线性可预测性仍然缺席。本族最好 $|t|=1.87$，从未越过本族地板。
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.9\textwidth]{figures/event_search_curve.png}
+\caption{事件条件族的搜索曲线。分母独立（决定 0008），地板从 $0.798$ 起。}
+\label{fig:eventcurve}
+\end{figure}
+
+\paragraph{四次封存否决的共同判词。}截稿时封存段共否决四个候选形态：
+run11-study-3（发生率水平，$t$ 保持率 17.6\%）、run16-study-3（未决质量，18.7\%，
+秩相关同塌）、dip\_barrier（十行样本的 underpowered 假象经束缺陷混入，
+还原后 51\% 但发现段证据无效）、belief\_jump（12.7\%）。共同形态：
+发现段的强度来自该段特有的样本构成（2024 年伊朗事件簇），
+不是跨段稳定的关系。置换检验打乱段内对齐，检验不出跨段构成差异；
+封存段可以 —— 它因此是终审。
+
+\subsection{封存段全记录（16 次开启）}
+\begin{longtable}{@{}p{0.42\textwidth} r r r l l@{}}
+\toprule 特征 & $t$ & IC$_\rho$ & 行 & 时间样本外 & 分类法干净 \\ \midrule\endhead
+\path{pm_iran_attention_share_z} & -0.040 & -0.082 & 476 & 是 & \textcolor{bad}{否} \\
+\path{pm_iran_notional_innovation_z} & -0.649 & -0.067 & 476 & 是 & \textcolor{bad}{否} \\
+\path{pm_geo_attention_share_z_iran_over_be_1d} & +1.836 & -0.007 & 476 & 是 & \textcolor{bad}{否} \\
+\path{pm_iran_closure_p_innovation} & +1.082 & +0.074 & 475 & 是 & \textcolor{bad}{否} \\
+\path{pm_iran_trade_arrival_z} & -0.579 & -0.042 & 476 & 是 & \textcolor{bad}{否} \\
+\path{pm_ceasefire_p_state_innovation_12h_30d} & -1.034 & -0.045 & 476 & 是 & \textcolor{bad}{否} \\
+\path{sc_signed_ret_1d_z} & +0.842 & +0.050 & 131 & 是 & 是 \\
+\path{sc_prev_day_return_rank_pct_2d_over_90d} & +0.388 & +0.038 & 321 & 是 & 是 \\
+\path{sc_lowfreq_over_highfreq_vol_rank_2d_180d} & -0.816 & -0.074 & 193 & 是 & 是 \\
+\path{sc_downside_jump_severity_rank_5d_120d} & -0.819 & +0.028 & 322 & 是 & 是 \\
+\path{pm_ukraine_arrival_minus_own_rv_innov_rank_1d_90d} & +0.443 & +0.036 & 291 & 是 & \textcolor{bad}{否} \\
+\path{pm_up_closed_window_arrival_rank_6h_off6h_90d} & -0.398 & -0.003 & 476 & 是 & \textcolor{bad}{否} \\
+\path{pm_iran_hazard_level_30d_resid_own_rv_90d} & +0.426 & +0.128 & 405 & 是 & \textcolor{bad}{否} \\
+\path{pm_iran_outstanding_resolution_mass_resid_own_rv_12h_90d} & +0.823 & +0.029 & 14297 & 是 & \textcolor{bad}{否} \\
+\path{pm_dip_barrier_pricing_closed_6h_over_norm_resid_own_rv_90d} & +1.617 & +0.036 & 405 & 是 & \textcolor{bad}{否} \\
+\path{pm_iran_belief_jump_studentised_range_resid_own_rv_7d_90d} & +0.413 & +0.014 & 405 & 是 & \textcolor{bad}{否} \\
+\bottomrule\end{longtable}
+
+\section{测量装置本身的局限}\label{sec:limits}
+为写第 3 节，对全部参与判决的统计量做了一次逐行提取核对。下列不一致由本次核对发现，
+记入 \path{docs/BLOCKERS.md}，按项目规矩只记录不修：置换兜底把度量失败记成支持
+null（null 偏多）；置换块结构使零分布边缘与样本不同（方向不定）；置换阈值 0.1 较常用
+0.05 宽松（null 偏少）；cluster SE 无有限样本修正（排除界宣称偏紧）；面板上
+min\_clusters 被 episode 命名稀释 $N$ 倍（underpowered 偏少）；$h_i=1$ 时 DFBETA
+可为 $+\infty$ 而守卫只覆盖 SE 一侧；MDE 硬编码 2.8 未引用常量；紧缩 Sharpe 方差项
+较发表式少 $1/2\cdot SR^2$（偏乐观）；Sharpe 带尺度含前视；驾驶舱曲线与顶栏用两个
+口径不同的 $n$；提案器读到的地板说明写 $\sqrt{2\ln n}$ 与实现不符；0.35 与 120 无推导。
+\textbf{没有一处能把 null 翻成 candidate}：candidate 被失效表结构性挡住，与数值无关。
+
+\paragraph{束的四连修（B6--B9）。}束位即自动封存的名额，四类占位缺陷先后被实跑暴露：
+基线假象以 $+7.1$ 的奖励霸占束位（B6：Baseline Control 不占另类束位）；
+十行样本的 underpowered 以假奖励进榜并烧掉封条（B7：样本不足不进束）；
+束不按族过滤，事件族的收尾封存烧在旧族特征上（B8）；评价证据的族标签被写死为
+旧族，按族过滤后束反而为空（B9：族由调用方传入）。B9 的一个后果须如实声明：
+run17 至 run24 期间的评价载荷 family 字段不可靠，族归属应按运行前缀判定 ——
+本文全部按此口径。
+
+\paragraph{provider 的四课。}CLI 对管道按块缓冲堵死推理流（伪终端修复）；
+思考阶段不发增量（如实标注，无法修复）；超时线 900s 卡在实测思考时长分布中间
+（提为 1800s）；pty 阻塞读使超时永远不触发（实测挂死 103 分钟，
+select 五秒一拍轮询修复，挂死调用三十分钟必被回收）。每课带回归护栏。
+
+\section{结论（每条附证否条件）}\label{sec:conclusions}
+\begin{enumerate}
+\item \textbf{结构（已解除）：截至 M11 之前，「candidate=0」不是经验结论。}
+cost\_model\_missing 曾对全部 Study 成立且其失效集合含 candidate。
+决定 0007 建成最小成本模型后该约束解除；回溯投影（\S\ref{sec:retro}）显示
+16 条历史 blocked 在新制度下为 candidate 形态。\emph{证否（更正后）：
+新制度下一条各闸门全过的 Study 仍被判 blocked。}
+\item \textbf{经验：已检验机制上，Polymarket 特征相对基线的线性增量预测力，
+在两种问题形态（永远在线；事件条件窗口）上都未过预注册证否闸门。}
+\emph{证否：任一形态下，残差化后在其族地板上方且置换 $\le0.1$ 并在封存段保住的
+一条特征。}
+\item \textbf{经验（已按自身证否条件更正）：残差化之前，四条波动假象的自罚奖励
+为正（最高 $+7.1$）；残差化的另类构造中，第一条奖励为正的出现在 run16-study-3
+（$+1.79$，见 \S\ref{sec:hero} 后补）。}本报告上一版此条写作「从未有 Study 越过
+评价时地板」，按其证否条件（beam\_state 出现 reward $>0$）在写下时即不成立 ——
+假象家族早已越过；当时想表达而未写准的是「无残差化的另类构造越过」。
+\emph{证否（更正后）：残差化另类构造的奖励为正且封存段保持。}
+\item \textbf{方法：残差化把「发现」与「重新发现基线」分开，效果是数量级的}；
+模型采用它的转折点是提示词写明「为什么」，不是原语可见。\emph{证否：一条残差化后
+$|t|$ 不显著下降且封存段保住的量价构造。}
+\item \textbf{方法：封存段是唯一无法用「再跑一次」绕过的闸门，且起了作用。}
+\emph{证否：对同一（规格,段）二次取值而不触发 SealedAlreadyOpened 的路径。}
+\item \textbf{局限：全部 Polymarket 结论被分类法污染封顶}（决定 0004），肯定结论
+在此状态下不可采信；否定结论方向不受影响。\emph{证否：用干净切点语料重归纳并重跑。}
+\item \textbf{局限：测量装置有 12 处实现与文档不符，但无一能把 null 翻成
+candidate。}\emph{证否：修正后重跑，判决分布改变。}
+\item \textbf{经验（已裁决）：run16-study-3 —— 七个月账本中唯一同时满足
+「纯 Polymarket、已残差化、越过评价时地板、置换零例外、影响有界」的构造 ——
+在人决定开封后未保住封存段}（$t$ 保持率 18.7\% $<$ 0.35，秩相关同塌）。
+上一版本条预注册的证否条件（保持率低于 0.35）\textbf{触发}，它加入被否决候选
+的行列。两次开封两次否决（run11-study-3、run16-study-3）共同指向的读法：
+发现段上越过地板、通过置换的构造，其强度主要来自该段特有的样本构成 ——
+封存段正是为识别这一点而存在。
+\emph{证否：一条开封后保持率不低于 0.35 的同类构造。}
+\item \textbf{经验（新）：事件条件形态下结论不变。}触发器由模型自主声明并预注册
+（进 content id），两轮四十回合、十一个互异触发源、本族独立地板 ——
+最好 $|t|=1.87$ 未越线。「概率大幅移动之后的窗口」并没有比「永远在线」
+更可预测。\emph{证否：一条事件条件构造越过本族地板、置换通过并在封存段保住。}
+\end{enumerate}
+
+\section{下一步（全部需人决定）}
+（1）M5 成本模型 —— 唯一使 candidate 可达的改动，应先于其余；（2）分类法重归纳
+（干净切点）；（3）郑商所 21 品种的 TradingDay 裁决；（4）财联社接入；
+（5）横截面 target 设计并修 min\_clusters 稀释。
+
+\section{复现}
+\begin{enumerate}\small
+\item 环境：\path{uv venv && uv pip install -e ".[dev]"}；校验
+\path{.venv/bin/python -m pytest tests/ -q}（668 项合同测试）。
+\item 本文全部数字：\path{scripts/build_report_tex.py} 调用 \path{collect()} 一次
+读取 \path{data/ledger/service.db}（哈希链完整性在读取时重算）。
+\item 全部信号图：\path{scripts/build_figures.py} 用冻结规格在 discovery 决策网格
+重新求值 —— 不读任何回放存档。
+\item 判决复核：对任一 Study 取其 blocked\_reason\_kinds，按 \S\ref{sec:verdict}
+的失效表手工推导，应与账本一致。
+\item 编译：\path{cd docs/reports/tex && xelatex main && xelatex main}。
+\end{enumerate}
+
+\appendix
+\section{全部 200 个 Study}
+{\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.42\textwidth} r r r l@{}}
+\toprule Study & 特征 & $t$ & IC & 置换 $p$ & 判决 \\ \midrule\endhead
+auto-study-0 & \path{pm_iran_trade_arrival_z} & +0.776 & +0.047 & 0.55 & null \\
+auto-study-1 & \path{pm_iran_notional_innovation_z} & -0.030 & -0.009 & 0.98 & blocked \\
+auto-study-2 & \path{pm_geo_attention_share_z_iran_over_be_1d} & -0.258 & -0.028 & 0.88 & blocked \\
+auto-study-3 & \path{pm_iran_attention_share_z} & -1.093 & -0.006 & 0.305 & blocked \\
+auto-study-4 & \path{pm_iran_closure_p_innovation} & +0.515 & +0.020 & 0.62 & blocked \\
+auto-study-5 & \path{rv_innovation_z_1d_vs_14d} & — & — & — & blocked \\
+auto-study-6 & \path{pm_iran_belief_churn_innov_z} & — & — & — & blocked \\
+auto-study-7 & \path{cb_rv_short_over_base_z} & — & — & — & blocked \\
+run3-study-0 & \path{sc_directional_efficiency_rank_v1} & — & — & — & blocked \\
+run3-study-1 & \path{rv_dispersion_ratio_rank_10d} & — & — & — & blocked \\
+run3-study-2 & \path{sc_sessret_scaled_by_baseline_vol_rankpct} & — & — & — & blocked \\
+run3-study-3 & \path{sc_vol_scaled_session_reversal_v1} & — & — & — & blocked \\
+run3-study-4 & \path{sc_vol_scaled_daily_displacement_v1} & — & — & — & blocked \\
+run3-study-5 & \path{sc_vol_scaled_session_return_rankpct_v1} & — & — & — & blocked \\
+run3-study-6 & \path{sc_signed_shock_norm_rank_2d} & — & — & — & blocked \\
+run3-study-7 & \path{pm_iran_notional_innov_rank_90d} & -0.716 & -0.014 & 0.53 & null \\
+run3-study-8 & \path{sc_signed_ret_1d_z} & -1.262 & -0.054 & 0.275 & null \\
+run4-study-0 & \path{sc_upside_share_rank_5d} & -0.121 & -0.011 & 0.925 & null \\
+run4-study-1 & \path{sc_cumret_7d_rank} & -0.796 & -0.037 & 0.35 & null \\
+run4-study-2 & \path{sc_prev_day_return_rank_pct_2d_over_90d} & -1.413 & -0.040 & 0.18 & null \\
+run4-study-3 & \path{sc_session_return_rank_3d_120d} & -1.186 & -0.041 & 0.285 & null \\
+run4-study-4 & \path{pm_ceasefire_p_state_innovation_12h_30d} & -2.049 & -0.088 & 0.15 & null \\
+run4-study-5 & \path{sc_studentised_range_6h_rankpct_120d} & — & — & — & underpowered \\
+run4-study-6 & \path{sc_vol_scaled_drawdown_pct_v1} & +0.917 & +0.037 & 0.35 & null \\
+run4-study-7 & \path{pm_iran_attention_rank_24h_60d} & -1.540 & -0.065 & 0.175 & null \\
+run4-study-8 & \path{sc_cum_ret_5d_rank_pct} & -0.380 & -0.017 & 0.705 & null \\
+run4-study-9 & \path{sc_vol_normalised_drift_rank_3d} & +1.317 & +0.042 & 0.22 & null \\
+run4-study-10 & \path{pm_iran_p_churn_over_sc_rv_1d_rank} & — & — & — & blocked \\
+run4-study-11 & \path{pm_russia_avg_ticket_rank_1d_120d} & -0.461 & -0.007 & 0.365 & null \\
+run5-study-0 & \path{pm_up_arrival_concentration_6h_over_24h_rank} & +0.621 & +0.004 & 0.36 & null \\
+run5-study-1 & \path{pm_iran_belief_impact_per_notional_rank_1d} & -0.840 & -0.054 & 0.365 & null \\
+run5-study-2 & \path{sc_lowfreq_over_highfreq_vol_rank_2d_180d} & -9.300 & -0.180 & 0.0 & blocked \\
+run6-study-0 & \path{sc_rv_close_concentration_rank_3h_180d} & — & — & — & underpowered \\
+run6-study-1 & \path{cb_rv_acceleration_1d_rank_180d} & +1.984 & +0.022 & 0.01 & blocked \\
+run6-study-2 & \path{pm_iran_minus_israel_p_innov_z_12h_60d} & +0.791 & +0.041 & 0.53 & null \\
+run6-study-3 & \path{pm_russia_arrival_burstiness_rank_1d_120d} & -0.837 & -0.015 & 0.425 & null \\
+run6-study-4 & \path{sc_downside_jump_severity_rank_5d_120d} & +8.867 & +0.134 & 0.0 & blocked \\
+run6-study-5 & \path{cb_terminal_rv_concentration_rank_30m_over_1d_120d} & — & — & — & underpowered \\
+run6-study-6 & \path{pm_ukraine_arrival_minus_own_rv_innov_rank_1d_90d} & -4.889 & -0.062 & 0.0 & blocked \\
+run6-study-7 & \path{pm_up_closed_window_arrival_rank_6h_off6h_90d} & -4.568 & -0.262 & 0.0 & blocked \\
+run6-study-8 & \path{pm_ceasefire_belief_churn_resid_own_rv_1d_90d} & +1.912 & +0.022 & 0.0 & blocked \\
+run6-study-9 & \path{—} & — & — & — & 进行中 \\
+run6-study-10 & \path{—} & — & — & — & 进行中 \\
+run6-study-11 & \path{pm_israel_closed_window_arrival_resid_own_rv_6h_off6h_90d} & +0.296 & -0.012 & 0.955 & null \\
+run7-study-0 & \path{sc_sessret_resid_brent_12h_90d} & — & — & — & blocked \\
+run7-study-1 & \path{pm_russia_escalation_p_innov_resid_brent_12h_30d_90d} & — & — & — & blocked \\
+run7-study-2 & \path{pm_dip_over_reach_notional_rank_1d_120d} & +1.263 & +0.093 & 0.0 & blocked \\
+run7-study-3 & \path{pm_iran_belief_settlement_within_range_1d} & +0.058 & -0.011 & 0.97 & null \\
+run7-study-4 & \path{—} & — & — & — & 进行中 \\
+run9-study-0 & \path{cb_ret_1d_minus_prior_13d_rank_diff_90d} & -1.179 & -0.021 & 0.02 & blocked \\
+run9-study-1 & \path{pm_ceasefire_terminal_drift_over_churn_rank_12h_90d} & -1.961 & -0.086 & 0.09 & blocked \\
+run9-study-2 & \path{pm_iran_closed_minus_open_belief_range_rank_6h_90d} & +0.659 & +0.063 & 0.705 & null \\
+run9-study-3 & \path{pm_iran_active_hour_share_1d_over_prior_30d_rank_90d} & -0.521 & -0.033 & 0.61 & null \\
+run9-study-4 & \path{pm_reach_over_dip_breach_odds_tilt_rank_12h_90d} & +1.454 & +0.263 & 0.13 & null \\
+run9-study-5 & \path{pm_ukraine_over_russia_notional_tilt_rank_1d_120d} & +1.261 & +0.033 & 0.17 & null \\
+run9-study-6 & \path{sc_terminal_signed_impulse_rank_30m_120d} & — & — & — & underpowered \\
+run9-study-7 & \path{pm_ceasefire_over_israel_belief_churn_rank_1d_90d} & +0.325 & +0.007 & 0.795 & null \\
+run9-study-8 & \path{pm_ukraine_strike_p_innov_closed_6h_z_30d_90d} & -1.112 & -0.062 & 0.445 & null \\
+run9-study-9 & \path{pm_iran_arrival_accel_same_phase_6h_vs_1d_rank_90d} & +0.611 & +0.054 & 0.58 & null \\
+run9-study-10 & \path{pm_iran_p_innov_x_own_vol_state_over_belief_churn_12h_30d} & +2.261 & +0.043 & 0.0 & blocked \\
+run9-study-11 & \path{—} & — & — & — & 进行中 \\
+run10-study-0 & \path{pm_ceasefire_arrival_innov_resid_own_rv_12h_30d_90d} & +0.947 & -0.034 & 0.48 & null \\
+run10-study-1 & \path{pm_iran_p_innov_closed_6h_resid_brent_30d_90d} & — & — & — & blocked \\
+run10-study-2 & \path{pm_iran_avg_ticket_closed_6h_resid_own_rv_90d} & -2.156 & -0.080 & 0.225 & null \\
+run10-study-3 & \path{pm_iran_minus_ceasefire_net_escalation_resid_brent_12h_30d_90d} & — & — & — & blocked \\
+run10-study-4 & \path{pm_iran_intrasession_belief_drift_resid_brent_6h_90d} & — & — & — & blocked \\
+run10-study-5 & \path{—} & — & — & — & 进行中 \\
+run11-study-0 & \path{pm_iran_money_concentration_max_hour_share_resid_own_rv_1d_90d} & -1.333 & -0.084 & 0.18 & null \\
+run11-study-1 & \path{pm_iran_belief_floor_ratchet_wow_resid_brent_7d_90d} & +0.066 & +0.008 & 0.965 & null \\
+run11-study-2 & \path{pm_iran_closed_money_share_resid_own_rv_6h_over_1d_90d} & -0.317 & -0.011 & 0.755 & null \\
+run11-study-3 & \path{pm_iran_hazard_level_30d_resid_own_rv_90d} & +2.416 & +0.086 & 0.05 & blocked \\
+run11-study-4 & \path{pm_ceasefire_over_iran_money_tilt_resid_own_rv_1d_90d} & -0.302 & +0.100 & 0.915 & null \\
+run11-study-5 & \path{pm_ceasefire_over_iran_avg_ticket_resid_brent_1d_90d} & +1.084 & +0.040 & 0.285 & null \\
+run11-study-6 & \path{pm_up_direction_belief_dispersion_resid_own_rv_12h_90d} & -1.818 & -0.119 & 0.125 & null \\
+run12-study-0 & \path{—} & — & — & — & 进行中 \\
+run13-study-0 & \path{pm_launch_over_be_speculative_demand_resid_own_rv_1d_90d} & +nan & +0.027 & 0.0 & blocked \\
+run13-study-1 & \path{pm_dip_barrier_pricing_closed_6h_over_norm_resid_own_rv_90d} & +3.170 & +0.721 & 0.02 & underpowered \\
+run13-study-2 & \path{pm_iran_belief_churn_term_structure_7d_over_30d_resid_own_rv_90d} & +1.436 & +0.014 & 0.03 & blocked \\
+run13-study-3 & \path{—} & — & — & — & 进行中 \\
+run14-study-0 & \path{pm_ceasefire_closed_minus_open_arrival_coverage_resid_own_rv_6h_90d} & -0.516 & +0.032 & 0.6 & null \\
+run14-study-1 & \path{pm_out_policy_turnover_belief_range_closed_6h_resid_own_rv_90d} & +1.461 & +0.047 & 0.08 & blocked \\
+run14-study-2 & \path{pm_iran_closed_window_belief_range_resid_own_rv_6h_off6h_90d} & +0.086 & -0.102 & 0.905 & null \\
+run14-study-3 & \path{—} & — & — & — & 进行中 \\
+run15-study-0 & \path{pm_a_postseason_arrival_innov_resid_own_rv_12h_30d_90d_placebo} & +1.219 & +0.050 & 0.45 & null \\
+run15-study-1 & \path{pm_iran_avg_ticket_closed_over_open_resid_own_rv_6h_90d} & +2.081 & +0.023 & 0.0 & blocked \\
+run15-study-2 & \path{pm_ceasefire_p_innov_accel_same_phase_resid_own_rv_12h_30d_90d} & — & — & — & 进行中 \\
+run16-study-0 & \path{pm_iran_p_innov_sq_over_churn_resid_own_rv_12h_30d_90d} & +0.929 & +0.038 & 0.37 & null \\
+run16-study-1 & \path{pm_ukraine_minus_russia_belief_range_closed_6h_resid_own_rv_90d} & +1.732 & +0.043 & 0.0 & blocked \\
+run16-study-2 & \path{pm_a_clinch_closed_window_belief_range_resid_own_rv_6h_off6h_90d_control} & -2.314 & -0.071 & 0.025 & blocked \\
+run16-study-3 & \path{pm_iran_outstanding_resolution_mass_resid_own_rv_12h_90d} & +4.393 & +0.085 & 0.0 & blocked \\
+run16-study-4 & \path{pm_ukraine_belief_occupancy_share_resid_own_rv_1d_90d} & +2.727 & +0.109 & 0.0 & blocked \\
+run16-study-5 & \path{pm_iran_over_israel_money_share_resid_own_rv_1d_90d} & -1.671 & -0.021 & 0.635 & blocked \\
+run16-study-6 & \path{pm_reach_minus_dip_terminal_drift_resid_brent_12h_90d} & -0.430 & +0.183 & 0.83 & underpowered \\
+run16-study-7 & \path{pm_iran_belief_jump_studentised_range_resid_own_rv_7d_90d} & +3.246 & +0.159 & 0.005 & blocked \\
+run16-study-8 & \path{pm_iran_closed_minus_open_belief_drift_resid_brent_6h_90d} & -1.995 & -0.143 & 0.05 & blocked \\
+run16-study-9 & \path{pm_reach_plus_dip_corridor_exit_innov_resid_own_rv_12h_30d_90d} & +1.182 & +0.086 & 0.035 & blocked \\
+run16-study-10 & \path{—} & — & — & — & 进行中 \\
+run16-study-11 & \path{pm_iran_peak_hour_ticket_premium_resid_own_rv_1d_90d} & -0.567 & -0.039 & 0.585 & null \\
+run16-study-12 & \path{pm_iran_over_dip_unabsorbed_risk_dev_ratio_resid_own_rv_12h_30d_90d} & -0.719 & -0.094 & 0.32 & null \\
+run16-study-13 & \path{pm_iran_active_hour_coverage_expansion_wow_resid_own_rv_7d_90d} & -0.080 & -0.019 & 0.92 & null \\
+run16-study-14 & \path{pm_israel_closed_share_of_day_belief_range_resid_own_rv_6h_over_1d_90d} & +0.070 & +0.004 & 0.93 & null \\
+run16-study-15 & \path{pm_geo_escalation_breadth_zsum_3theatre_resid_own_rv_12h_30d_90d} & +0.848 & +0.054 & 0.49 & null \\
+run16-study-16 & \path{pm_iran_over_out_arrival_share_dev_resid_own_rv_1d_30d_90d} & -1.241 & -0.109 & 0.22 & null \\
+run16-study-17 & \path{pm_up_closed_window_ticket_premium_over_30d_norm_resid_own_rv_6h_90d} & -2.031 & -0.082 & 0.0 & blocked \\
+run16-study-18 & \path{pm_iran_belief_drift_agreement_prod_resid_own_rv_12h_adj_90d} & +0.396 & +0.009 & 0.54 & null \\
+run16-study-19 & \path{pm_iran_arrival_intensity_per_active_hour_over_30d_norm_resid_own_rv_1d_90d} & -0.266 & -0.033 & 0.68 & null \\
+run17-study-0 & \path{pm_dip_over_up_tail_attention_share_dev_resid_own_rv_1d_30d_90d} & +0.469 & +0.118 & 0.64 & null \\
+run17-study-1 & \path{pm_out_uncertainty_creation_dod_resid_own_rv_1d_90d_panel} & -1.417 & -0.012 & 0.0 & blocked \\
+run17-study-2 & \path{pm_russia_belief_path_skew_7d_resid_own_rv_90d_panel} & -0.710 & -0.003 & 0.29 & null \\
+run17-study-3 & \path{pm_out_studentised_closed_range_over_30d_churn_resid_own_rv_6h_off6h_90d} & -0.754 & -0.016 & 0.335 & null \\
+run17-study-4 & \path{pm_out_arrival_growth_wow_ratio_resid_own_rv_7d_90d_panel} & +0.870 & +0.033 & 0.11 & null \\
+run17-study-5 & \path{pm_reach_level_normalised_belief_churn_resid_own_rv_1d_over_30d_90d_panel} & -1.860 & -0.039 & 0.0 & blocked \\
+run17-study-6 & \path{pm_ukraine_strike_level_dev_1d_over_30d_resid_brent_90d} & -0.072 & -0.015 & 0.95 & null \\
+run17-study-7 & \path{pm_out_terminal_bucket_arrival_over_day_norm_resid_own_rv_1d_90d_panel} & -1.269 & -0.018 & 0.01 & blocked \\
+run17-study-8 & \path{pm_russia_arrival_growth_dow_matched_1d_resid_own_rv_90d_panel} & -0.563 & -0.003 & 0.325 & null \\
+run17-study-9 & \path{pm_russia_plus_ceasefire_arrival_growth_breadth_resid_own_rv_1d_30d_90d_panel} & +0.868 & +0.015 & 0.065 & blocked \\
+run17-study-10 & \path{pm_russia_belief_churn_accel_over_30d_scale_resid_own_rv_1d_90d_panel} & +0.469 & +0.009 & 0.39 & null \\
+run17-study-11 & \path{pm_up_active_hour_breadth_dow_matched_1d_resid_own_rv_90d_panel} & +1.688 & +0.088 & 0.0 & blocked \\
+run17-study-12 & \path{pm_iran_over_be_arrival_growth_dow_matched_resid_own_rv_1d_90d_fu} & -2.257 & -0.240 & 0.145 & null \\
+run17-study-13 & \path{pm_out_arrival_accel_dow_matched_did_resid_own_rv_1d_90d_panel} & -0.359 & -0.007 & 0.685 & null \\
+run17-study-14 & \path{pm_iran_arrival_floor_over_30d_norm_resid_own_rv_1d_90d_panel} & -0.008 & -0.015 & 0.99 & null \\
+run17-study-15 & \path{pm_iran_over_be_closed_open_arrival_tilt_resid_own_rv_6h_90d_au} & +0.051 & -0.117 & 0.94 & blocked \\
+run17-study-16 & \path{pm_out_avg_ticket_growth_wow_resid_own_rv_7d_90d_panel} & +0.272 & -0.020 & 0.605 & null \\
+run17-study-17 & \path{pm_russia_belief_churn_per_notional_growth_wow_resid_own_rv_7d_90d_p} & -1.798 & +0.009 & 0.175 & null \\
+run17-study-18 & \path{pm_russia_escalation_level_trend_wow_resid_own_rv_7d_90d_panel} & -0.670 & -0.019 & 0.275 & null \\
+run17-study-19 & \path{pm_out_count_concentration_max_hour_share_resid_own_rv_1d_90d_panel} & +0.675 & +0.006 & 0.185 & null \\
+run18-study-0 & \path{pm_iran_terminal_drift_x_ticket_premium_resid_brent_1d_30d_90d_pg} & -0.348 & +0.003 & 0.73 & null \\
+run18-study-1 & \path{pm_out_arrival_excess_x_own_vol_state_resid_own_rv_1d_30d_90d_panel} & -0.058 & +0.023 & 0.91 & null \\
+run18-study-2 & \path{—} & — & — & — & 进行中 \\
+run19-study-0 & \path{pm_ukraine_belief_band_translation_wow_resid_brent_7d_90d_fu} & +0.643 & -0.001 & 0.505 & null \\
+run19-study-1 & \path{pm_iran_level_vs_prior_week_band_center_over_churn_resid_brent_1d_7d_30d_90d_lu} & -0.154 & +0.010 & 0.855 & null \\
+run19-study-2 & \path{pm_iran_belief_revision_dod_over_churn_resid_brent_1d_30d_90d_pg} & +0.082 & +0.027 & 0.94 & null \\
+run19-study-3 & \path{pm_up_money_over_count_dispersion_ratio_resid_own_rv_1d_90d_panel} & -0.014 & +0.008 & 0.98 & null \\
+run19-study-4 & \path{pm_iran_belief_level_curvature_3x3d_resid_brent_90d_au} & -1.349 & -0.038 & 0.45 & null \\
+run19-study-5 & \path{—} & — & — & — & 进行中 \\
+run20-study-0 & \path{pm_iran_x_russia_belief_drift_agreement_resid_own_rv_1d_30d_90d_panel} & -0.183 & +0.058 & 0.92 & null \\
+run20-study-1 & \path{—} & — & — & — & 进行中 \\
+run20-study-2 & \path{—} & — & — & — & 进行中 \\
+run20-study-3 & \path{—} & — & — & — & 进行中 \\
+run21-study-0 & \path{—} & — & — & — & 进行中 \\
+run22-study-0 & \path{pm_up_arrival_excess_dow_x_own_path_jumpiness_resid_own_rv_1d_7d_90d_panel} & -0.532 & +0.004 & 0.275 & null \\
+run22-study-1 & \path{pm_aab_over_own_churn_closed_6h_range_resid_own_rv_30d_90d_panel} & — & — & — & underpowered \\
+run22-study-2 & \path{pm_iran_level_dev_1d_vs_prior_7d_resid_brent_90d_bu} & -0.311 & +0.029 & 0.835 & null \\
+run22-study-3 & \path{pm_israel_arrival_accel_dow_matched_did_resid_own_rv_1d_90d_panel} & +0.039 & -0.005 & 0.97 & null \\
+run22-study-4 & \path{pm_and_over_a_macro_arrival_growth_dow_matched_resid_own_rv_1d_90d_panel} & -0.918 & +0.013 & 0.695 & null \\
+run22-study-5 & \path{pm_another_seizure_hazard_dev_1d_vs_prior_7d_resid_brent_90d_sc} & +0.274 & -0.023 & 0.87 & null \\
+run22-study-6 & \path{pm_russia_belief_occupancy_share_resid_brent_1d_90d_sc} & -0.008 & -0.006 & 0.995 & null \\
+run22-study-7 & \path{pm_russia_strike_level_revision_dow_matched_1d_resid_brent_90d_p} & +1.144 & +0.054 & 0.29 & null \\
+run22-study-8 & \path{pm_bank_failure_hazard_dev_1d_vs_prior_7d_resid_own_rv_90d_panel} & +0.372 & +0.025 & 0.385 & null \\
+run22-study-9 & \path{—} & — & — & — & 进行中 \\
+run22-study-10 & \path{pm_ukraine_minus_russia_strike_hazard_dev_1d_vs_prior_7d_resid_brent_90d_fu} & -0.739 & -0.016 & 0.47 & null \\
+run22-study-11 & \path{pm_blockade_taiwan_hazard_dev_12h_vs_prior_7d_resid_brent_90d_sc} & +0.069 & +0.046 & 0.92 & null \\
+run22-study-12 & \path{pm_russia_strike_hazard_path_curvature_2d_legs_resid_brent_90d_c} & -0.408 & -0.040 & 0.78 & null \\
+run22-study-13 & \path{pm_iran_belief_drift_3d_x_unabsorbed_vol_state_resid_brent_90d_sc} & -0.333 & +0.008 & 0.815 & null \\
+run22-study-14 & \path{pm_iran_plus_ukraine_supply_hazard_dev_1d_vs_prior_7d_resid_brent_90d_panel} & -0.383 & -0.008 & 0.28 & null \\
+run22-study-15 & \path{pm_iran_hazard_level_trend_wow_diff_resid_brent_7d_90d_eg} & -0.808 & -0.011 & 0.575 & null \\
+run22-study-16 & \path{pm_china_trade_hazard_dev_1d_vs_prior_7d_resid_brent_90d_m} & +1.029 & +0.032 & 0.305 & null \\
+run22-study-17 & \path{pm_closes_over_up_arrival_growth_wow_resid_own_rv_7d_90d_sc} & — & — & — & underpowered \\
+run22-study-18 & \path{—} & — & — & — & 进行中 \\
+run22-study-19 & \path{pm_iran_lagged_belief_revision_x_arrival_followthrough_resid_brent_1d_90d_sc} & -0.478 & +0.042 & 0.655 & null \\
+run23-study-0 & \path{pm_iran_belief_revision_monotonicity_over_path_range_resid_brent_12h_90d_evt_sc} & +0.039 & -0.016 & 0.95 & null \\
+run23-study-1 & \path{pm_iran_revision_monotonicity_over_path_range_evt_resid_brent_12h_90d_sc} & +0.039 & -0.016 & 0.95 & null \\
+run23-study-2 & \path{pm_israel_plus_ceasefire_churn_corroboration_evt_iran_resid_own_rv_12h_30d_90d_sc} & +0.856 & +0.015 & 0.52 & null \\
+run23-study-3 & \path{pm_iran_closed_share_of_episode_belief_range_evt_resid_own_rv_6h_over_12h_90d_sc} & +0.510 & +0.052 & 0.645 & null \\
+run23-study-4 & \path{pm_iran_event_window_ticket_premium_over_30d_norm_resid_own_rv_12h_90d_evt_sc} & -0.259 & +0.012 & 0.8 & null \\
+run23-study-5 & \path{pm_iran_plus_russia_episode_displacement_evt_resid_brent_6h_halves_90d_sc} & -0.421 & -0.060 & 0.615 & null \\
+run23-study-6 & \path{pm_iran_evt_displacement_x_arrival_corroboration_resid_brent_6h_halves_30d_90d_sc} & -1.345 & -0.034 & 0.295 & null \\
+run23-study-7 & \path{pm_ukraine_strike_episode_displacement_evt_resid_brent_6h_halves_90d_sc} & +1.733 & +0.079 & 0.185 & null \\
+run23-study-8 & \path{pm_iran_logodds_scaled_episode_displacement_evt_resid_brent_6h_halves_prior7d_90d_sc} & -0.242 & -0.042 & 0.775 & null \\
+run23-study-9 & \path{—} & — & — & — & 进行中 \\
+run23-study-10 & \path{pm_ceasefire_resolution_decay_evt_iran_resid_brent_6h_halves_90d_sc} & -0.751 & -0.017 & 0.525 & null \\
+run23-study-11 & \path{pm_iran_evt_ticket_premium_over_30d_resid_own_rv_12h_90d_sc_v2} & -0.259 & +0.012 & 0.8 & null \\
+run23-study-12 & \path{pm_iran_evt_belief_destination_vs_prior_30d_band_resid_brent_6h_90d_sc} & +1.455 & +0.009 & 0.2 & null \\
+run23-study-13 & \path{pm_iran_minus_israel_z_episode_displacement_evt_resid_brent_6h_halves_30d_90d_sc} & -1.025 & -0.090 & 0.305 & null \\
+run23-study-14 & \path{pm_iran_evt_dose_range_over_prior_week_resid_own_rv_12h_7d_90d_sc} & -0.013 & -0.052 & 0.985 & null \\
+run23-study-15 & \path{pm_iran_evt_disp_x_israel_path_stillness_resid_brent_6h_halves_12h_30d_90d_sc} & +0.124 & -0.004 & 0.92 & null \\
+run23-study-16 & \path{pm_iran_episode_displacement_evt_resid_brent_6h_halves_90d_sc} & -0.203 & -0.057 & 0.915 & null \\
+run23-study-17 & \path{pm_iran_pre_event_attention_state_over_30d_norm_resid_own_rv_12h_off12h_90d_sc_evt} & +1.166 & +0.079 & 0.485 & null \\
+run23-study-18 & \path{pm_ceasefire_revision_monotonicity_over_path_range_evt_resid_brent_12h_90d_sc} & +0.350 & +0.021 & 0.74 & null \\
+run23-study-19 & \path{pm_iran_minus_ceasefire_persistence_disp_evt_resid_brent_6h_halves_90d_sc} & -0.316 & -0.042 & 0.725 & null \\
+run24-study-0 & \path{pm_ukraine_strike_hazard_dev_evt_6h_vs_prior_7d_resid_brent_90d_sc} & +0.384 & +0.028 & 0.715 & null \\
+run24-study-1 & \path{pm_aab_trade_tension_displacement_evt_2d_halves_resid_brent_90d_m} & — & — & — & underpowered \\
+run24-study-2 & \path{pm_ukraine_strike_hazard_dev_evt_6h_vs_prior_1d_resid_brent_90d_fu} & -1.868 & -0.083 & 0.075 & blocked \\
+run24-study-3 & \path{pm_russia_escalation_hazard_same_phase_dod_revision_resid_brent_12h_90d_au} & +1.047 & +0.031 & 0.375 & null \\
+run24-study-4 & \path{pm_ceasefire_breakdown_disp_evt_resid_brent_3h_halves_90d_p} & -0.478 & +0.011 & 0.715 & null \\
+run24-study-5 & \path{pm_out_policy_exit_displacement_evt_resid_brent_3h_halves_90d_sc} & +0.951 & +0.072 & 0.425 & null \\
+run24-study-6 & \path{pm_israel_regional_escalation_disp_evt_6h_halves_resid_brent_90d_sc} & -0.984 & -0.010 & 0.39 & null \\
+run24-study-7 & \path{—} & — & — & — & 进行中 \\
+run24-study-8 & \path{pm_russia_escalation_peak_ratchet_evt_resid_brent_6h_halves_90d_y} & +1.601 & +0.024 & 0.075 & blocked \\
+run24-study-9 & \path{—} & — & — & — & 进行中 \\
+run24-study-10 & \path{pm_bill_passage_displacement_evt_resid_brent_3h_halves_90d_cu} & +0.668 & +0.117 & 0.7 & underpowered \\
+run24-study-11 & \path{pm_ukraine_evt_arrival_crowding_over_a_baseline_resid_own_rv_12h_30d_90d_bu} & -0.499 & +0.019 & 0.635 & null \\
+run24-study-12 & \path{pm_ceasefire_terminal_settlement_within_own_range_evt7d_resid_brent_1d_90d_pg} & -1.486 & -0.081 & 0.14 & null \\
+run24-study-13 & \path{pm_aab_trade_tension_disp_evt_3h_halves_resid_brent_90d_m} & — & — & — & underpowered \\
+run24-study-14 & \path{pm_call_fed_path_displacement_evt_resid_brent_3h_halves_90d_sc} & — & — & — & blocked \\
+run24-study-15 & \path{pm_blockade_taiwan_disp_evt_3h_halves_resid_brent_90d_sc} & — & — & — & blocked \\
+run24-study-16 & \path{pm_china_trade_tension_disp_evt_6h_halves_resid_brent_90d_m} & +0.537 & +0.042 & 0.695 & null \\
+run24-study-17 & \path{pm_ukraine_episode_recency_share_1d_over_3d_resid_own_rv_90d_panel_evt} & +0.440 & -0.024 & 0.485 & null \\
+run24-study-18 & \path{pm_israel_belief_floor_ratchet_evt_1d_halves_resid_brent_90d_l} & -0.724 & +0.008 & 0.33 & null \\
+run24-study-19 & \path{pm_and_macro_arrival_concentration_max_hour_share_evt_resid_own_rv_1d_90d_sc} & -0.149 & +0.017 & 0.91 & null \\
+\bottomrule\end{longtable}}
+
+\section{二十四次运行编年（全记录）}\label{sec:chronicle}
+以下是二十四次运行（auto 前缀涵盖最早两次）的完整记录：每次运行的叙述、
+全部 Study 的判决表、以及每条有冻结规格的 Study 的「信号 × SC 收盘价」图。
+正文中的方法迭代（\S\ref{sec:evolution}）多由这些运行触发。
 \subsection{run\_llm 与 run\_llm2 · 首次真实模型运行}
 早于运行域标识（M7.2），study 前缀为 auto。菜单给出 30 个 Polymarket 族，不含任何指向原油的提示。第 1 轮因输出契约只列字段名不列类型（direction 被写成 "positive"）三次解析全败；后续轮次模型自主选中 cand:iran 族，在关注度异常、跨族份额、自我归一份额、停市窗口信念四个角度展开。run\_llm2 只跑一轮即报 no\_runnable\_work —— 队列跨运行持久而任务标识不带运行名，成为 M7.2 的直接动因。
 
@@ -1045,430 +1555,6 @@ run24-study-19 & \path{pm_and_macro_arrival_concentration_max_hour_share_evt_res
 
 \clearpage
 
-
-\section{结果}\label{sec:results}
-\subsection{假象家族：重新发现了波动率聚集}
-统计量最大的构造（$|t|$ 至 9.30）分母为已实现波动、
-目标亦为已实现波动。PIT 无误、置换通过 —— 关系是真的，但它是 Baseline Control，
-不是另类数据 alpha。诊断（离线，不进账本，本文唯一非快照数字）：对最大一条做残差化，
-秩相关由 $-0.5695$ 塌至 $-0.0077$，缩小约 74 倍。此后 127/180 的规格自带控制项。
-\begin{figure}[htbp]\centering
-\includegraphics[width=0.95\textwidth]{figures/run5-study-2.png}
-\caption{波动假象 \texttt{run5-study-2}（$t=-9.30$）：信号与价格。该信号实为已实现波动的函数，与目标同源。}\label{fig:run5-study-2}
-\end{figure}
-\begin{figure}[htbp]\centering
-\includegraphics[width=0.95\textwidth]{figures/run6-study-4.png}
-\caption{波动假象 \texttt{run6-study-4}（$t=+8.87$）：信号与价格。该信号实为已实现波动的函数，与目标同源。}\label{fig:run6-study-4}
-\end{figure}
-
-
-\subsection{唯一走完全流程的候选及其封存裁决}\label{sec:hero}
-\path{pm_iran_hazard_level_30d_resid_own_rv_90d}（\path{run11-study-3}）：
-cand:iran 族归一化概率 30 日均值，残差化掉品种自身波动持续性后预测下一时段已实现波动。
-机制为混合分布假说：波动由信息到达强度决定，到达强度由风险的当前发生率决定；油价已含
-发生率$\times$损失的一阶期望，发生率水平本身另有信息。
-\begin{table}[htbp]\centering\small
-\begin{tabular}{@{}lrrrl@{}}\toprule
-段 & $t$ & IC$_\rho$ & 行 & 闸门 \\ \midrule
-发现段 & +2.416 & +0.086 & 616 & 置换 0.05 通过 \\
-封存段（一次性） & +0.426 & +0.128 & 405 & $t$ 值比 17.6\% $<$ 0.35 $\Rightarrow$ sealed\_failed \\
-\bottomrule\end{tabular}\caption{候选在两段上的对比。裁决终身有效，不重开。}\end{table}
-
-\textbf{口径更正}：闸门比的是两个 $t$ 值而非效应量，两段样本量不同（616 对 405 行），即便效应完全不变 $t$ 也按
-$\sqrt{n_s/n_d}\approx 0.81$ 缩小；样本量修正后效应保留率约 21.8\%，仍远低于 0.35，\textbf{裁决不变}。该候选在发现段也从未越过当时的
-族地板（评价时已花 46 次检验，地板 2.501，而它是 +2.416，自罚奖励为负）。
-
-另一并如实记录：秩相关在封存段反而由 +0.086 升至 +0.128。线性斜率消失而单调关联
-仍在，可能读法有三（非线性关系 / 小样本噪声 / 发现段高杠杆点支撑），本系统无法在
-不花新预算的前提下区分 —— \textbf{它是开放问题，不是结论}。
-\begin{figure}[htbp]\centering
-\includegraphics[width=0.95\textwidth]{figures/run11-study-3.png}
-\caption{唯一走完全流程的候选：信号（蓝，左轴）与 SC 收盘价（红，右轴）。信号由冻结规格在 discovery 决策网格上重新求值，非回放存档。}\label{fig:run11-study-3}
-\end{figure}
-
-
-\subsection{干净的 null（114 条）}
-残差化普及后，模型系统扫过互异机制：资金集中度、信念下限棘轮、闭市时段资金份额、
-停火/伊朗资金倾斜、平均单笔金额、方向性信念离散度、事件不确定性 $\bar p(1-\bar p)$、
-到达加速度、对娱乐族的安慰剂对照。按判决导出规则 null 只能经由置换检验产出，因此
-每一条都是「置换分布里 $\le 10\%$ 的抽样达到实际斜率绝对值」的具体陈述。
-
-\subsection{成本模型建成后的回溯投影}\label{sec:retro}
-最小成本模型（决定 0007）建成后，判决可按失效表机械地重推：从每条已判 Study 的
-阻塞理由种类中移除 cost\_model\_missing，对收益型 target 补入经济闸门投影。
-这不改写任何已入账判决（账本不可回写），它回答的是「若当时就有成本模型，
-判决会是什么」。结果分三组：
-
-\begin{itemize}
-\item \textbf{基线假象组}（4 条，量价源，$|t|$ 至 9.30）：翻为 candidate，
-且确实越过评价时地板（奖励 $+7.1$ 至 $+2.3$）。但按决定 0002 它们归
-Baseline Control 库，\textbf{不计入另类清单} —— 翻转只说明「波动率聚集是真的」。
-\item \textbf{未越地板组}（11 条，Polymarket）：置换全部通过（exceed
-$0$ 至 $0.035$），但 $|t|$ 在 $1.2$ 至 $2.3$，自罚奖励为负 —— 干净而不够高。
-\item \textbf{真形态，一条}：run16-study-3。
-\end{itemize}
-
-\begin{table}[htbp]\centering\small
-\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.74\textwidth}@{}}\toprule
-特征 & \path{pm_iran_outstanding_resolution_mass_resid_own_rv_12h_90d} \\
-构造 & $\bar p(1-\bar p)$：iran 族 12 小时窗口均值的伯努利方差（「仍未解决的概率质量」），\\
-     & 残差化掉品种自身波动持续性 \\
-universe & 36 品种面板 · 14{,}923 行 \\
-统计 & $t=+4.393$ · IC$_\rho$ = $0.085$ · 置换 $0/200$ · DFBETAS $0.048$ \\
-地板 & 评价时 $n=61$，$E_2(61)=2.600$ → \textbf{自罚奖励 $+1.79$}（残差化另类构造首次为正）\\
-当时判决 & blocked，唯一理由 cost\_model\_missing —— 该理由今日已不存在 \\
-封存段裁决 & \textbf{未保住}（人于 2026-08-08 决定开封，一次性）：$t=+0.823$、
-IC$_\rho$ = $0.029$、14{,}297 行 —— $t$ 保持率 18.7\%，远低于 0.35 保持线，
-判 sealed\_failed。与 run11-study-3 不同，这次\textbf{秩相关同样塌陷}
-（$0.085\to0.029$），是一次更干净的否决 \\
-\bottomrule\end{tabular}
-\caption{run16-study-3：回溯投影下唯一的完整候选形态，及其封存段裁决。
-裁决终身有效，不重开。}
-\end{table}
-
-一条使它区别于全部前例的证据：\textbf{模型在提案时把当时的地板写进了证否条件}：
-\begin{quote}\small
-「在 full coverage panel 上……若残差对 sc rv next session 的 $|t|$ 不超过
-本轮噪声地板 2.5998，或其系数符号为负，则本机制不被支持。」
-\end{quote}
-随后做到 $4.39$。
-这不是事后从账本里挑出来的幸存者：预注册的证否线就是地板本身，另附三条
-非统计的证否观测（增量在纳入信念波动后消失、预测力由样本组成漂移承担等）。
-
-机制上它是 run11-study-3（发生率水平）与 run15 推理（事件不确定性）的直系后代：
-$\bar p$ 接近 $0.5$ 表示事件悬而未决、任何新证据都会引发实质重定价，
-$\bar p(1-\bar p)$ 正是这份「未决质量」的读数。谨慎读法同样必要：
-run11-study-3 在发现段同样通过置换（$0.05$）而封存段未保住；本条的发现段
-统计强得多（$4.39$ 对 $2.42$，且越过地板），但唯一有权裁决的是那次一次性开封。
-
-\subsection{事件条件族：两轮四十回合}
-图~\ref{fig:eventcurve} 是事件族自己的搜索曲线（分母独立、地板从头起）。
-run23 触发器采用 19/19 但 17 版集中在 iran 单一事件源，十九版全 null；
-run24 经方向指令铺开到十一个互异触发族（含轮换层新族），结论一致。
-两轮合计：即使只看概率大幅移动后的窗口、即使换了十一个事件源，
-线性可预测性仍然缺席。本族最好 $|t|=1.87$，从未越过本族地板。
-\begin{figure}[htbp]\centering
-\includegraphics[width=0.9\textwidth]{figures/event_search_curve.png}
-\caption{事件条件族的搜索曲线。分母独立（决定 0008），地板从 $0.798$ 起。}
-\label{fig:eventcurve}
-\end{figure}
-
-\paragraph{四次封存否决的共同判词。}截稿时封存段共否决四个候选形态：
-run11-study-3（发生率水平，$t$ 保持率 17.6\%）、run16-study-3（未决质量，18.7\%，
-秩相关同塌）、dip\_barrier（十行样本的 underpowered 假象经束缺陷混入，
-还原后 51\% 但发现段证据无效）、belief\_jump（12.7\%）。共同形态：
-发现段的强度来自该段特有的样本构成（2024 年伊朗事件簇），
-不是跨段稳定的关系。置换检验打乱段内对齐，检验不出跨段构成差异；
-封存段可以 —— 它因此是终审。
-
-\subsection{封存段全记录（16 次开启）}
-\begin{longtable}{@{}p{0.42\textwidth} r r r l l@{}}
-\toprule 特征 & $t$ & IC$_\rho$ & 行 & 时间样本外 & 分类法干净 \\ \midrule\endhead
-\path{pm_iran_attention_share_z} & -0.040 & -0.082 & 476 & 是 & \textcolor{bad}{否} \\
-\path{pm_iran_notional_innovation_z} & -0.649 & -0.067 & 476 & 是 & \textcolor{bad}{否} \\
-\path{pm_geo_attention_share_z_iran_over_be_1d} & +1.836 & -0.007 & 476 & 是 & \textcolor{bad}{否} \\
-\path{pm_iran_closure_p_innovation} & +1.082 & +0.074 & 475 & 是 & \textcolor{bad}{否} \\
-\path{pm_iran_trade_arrival_z} & -0.579 & -0.042 & 476 & 是 & \textcolor{bad}{否} \\
-\path{pm_ceasefire_p_state_innovation_12h_30d} & -1.034 & -0.045 & 476 & 是 & \textcolor{bad}{否} \\
-\path{sc_signed_ret_1d_z} & +0.842 & +0.050 & 131 & 是 & 是 \\
-\path{sc_prev_day_return_rank_pct_2d_over_90d} & +0.388 & +0.038 & 321 & 是 & 是 \\
-\path{sc_lowfreq_over_highfreq_vol_rank_2d_180d} & -0.816 & -0.074 & 193 & 是 & 是 \\
-\path{sc_downside_jump_severity_rank_5d_120d} & -0.819 & +0.028 & 322 & 是 & 是 \\
-\path{pm_ukraine_arrival_minus_own_rv_innov_rank_1d_90d} & +0.443 & +0.036 & 291 & 是 & \textcolor{bad}{否} \\
-\path{pm_up_closed_window_arrival_rank_6h_off6h_90d} & -0.398 & -0.003 & 476 & 是 & \textcolor{bad}{否} \\
-\path{pm_iran_hazard_level_30d_resid_own_rv_90d} & +0.426 & +0.128 & 405 & 是 & \textcolor{bad}{否} \\
-\path{pm_iran_outstanding_resolution_mass_resid_own_rv_12h_90d} & +0.823 & +0.029 & 14297 & 是 & \textcolor{bad}{否} \\
-\path{pm_dip_barrier_pricing_closed_6h_over_norm_resid_own_rv_90d} & +1.617 & +0.036 & 405 & 是 & \textcolor{bad}{否} \\
-\path{pm_iran_belief_jump_studentised_range_resid_own_rv_7d_90d} & +0.413 & +0.014 & 405 & 是 & \textcolor{bad}{否} \\
-\bottomrule\end{longtable}
-
-\section{测量装置本身的局限}\label{sec:limits}
-为写第 3 节，对全部参与判决的统计量做了一次逐行提取核对。下列不一致由本次核对发现，
-记入 \path{docs/BLOCKERS.md}，按项目规矩只记录不修：置换兜底把度量失败记成支持
-null（null 偏多）；置换块结构使零分布边缘与样本不同（方向不定）；置换阈值 0.1 较常用
-0.05 宽松（null 偏少）；cluster SE 无有限样本修正（排除界宣称偏紧）；面板上
-min\_clusters 被 episode 命名稀释 $N$ 倍（underpowered 偏少）；$h_i=1$ 时 DFBETA
-可为 $+\infty$ 而守卫只覆盖 SE 一侧；MDE 硬编码 2.8 未引用常量；紧缩 Sharpe 方差项
-较发表式少 $1/2\cdot SR^2$（偏乐观）；Sharpe 带尺度含前视；驾驶舱曲线与顶栏用两个
-口径不同的 $n$；提案器读到的地板说明写 $\sqrt{2\ln n}$ 与实现不符；0.35 与 120 无推导。
-\textbf{没有一处能把 null 翻成 candidate}：candidate 被失效表结构性挡住，与数值无关。
-
-\paragraph{束的四连修（B6--B9）。}束位即自动封存的名额，四类占位缺陷先后被实跑暴露：
-基线假象以 $+7.1$ 的奖励霸占束位（B6：Baseline Control 不占另类束位）；
-十行样本的 underpowered 以假奖励进榜并烧掉封条（B7：样本不足不进束）；
-束不按族过滤，事件族的收尾封存烧在旧族特征上（B8）；评价证据的族标签被写死为
-旧族，按族过滤后束反而为空（B9：族由调用方传入）。B9 的一个后果须如实声明：
-run17 至 run24 期间的评价载荷 family 字段不可靠，族归属应按运行前缀判定 ——
-本文全部按此口径。
-
-\paragraph{provider 的四课。}CLI 对管道按块缓冲堵死推理流（伪终端修复）；
-思考阶段不发增量（如实标注，无法修复）；超时线 900s 卡在实测思考时长分布中间
-（提为 1800s）；pty 阻塞读使超时永远不触发（实测挂死 103 分钟，
-select 五秒一拍轮询修复，挂死调用三十分钟必被回收）。每课带回归护栏。
-
-\section{结论（每条附证否条件）}\label{sec:conclusions}
-\begin{enumerate}
-\item \textbf{结构（已解除）：截至 M11 之前，「candidate=0」不是经验结论。}
-cost\_model\_missing 曾对全部 Study 成立且其失效集合含 candidate。
-决定 0007 建成最小成本模型后该约束解除；回溯投影（\S\ref{sec:retro}）显示
-16 条历史 blocked 在新制度下为 candidate 形态。\emph{证否（更正后）：
-新制度下一条各闸门全过的 Study 仍被判 blocked。}
-\item \textbf{经验：已检验机制上，Polymarket 特征相对基线的线性增量预测力，
-在两种问题形态（永远在线；事件条件窗口）上都未过预注册证否闸门。}
-\emph{证否：任一形态下，残差化后在其族地板上方且置换 $\le0.1$ 并在封存段保住的
-一条特征。}
-\item \textbf{经验（已按自身证否条件更正）：残差化之前，四条波动假象的自罚奖励
-为正（最高 $+7.1$）；残差化的另类构造中，第一条奖励为正的出现在 run16-study-3
-（$+1.79$，见 \S\ref{sec:hero} 后补）。}本报告上一版此条写作「从未有 Study 越过
-评价时地板」，按其证否条件（beam\_state 出现 reward $>0$）在写下时即不成立 ——
-假象家族早已越过；当时想表达而未写准的是「无残差化的另类构造越过」。
-\emph{证否（更正后）：残差化另类构造的奖励为正且封存段保持。}
-\item \textbf{方法：残差化把「发现」与「重新发现基线」分开，效果是数量级的}；
-模型采用它的转折点是提示词写明「为什么」，不是原语可见。\emph{证否：一条残差化后
-$|t|$ 不显著下降且封存段保住的量价构造。}
-\item \textbf{方法：封存段是唯一无法用「再跑一次」绕过的闸门，且起了作用。}
-\emph{证否：对同一（规格,段）二次取值而不触发 SealedAlreadyOpened 的路径。}
-\item \textbf{局限：全部 Polymarket 结论被分类法污染封顶}（决定 0004），肯定结论
-在此状态下不可采信；否定结论方向不受影响。\emph{证否：用干净切点语料重归纳并重跑。}
-\item \textbf{局限：测量装置有 12 处实现与文档不符，但无一能把 null 翻成
-candidate。}\emph{证否：修正后重跑，判决分布改变。}
-\item \textbf{经验（已裁决）：run16-study-3 —— 七个月账本中唯一同时满足
-「纯 Polymarket、已残差化、越过评价时地板、置换零例外、影响有界」的构造 ——
-在人决定开封后未保住封存段}（$t$ 保持率 18.7\% $<$ 0.35，秩相关同塌）。
-上一版本条预注册的证否条件（保持率低于 0.35）\textbf{触发}，它加入被否决候选
-的行列。两次开封两次否决（run11-study-3、run16-study-3）共同指向的读法：
-发现段上越过地板、通过置换的构造，其强度主要来自该段特有的样本构成 ——
-封存段正是为识别这一点而存在。
-\emph{证否：一条开封后保持率不低于 0.35 的同类构造。}
-\item \textbf{经验（新）：事件条件形态下结论不变。}触发器由模型自主声明并预注册
-（进 content id），两轮四十回合、十一个互异触发源、本族独立地板 ——
-最好 $|t|=1.87$ 未越线。「概率大幅移动之后的窗口」并没有比「永远在线」
-更可预测。\emph{证否：一条事件条件构造越过本族地板、置换通过并在封存段保住。}
-\end{enumerate}
-
-\section{下一步（全部需人决定）}
-（1）M5 成本模型 —— 唯一使 candidate 可达的改动，应先于其余；（2）分类法重归纳
-（干净切点）；（3）郑商所 21 品种的 TradingDay 裁决；（4）财联社接入；
-（5）横截面 target 设计并修 min\_clusters 稀释。
-
-\section{复现}
-\begin{enumerate}\small
-\item 环境：\path{uv venv && uv pip install -e ".[dev]"}；校验
-\path{.venv/bin/python -m pytest tests/ -q}（668 项合同测试）。
-\item 本文全部数字：\path{scripts/build_report_tex.py} 调用 \path{collect()} 一次
-读取 \path{data/ledger/service.db}（哈希链完整性在读取时重算）。
-\item 全部信号图：\path{scripts/build_figures.py} 用冻结规格在 discovery 决策网格
-重新求值 —— 不读任何回放存档。
-\item 判决复核：对任一 Study 取其 blocked\_reason\_kinds，按 \S\ref{sec:verdict}
-的失效表手工推导，应与账本一致。
-\item 编译：\path{cd docs/reports/tex && xelatex main && xelatex main}。
-\end{enumerate}
-
-\appendix
-\section{全部 200 个 Study}
-{\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.42\textwidth} r r r l@{}}
-\toprule Study & 特征 & $t$ & IC & 置换 $p$ & 判决 \\ \midrule\endhead
-auto-study-0 & \path{pm_iran_trade_arrival_z} & +0.776 & +0.047 & 0.55 & null \\
-auto-study-1 & \path{pm_iran_notional_innovation_z} & -0.030 & -0.009 & 0.98 & blocked \\
-auto-study-2 & \path{pm_geo_attention_share_z_iran_over_be_1d} & -0.258 & -0.028 & 0.88 & blocked \\
-auto-study-3 & \path{pm_iran_attention_share_z} & -1.093 & -0.006 & 0.305 & blocked \\
-auto-study-4 & \path{pm_iran_closure_p_innovation} & +0.515 & +0.020 & 0.62 & blocked \\
-auto-study-5 & \path{rv_innovation_z_1d_vs_14d} & — & — & — & blocked \\
-auto-study-6 & \path{pm_iran_belief_churn_innov_z} & — & — & — & blocked \\
-auto-study-7 & \path{cb_rv_short_over_base_z} & — & — & — & blocked \\
-run3-study-0 & \path{sc_directional_efficiency_rank_v1} & — & — & — & blocked \\
-run3-study-1 & \path{rv_dispersion_ratio_rank_10d} & — & — & — & blocked \\
-run3-study-2 & \path{sc_sessret_scaled_by_baseline_vol_rankpct} & — & — & — & blocked \\
-run3-study-3 & \path{sc_vol_scaled_session_reversal_v1} & — & — & — & blocked \\
-run3-study-4 & \path{sc_vol_scaled_daily_displacement_v1} & — & — & — & blocked \\
-run3-study-5 & \path{sc_vol_scaled_session_return_rankpct_v1} & — & — & — & blocked \\
-run3-study-6 & \path{sc_signed_shock_norm_rank_2d} & — & — & — & blocked \\
-run3-study-7 & \path{pm_iran_notional_innov_rank_90d} & -0.716 & -0.014 & 0.53 & null \\
-run3-study-8 & \path{sc_signed_ret_1d_z} & -1.262 & -0.054 & 0.275 & null \\
-run4-study-0 & \path{sc_upside_share_rank_5d} & -0.121 & -0.011 & 0.925 & null \\
-run4-study-1 & \path{sc_cumret_7d_rank} & -0.796 & -0.037 & 0.35 & null \\
-run4-study-2 & \path{sc_prev_day_return_rank_pct_2d_over_90d} & -1.413 & -0.040 & 0.18 & null \\
-run4-study-3 & \path{sc_session_return_rank_3d_120d} & -1.186 & -0.041 & 0.285 & null \\
-run4-study-4 & \path{pm_ceasefire_p_state_innovation_12h_30d} & -2.049 & -0.088 & 0.15 & null \\
-run4-study-5 & \path{sc_studentised_range_6h_rankpct_120d} & — & — & — & underpowered \\
-run4-study-6 & \path{sc_vol_scaled_drawdown_pct_v1} & +0.917 & +0.037 & 0.35 & null \\
-run4-study-7 & \path{pm_iran_attention_rank_24h_60d} & -1.540 & -0.065 & 0.175 & null \\
-run4-study-8 & \path{sc_cum_ret_5d_rank_pct} & -0.380 & -0.017 & 0.705 & null \\
-run4-study-9 & \path{sc_vol_normalised_drift_rank_3d} & +1.317 & +0.042 & 0.22 & null \\
-run4-study-10 & \path{pm_iran_p_churn_over_sc_rv_1d_rank} & — & — & — & blocked \\
-run4-study-11 & \path{pm_russia_avg_ticket_rank_1d_120d} & -0.461 & -0.007 & 0.365 & null \\
-run5-study-0 & \path{pm_up_arrival_concentration_6h_over_24h_rank} & +0.621 & +0.004 & 0.36 & null \\
-run5-study-1 & \path{pm_iran_belief_impact_per_notional_rank_1d} & -0.840 & -0.054 & 0.365 & null \\
-run5-study-2 & \path{sc_lowfreq_over_highfreq_vol_rank_2d_180d} & -9.300 & -0.180 & 0.0 & blocked \\
-run6-study-0 & \path{sc_rv_close_concentration_rank_3h_180d} & — & — & — & underpowered \\
-run6-study-1 & \path{cb_rv_acceleration_1d_rank_180d} & +1.984 & +0.022 & 0.01 & blocked \\
-run6-study-2 & \path{pm_iran_minus_israel_p_innov_z_12h_60d} & +0.791 & +0.041 & 0.53 & null \\
-run6-study-3 & \path{pm_russia_arrival_burstiness_rank_1d_120d} & -0.837 & -0.015 & 0.425 & null \\
-run6-study-4 & \path{sc_downside_jump_severity_rank_5d_120d} & +8.867 & +0.134 & 0.0 & blocked \\
-run6-study-5 & \path{cb_terminal_rv_concentration_rank_30m_over_1d_120d} & — & — & — & underpowered \\
-run6-study-6 & \path{pm_ukraine_arrival_minus_own_rv_innov_rank_1d_90d} & -4.889 & -0.062 & 0.0 & blocked \\
-run6-study-7 & \path{pm_up_closed_window_arrival_rank_6h_off6h_90d} & -4.568 & -0.262 & 0.0 & blocked \\
-run6-study-8 & \path{pm_ceasefire_belief_churn_resid_own_rv_1d_90d} & +1.912 & +0.022 & 0.0 & blocked \\
-run6-study-9 & \path{—} & — & — & — & 进行中 \\
-run6-study-10 & \path{—} & — & — & — & 进行中 \\
-run6-study-11 & \path{pm_israel_closed_window_arrival_resid_own_rv_6h_off6h_90d} & +0.296 & -0.012 & 0.955 & null \\
-run7-study-0 & \path{sc_sessret_resid_brent_12h_90d} & — & — & — & blocked \\
-run7-study-1 & \path{pm_russia_escalation_p_innov_resid_brent_12h_30d_90d} & — & — & — & blocked \\
-run7-study-2 & \path{pm_dip_over_reach_notional_rank_1d_120d} & +1.263 & +0.093 & 0.0 & blocked \\
-run7-study-3 & \path{pm_iran_belief_settlement_within_range_1d} & +0.058 & -0.011 & 0.97 & null \\
-run7-study-4 & \path{—} & — & — & — & 进行中 \\
-run9-study-0 & \path{cb_ret_1d_minus_prior_13d_rank_diff_90d} & -1.179 & -0.021 & 0.02 & blocked \\
-run9-study-1 & \path{pm_ceasefire_terminal_drift_over_churn_rank_12h_90d} & -1.961 & -0.086 & 0.09 & blocked \\
-run9-study-2 & \path{pm_iran_closed_minus_open_belief_range_rank_6h_90d} & +0.659 & +0.063 & 0.705 & null \\
-run9-study-3 & \path{pm_iran_active_hour_share_1d_over_prior_30d_rank_90d} & -0.521 & -0.033 & 0.61 & null \\
-run9-study-4 & \path{pm_reach_over_dip_breach_odds_tilt_rank_12h_90d} & +1.454 & +0.263 & 0.13 & null \\
-run9-study-5 & \path{pm_ukraine_over_russia_notional_tilt_rank_1d_120d} & +1.261 & +0.033 & 0.17 & null \\
-run9-study-6 & \path{sc_terminal_signed_impulse_rank_30m_120d} & — & — & — & underpowered \\
-run9-study-7 & \path{pm_ceasefire_over_israel_belief_churn_rank_1d_90d} & +0.325 & +0.007 & 0.795 & null \\
-run9-study-8 & \path{pm_ukraine_strike_p_innov_closed_6h_z_30d_90d} & -1.112 & -0.062 & 0.445 & null \\
-run9-study-9 & \path{pm_iran_arrival_accel_same_phase_6h_vs_1d_rank_90d} & +0.611 & +0.054 & 0.58 & null \\
-run9-study-10 & \path{pm_iran_p_innov_x_own_vol_state_over_belief_churn_12h_30d} & +2.261 & +0.043 & 0.0 & blocked \\
-run9-study-11 & \path{—} & — & — & — & 进行中 \\
-run10-study-0 & \path{pm_ceasefire_arrival_innov_resid_own_rv_12h_30d_90d} & +0.947 & -0.034 & 0.48 & null \\
-run10-study-1 & \path{pm_iran_p_innov_closed_6h_resid_brent_30d_90d} & — & — & — & blocked \\
-run10-study-2 & \path{pm_iran_avg_ticket_closed_6h_resid_own_rv_90d} & -2.156 & -0.080 & 0.225 & null \\
-run10-study-3 & \path{pm_iran_minus_ceasefire_net_escalation_resid_brent_12h_30d_90d} & — & — & — & blocked \\
-run10-study-4 & \path{pm_iran_intrasession_belief_drift_resid_brent_6h_90d} & — & — & — & blocked \\
-run10-study-5 & \path{—} & — & — & — & 进行中 \\
-run11-study-0 & \path{pm_iran_money_concentration_max_hour_share_resid_own_rv_1d_90d} & -1.333 & -0.084 & 0.18 & null \\
-run11-study-1 & \path{pm_iran_belief_floor_ratchet_wow_resid_brent_7d_90d} & +0.066 & +0.008 & 0.965 & null \\
-run11-study-2 & \path{pm_iran_closed_money_share_resid_own_rv_6h_over_1d_90d} & -0.317 & -0.011 & 0.755 & null \\
-run11-study-3 & \path{pm_iran_hazard_level_30d_resid_own_rv_90d} & +2.416 & +0.086 & 0.05 & blocked \\
-run11-study-4 & \path{pm_ceasefire_over_iran_money_tilt_resid_own_rv_1d_90d} & -0.302 & +0.100 & 0.915 & null \\
-run11-study-5 & \path{pm_ceasefire_over_iran_avg_ticket_resid_brent_1d_90d} & +1.084 & +0.040 & 0.285 & null \\
-run11-study-6 & \path{pm_up_direction_belief_dispersion_resid_own_rv_12h_90d} & -1.818 & -0.119 & 0.125 & null \\
-run12-study-0 & \path{—} & — & — & — & 进行中 \\
-run13-study-0 & \path{pm_launch_over_be_speculative_demand_resid_own_rv_1d_90d} & +nan & +0.027 & 0.0 & blocked \\
-run13-study-1 & \path{pm_dip_barrier_pricing_closed_6h_over_norm_resid_own_rv_90d} & +3.170 & +0.721 & 0.02 & underpowered \\
-run13-study-2 & \path{pm_iran_belief_churn_term_structure_7d_over_30d_resid_own_rv_90d} & +1.436 & +0.014 & 0.03 & blocked \\
-run13-study-3 & \path{—} & — & — & — & 进行中 \\
-run14-study-0 & \path{pm_ceasefire_closed_minus_open_arrival_coverage_resid_own_rv_6h_90d} & -0.516 & +0.032 & 0.6 & null \\
-run14-study-1 & \path{pm_out_policy_turnover_belief_range_closed_6h_resid_own_rv_90d} & +1.461 & +0.047 & 0.08 & blocked \\
-run14-study-2 & \path{pm_iran_closed_window_belief_range_resid_own_rv_6h_off6h_90d} & +0.086 & -0.102 & 0.905 & null \\
-run14-study-3 & \path{—} & — & — & — & 进行中 \\
-run15-study-0 & \path{pm_a_postseason_arrival_innov_resid_own_rv_12h_30d_90d_placebo} & +1.219 & +0.050 & 0.45 & null \\
-run15-study-1 & \path{pm_iran_avg_ticket_closed_over_open_resid_own_rv_6h_90d} & +2.081 & +0.023 & 0.0 & blocked \\
-run15-study-2 & \path{pm_ceasefire_p_innov_accel_same_phase_resid_own_rv_12h_30d_90d} & — & — & — & 进行中 \\
-run16-study-0 & \path{pm_iran_p_innov_sq_over_churn_resid_own_rv_12h_30d_90d} & +0.929 & +0.038 & 0.37 & null \\
-run16-study-1 & \path{pm_ukraine_minus_russia_belief_range_closed_6h_resid_own_rv_90d} & +1.732 & +0.043 & 0.0 & blocked \\
-run16-study-2 & \path{pm_a_clinch_closed_window_belief_range_resid_own_rv_6h_off6h_90d_control} & -2.314 & -0.071 & 0.025 & blocked \\
-run16-study-3 & \path{pm_iran_outstanding_resolution_mass_resid_own_rv_12h_90d} & +4.393 & +0.085 & 0.0 & blocked \\
-run16-study-4 & \path{pm_ukraine_belief_occupancy_share_resid_own_rv_1d_90d} & +2.727 & +0.109 & 0.0 & blocked \\
-run16-study-5 & \path{pm_iran_over_israel_money_share_resid_own_rv_1d_90d} & -1.671 & -0.021 & 0.635 & blocked \\
-run16-study-6 & \path{pm_reach_minus_dip_terminal_drift_resid_brent_12h_90d} & -0.430 & +0.183 & 0.83 & underpowered \\
-run16-study-7 & \path{pm_iran_belief_jump_studentised_range_resid_own_rv_7d_90d} & +3.246 & +0.159 & 0.005 & blocked \\
-run16-study-8 & \path{pm_iran_closed_minus_open_belief_drift_resid_brent_6h_90d} & -1.995 & -0.143 & 0.05 & blocked \\
-run16-study-9 & \path{pm_reach_plus_dip_corridor_exit_innov_resid_own_rv_12h_30d_90d} & +1.182 & +0.086 & 0.035 & blocked \\
-run16-study-10 & \path{—} & — & — & — & 进行中 \\
-run16-study-11 & \path{pm_iran_peak_hour_ticket_premium_resid_own_rv_1d_90d} & -0.567 & -0.039 & 0.585 & null \\
-run16-study-12 & \path{pm_iran_over_dip_unabsorbed_risk_dev_ratio_resid_own_rv_12h_30d_90d} & -0.719 & -0.094 & 0.32 & null \\
-run16-study-13 & \path{pm_iran_active_hour_coverage_expansion_wow_resid_own_rv_7d_90d} & -0.080 & -0.019 & 0.92 & null \\
-run16-study-14 & \path{pm_israel_closed_share_of_day_belief_range_resid_own_rv_6h_over_1d_90d} & +0.070 & +0.004 & 0.93 & null \\
-run16-study-15 & \path{pm_geo_escalation_breadth_zsum_3theatre_resid_own_rv_12h_30d_90d} & +0.848 & +0.054 & 0.49 & null \\
-run16-study-16 & \path{pm_iran_over_out_arrival_share_dev_resid_own_rv_1d_30d_90d} & -1.241 & -0.109 & 0.22 & null \\
-run16-study-17 & \path{pm_up_closed_window_ticket_premium_over_30d_norm_resid_own_rv_6h_90d} & -2.031 & -0.082 & 0.0 & blocked \\
-run16-study-18 & \path{pm_iran_belief_drift_agreement_prod_resid_own_rv_12h_adj_90d} & +0.396 & +0.009 & 0.54 & null \\
-run16-study-19 & \path{pm_iran_arrival_intensity_per_active_hour_over_30d_norm_resid_own_rv_1d_90d} & -0.266 & -0.033 & 0.68 & null \\
-run17-study-0 & \path{pm_dip_over_up_tail_attention_share_dev_resid_own_rv_1d_30d_90d} & +0.469 & +0.118 & 0.64 & null \\
-run17-study-1 & \path{pm_out_uncertainty_creation_dod_resid_own_rv_1d_90d_panel} & -1.417 & -0.012 & 0.0 & blocked \\
-run17-study-2 & \path{pm_russia_belief_path_skew_7d_resid_own_rv_90d_panel} & -0.710 & -0.003 & 0.29 & null \\
-run17-study-3 & \path{pm_out_studentised_closed_range_over_30d_churn_resid_own_rv_6h_off6h_90d} & -0.754 & -0.016 & 0.335 & null \\
-run17-study-4 & \path{pm_out_arrival_growth_wow_ratio_resid_own_rv_7d_90d_panel} & +0.870 & +0.033 & 0.11 & null \\
-run17-study-5 & \path{pm_reach_level_normalised_belief_churn_resid_own_rv_1d_over_30d_90d_panel} & -1.860 & -0.039 & 0.0 & blocked \\
-run17-study-6 & \path{pm_ukraine_strike_level_dev_1d_over_30d_resid_brent_90d} & -0.072 & -0.015 & 0.95 & null \\
-run17-study-7 & \path{pm_out_terminal_bucket_arrival_over_day_norm_resid_own_rv_1d_90d_panel} & -1.269 & -0.018 & 0.01 & blocked \\
-run17-study-8 & \path{pm_russia_arrival_growth_dow_matched_1d_resid_own_rv_90d_panel} & -0.563 & -0.003 & 0.325 & null \\
-run17-study-9 & \path{pm_russia_plus_ceasefire_arrival_growth_breadth_resid_own_rv_1d_30d_90d_panel} & +0.868 & +0.015 & 0.065 & blocked \\
-run17-study-10 & \path{pm_russia_belief_churn_accel_over_30d_scale_resid_own_rv_1d_90d_panel} & +0.469 & +0.009 & 0.39 & null \\
-run17-study-11 & \path{pm_up_active_hour_breadth_dow_matched_1d_resid_own_rv_90d_panel} & +1.688 & +0.088 & 0.0 & blocked \\
-run17-study-12 & \path{pm_iran_over_be_arrival_growth_dow_matched_resid_own_rv_1d_90d_fu} & -2.257 & -0.240 & 0.145 & null \\
-run17-study-13 & \path{pm_out_arrival_accel_dow_matched_did_resid_own_rv_1d_90d_panel} & -0.359 & -0.007 & 0.685 & null \\
-run17-study-14 & \path{pm_iran_arrival_floor_over_30d_norm_resid_own_rv_1d_90d_panel} & -0.008 & -0.015 & 0.99 & null \\
-run17-study-15 & \path{pm_iran_over_be_closed_open_arrival_tilt_resid_own_rv_6h_90d_au} & +0.051 & -0.117 & 0.94 & blocked \\
-run17-study-16 & \path{pm_out_avg_ticket_growth_wow_resid_own_rv_7d_90d_panel} & +0.272 & -0.020 & 0.605 & null \\
-run17-study-17 & \path{pm_russia_belief_churn_per_notional_growth_wow_resid_own_rv_7d_90d_p} & -1.798 & +0.009 & 0.175 & null \\
-run17-study-18 & \path{pm_russia_escalation_level_trend_wow_resid_own_rv_7d_90d_panel} & -0.670 & -0.019 & 0.275 & null \\
-run17-study-19 & \path{pm_out_count_concentration_max_hour_share_resid_own_rv_1d_90d_panel} & +0.675 & +0.006 & 0.185 & null \\
-run18-study-0 & \path{pm_iran_terminal_drift_x_ticket_premium_resid_brent_1d_30d_90d_pg} & -0.348 & +0.003 & 0.73 & null \\
-run18-study-1 & \path{pm_out_arrival_excess_x_own_vol_state_resid_own_rv_1d_30d_90d_panel} & -0.058 & +0.023 & 0.91 & null \\
-run18-study-2 & \path{—} & — & — & — & 进行中 \\
-run19-study-0 & \path{pm_ukraine_belief_band_translation_wow_resid_brent_7d_90d_fu} & +0.643 & -0.001 & 0.505 & null \\
-run19-study-1 & \path{pm_iran_level_vs_prior_week_band_center_over_churn_resid_brent_1d_7d_30d_90d_lu} & -0.154 & +0.010 & 0.855 & null \\
-run19-study-2 & \path{pm_iran_belief_revision_dod_over_churn_resid_brent_1d_30d_90d_pg} & +0.082 & +0.027 & 0.94 & null \\
-run19-study-3 & \path{pm_up_money_over_count_dispersion_ratio_resid_own_rv_1d_90d_panel} & -0.014 & +0.008 & 0.98 & null \\
-run19-study-4 & \path{pm_iran_belief_level_curvature_3x3d_resid_brent_90d_au} & -1.349 & -0.038 & 0.45 & null \\
-run19-study-5 & \path{—} & — & — & — & 进行中 \\
-run20-study-0 & \path{pm_iran_x_russia_belief_drift_agreement_resid_own_rv_1d_30d_90d_panel} & -0.183 & +0.058 & 0.92 & null \\
-run20-study-1 & \path{—} & — & — & — & 进行中 \\
-run20-study-2 & \path{—} & — & — & — & 进行中 \\
-run20-study-3 & \path{—} & — & — & — & 进行中 \\
-run21-study-0 & \path{—} & — & — & — & 进行中 \\
-run22-study-0 & \path{pm_up_arrival_excess_dow_x_own_path_jumpiness_resid_own_rv_1d_7d_90d_panel} & -0.532 & +0.004 & 0.275 & null \\
-run22-study-1 & \path{pm_aab_over_own_churn_closed_6h_range_resid_own_rv_30d_90d_panel} & — & — & — & underpowered \\
-run22-study-2 & \path{pm_iran_level_dev_1d_vs_prior_7d_resid_brent_90d_bu} & -0.311 & +0.029 & 0.835 & null \\
-run22-study-3 & \path{pm_israel_arrival_accel_dow_matched_did_resid_own_rv_1d_90d_panel} & +0.039 & -0.005 & 0.97 & null \\
-run22-study-4 & \path{pm_and_over_a_macro_arrival_growth_dow_matched_resid_own_rv_1d_90d_panel} & -0.918 & +0.013 & 0.695 & null \\
-run22-study-5 & \path{pm_another_seizure_hazard_dev_1d_vs_prior_7d_resid_brent_90d_sc} & +0.274 & -0.023 & 0.87 & null \\
-run22-study-6 & \path{pm_russia_belief_occupancy_share_resid_brent_1d_90d_sc} & -0.008 & -0.006 & 0.995 & null \\
-run22-study-7 & \path{pm_russia_strike_level_revision_dow_matched_1d_resid_brent_90d_p} & +1.144 & +0.054 & 0.29 & null \\
-run22-study-8 & \path{pm_bank_failure_hazard_dev_1d_vs_prior_7d_resid_own_rv_90d_panel} & +0.372 & +0.025 & 0.385 & null \\
-run22-study-9 & \path{—} & — & — & — & 进行中 \\
-run22-study-10 & \path{pm_ukraine_minus_russia_strike_hazard_dev_1d_vs_prior_7d_resid_brent_90d_fu} & -0.739 & -0.016 & 0.47 & null \\
-run22-study-11 & \path{pm_blockade_taiwan_hazard_dev_12h_vs_prior_7d_resid_brent_90d_sc} & +0.069 & +0.046 & 0.92 & null \\
-run22-study-12 & \path{pm_russia_strike_hazard_path_curvature_2d_legs_resid_brent_90d_c} & -0.408 & -0.040 & 0.78 & null \\
-run22-study-13 & \path{pm_iran_belief_drift_3d_x_unabsorbed_vol_state_resid_brent_90d_sc} & -0.333 & +0.008 & 0.815 & null \\
-run22-study-14 & \path{pm_iran_plus_ukraine_supply_hazard_dev_1d_vs_prior_7d_resid_brent_90d_panel} & -0.383 & -0.008 & 0.28 & null \\
-run22-study-15 & \path{pm_iran_hazard_level_trend_wow_diff_resid_brent_7d_90d_eg} & -0.808 & -0.011 & 0.575 & null \\
-run22-study-16 & \path{pm_china_trade_hazard_dev_1d_vs_prior_7d_resid_brent_90d_m} & +1.029 & +0.032 & 0.305 & null \\
-run22-study-17 & \path{pm_closes_over_up_arrival_growth_wow_resid_own_rv_7d_90d_sc} & — & — & — & underpowered \\
-run22-study-18 & \path{—} & — & — & — & 进行中 \\
-run22-study-19 & \path{pm_iran_lagged_belief_revision_x_arrival_followthrough_resid_brent_1d_90d_sc} & -0.478 & +0.042 & 0.655 & null \\
-run23-study-0 & \path{pm_iran_belief_revision_monotonicity_over_path_range_resid_brent_12h_90d_evt_sc} & +0.039 & -0.016 & 0.95 & null \\
-run23-study-1 & \path{pm_iran_revision_monotonicity_over_path_range_evt_resid_brent_12h_90d_sc} & +0.039 & -0.016 & 0.95 & null \\
-run23-study-2 & \path{pm_israel_plus_ceasefire_churn_corroboration_evt_iran_resid_own_rv_12h_30d_90d_sc} & +0.856 & +0.015 & 0.52 & null \\
-run23-study-3 & \path{pm_iran_closed_share_of_episode_belief_range_evt_resid_own_rv_6h_over_12h_90d_sc} & +0.510 & +0.052 & 0.645 & null \\
-run23-study-4 & \path{pm_iran_event_window_ticket_premium_over_30d_norm_resid_own_rv_12h_90d_evt_sc} & -0.259 & +0.012 & 0.8 & null \\
-run23-study-5 & \path{pm_iran_plus_russia_episode_displacement_evt_resid_brent_6h_halves_90d_sc} & -0.421 & -0.060 & 0.615 & null \\
-run23-study-6 & \path{pm_iran_evt_displacement_x_arrival_corroboration_resid_brent_6h_halves_30d_90d_sc} & -1.345 & -0.034 & 0.295 & null \\
-run23-study-7 & \path{pm_ukraine_strike_episode_displacement_evt_resid_brent_6h_halves_90d_sc} & +1.733 & +0.079 & 0.185 & null \\
-run23-study-8 & \path{pm_iran_logodds_scaled_episode_displacement_evt_resid_brent_6h_halves_prior7d_90d_sc} & -0.242 & -0.042 & 0.775 & null \\
-run23-study-9 & \path{—} & — & — & — & 进行中 \\
-run23-study-10 & \path{pm_ceasefire_resolution_decay_evt_iran_resid_brent_6h_halves_90d_sc} & -0.751 & -0.017 & 0.525 & null \\
-run23-study-11 & \path{pm_iran_evt_ticket_premium_over_30d_resid_own_rv_12h_90d_sc_v2} & -0.259 & +0.012 & 0.8 & null \\
-run23-study-12 & \path{pm_iran_evt_belief_destination_vs_prior_30d_band_resid_brent_6h_90d_sc} & +1.455 & +0.009 & 0.2 & null \\
-run23-study-13 & \path{pm_iran_minus_israel_z_episode_displacement_evt_resid_brent_6h_halves_30d_90d_sc} & -1.025 & -0.090 & 0.305 & null \\
-run23-study-14 & \path{pm_iran_evt_dose_range_over_prior_week_resid_own_rv_12h_7d_90d_sc} & -0.013 & -0.052 & 0.985 & null \\
-run23-study-15 & \path{pm_iran_evt_disp_x_israel_path_stillness_resid_brent_6h_halves_12h_30d_90d_sc} & +0.124 & -0.004 & 0.92 & null \\
-run23-study-16 & \path{pm_iran_episode_displacement_evt_resid_brent_6h_halves_90d_sc} & -0.203 & -0.057 & 0.915 & null \\
-run23-study-17 & \path{pm_iran_pre_event_attention_state_over_30d_norm_resid_own_rv_12h_off12h_90d_sc_evt} & +1.166 & +0.079 & 0.485 & null \\
-run23-study-18 & \path{pm_ceasefire_revision_monotonicity_over_path_range_evt_resid_brent_12h_90d_sc} & +0.350 & +0.021 & 0.74 & null \\
-run23-study-19 & \path{pm_iran_minus_ceasefire_persistence_disp_evt_resid_brent_6h_halves_90d_sc} & -0.316 & -0.042 & 0.725 & null \\
-run24-study-0 & \path{pm_ukraine_strike_hazard_dev_evt_6h_vs_prior_7d_resid_brent_90d_sc} & +0.384 & +0.028 & 0.715 & null \\
-run24-study-1 & \path{pm_aab_trade_tension_displacement_evt_2d_halves_resid_brent_90d_m} & — & — & — & underpowered \\
-run24-study-2 & \path{pm_ukraine_strike_hazard_dev_evt_6h_vs_prior_1d_resid_brent_90d_fu} & -1.868 & -0.083 & 0.075 & blocked \\
-run24-study-3 & \path{pm_russia_escalation_hazard_same_phase_dod_revision_resid_brent_12h_90d_au} & +1.047 & +0.031 & 0.375 & null \\
-run24-study-4 & \path{pm_ceasefire_breakdown_disp_evt_resid_brent_3h_halves_90d_p} & -0.478 & +0.011 & 0.715 & null \\
-run24-study-5 & \path{pm_out_policy_exit_displacement_evt_resid_brent_3h_halves_90d_sc} & +0.951 & +0.072 & 0.425 & null \\
-run24-study-6 & \path{pm_israel_regional_escalation_disp_evt_6h_halves_resid_brent_90d_sc} & -0.984 & -0.010 & 0.39 & null \\
-run24-study-7 & \path{—} & — & — & — & 进行中 \\
-run24-study-8 & \path{pm_russia_escalation_peak_ratchet_evt_resid_brent_6h_halves_90d_y} & +1.601 & +0.024 & 0.075 & blocked \\
-run24-study-9 & \path{—} & — & — & — & 进行中 \\
-run24-study-10 & \path{pm_bill_passage_displacement_evt_resid_brent_3h_halves_90d_cu} & +0.668 & +0.117 & 0.7 & underpowered \\
-run24-study-11 & \path{pm_ukraine_evt_arrival_crowding_over_a_baseline_resid_own_rv_12h_30d_90d_bu} & -0.499 & +0.019 & 0.635 & null \\
-run24-study-12 & \path{pm_ceasefire_terminal_settlement_within_own_range_evt7d_resid_brent_1d_90d_pg} & -1.486 & -0.081 & 0.14 & null \\
-run24-study-13 & \path{pm_aab_trade_tension_disp_evt_3h_halves_resid_brent_90d_m} & — & — & — & underpowered \\
-run24-study-14 & \path{pm_call_fed_path_displacement_evt_resid_brent_3h_halves_90d_sc} & — & — & — & blocked \\
-run24-study-15 & \path{pm_blockade_taiwan_disp_evt_3h_halves_resid_brent_90d_sc} & — & — & — & blocked \\
-run24-study-16 & \path{pm_china_trade_tension_disp_evt_6h_halves_resid_brent_90d_m} & +0.537 & +0.042 & 0.695 & null \\
-run24-study-17 & \path{pm_ukraine_episode_recency_share_1d_over_3d_resid_own_rv_90d_panel_evt} & +0.440 & -0.024 & 0.485 & null \\
-run24-study-18 & \path{pm_israel_belief_floor_ratchet_evt_1d_halves_resid_brent_90d_l} & -0.724 & +0.008 & 0.33 & null \\
-run24-study-19 & \path{pm_and_macro_arrival_concentration_max_hour_share_evt_resid_own_rv_1d_90d_sc} & -0.149 & +0.017 & 0.91 & null \\
-\bottomrule\end{longtable}}
 
 \vfill\noindent\rule{\textwidth}{0.4pt}\\
 {\small 账本冻结点：事件 seq 2723（2026-08-09T21:40:48，run16 当时仍在进行）；事件 2723 条，哈希链完整。
