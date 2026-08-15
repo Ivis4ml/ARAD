@@ -230,6 +230,7 @@ def assemble_proposer_context(
     research_direction: str | None = None,
     skill: Any = None,
     round_index: int = 0,
+    absent_drivers: dict | None = None,
 ) -> ContextBundle:
     """组装提案器上下文。渲染后再过一次盲化检查。
 
@@ -285,6 +286,10 @@ def assemble_proposer_context(
             "candidate_families": menu,
             "known_biases": [b.__dict__ for b in menu_biases],
         },
+        # 外部种子包的**存在性**清单（决定 0013 §四）：这些驱动在预测市场上没有
+        # 可结算工具，以它们为机制的提案无法用本数据源检验。只含存在性，不含任何
+        # 检验结果 —— 外部的检验结果走评价机一侧的封禁表，不进这里。
+        **({"drivers_without_instruments": absent_drivers} if absent_drivers else {}),
         # 搜索覆盖（M17）：模型此前反复回到同一条轴上，不是偏好问题，
         # 是它看不见自己走过哪里（实测 cand:iran × sc × rv 一个组合就 34 条提案）。
         # 本节只数提案，不含任何判决 —— 与决定 0006 关闭的那条通道不是一回事。

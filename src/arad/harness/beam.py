@@ -43,11 +43,19 @@ class Candidate:
     value: float | None
     tests_at_evaluation: int
     source: str = ""
+    #: 实得斜率符号是否与预注册方向一致（决定 0012）。反号的构造**未支持**其所主张
+    #: 的机制，不该占据封存重试的名额。实测必要性：束里最好的两个奖励 +7.11 与 +2.61
+    #: 全部来自反号构造（run5-study-2 即 |t|=9.30 的量价假象），run30 的 |t| 前三
+    #: （3.74/2.38/2.36）也全部反号 —— 按修正前的口径它们仍会挤进束。
+    #: 缺省 True 是为了兼容未声明方向的历史构造：不声明就不判。
+    direction_agrees: bool = True
 
     @property
     def reward(self) -> float:
         """越过噪声地板多少。地板随该族已读 outcome 的次数抬高。"""
         if self.value is None or not math.isfinite(self.value):
+            return float("-inf")
+        if not self.direction_agrees:
             return float("-inf")
         floor = expected_max_abs_z(max(1, self.tests_at_evaluation))
         return abs(self.value) - floor
@@ -81,7 +89,8 @@ class Beam:
             "members": [
                 {"feature_id": c.feature_id, "study_id": c.study_id,
                  "value": c.value, "tests_at_evaluation": c.tests_at_evaluation,
-                 "reward": c.reward, "source": c.source}
+                 "reward": c.reward, "source": c.source,
+                 "direction_agrees": c.direction_agrees}
                 for c in self.members
             ],
             "note": (

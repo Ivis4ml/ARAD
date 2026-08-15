@@ -359,6 +359,82 @@ def mechanism_search_curve() -> None:
     plt.close(fig)
     print("mechanism_search_curve.png 完成")
 
+def qualifying_climb() -> None:
+    """合格构造的爬升曲线：这张图回答「autoresearch 到底有没有在爬」。
+
+    与另三条搜索曲线的差别在**过滤**：只画同时满足两条的构造 ——
+    源是 pm_market（另类数据，量价基线属对照，不计入另类清单）、
+    且实得符号与其预注册方向一致（决定 0012 之后这一条才可判）。
+    不过滤的曲线看起来乐观得多，而那些高点逐条查下来都不成立：
+    最高的 |t|=9.30 是波动率聚集的基线假象且符号反，
+    机制族的 3.74 方向反、单点影响过大、品种维退化。
+    """
+    import sys as _sys
+
+    _sys.path.insert(0, "src")
+    from arad.evaluation.selection import expected_max_abs_z
+    from arad.memory.ledger import EvidenceLedger, Role
+
+    def fam_of(sid: str) -> str:
+        run = sid.split("-study-")[0]
+        if run in ("run23", "run24"):
+            return "event"
+        if run in ("run27", "run28", "run29", "run30"):
+            return "mech"
+        return "old"
+
+    with EvidenceLedger("data/ledger/service.db") as ledger:
+        events = list(ledger.read_events(role=Role.HUMAN))
+    direction, tstat, source, order = {}, {}, {}, []
+    for event in events:
+        sid = event.get("study_id")
+        payload = event["payload"]
+        if not sid:
+            continue
+        if event["event_type"] == "proposal_locked":
+            spec = payload.get("proposal") or payload
+            if spec.get("direction") in (1, -1):
+                direction[sid] = spec["direction"]
+        elif event["event_type"] == "feature_spec_locked":
+            source[sid] = "pm" if "pm_market" in str(payload) else "bar"
+        elif event["event_type"] == "outcome_read":
+            order.append(sid)
+        elif event["event_type"] == "evaluation_result":
+            value = (payload.get("effects") or {}).get("t_stat")
+            if isinstance(value, (int, float)) and not math.isnan(value):
+                tstat[sid] = value
+
+    fig, axes = plt.subplots(1, 3, figsize=(9.6, 2.9), dpi=200, sharey=True)
+    titles = {"old": "旧族（常在线性）", "event": "事件条件族", "mech": "机制先验族"}
+    for ax, fam in zip(axes, ("old", "event", "mech"), strict=True):
+        n = 0
+        floors_x, floors_y, pts_x, pts_y, off_x, off_y = [], [], [], [], [], []
+        for sid in order:
+            if fam_of(sid) != fam or sid not in tstat:
+                continue
+            n += 1
+            floors_x.append(n)
+            floors_y.append(expected_max_abs_z(n))
+            qualifies = (source.get(sid) == "pm" and sid in direction
+                         and (direction[sid] > 0) == (tstat[sid] > 0))
+            (pts_x if qualifies else off_x).append(n)
+            (pts_y if qualifies else off_y).append(abs(tstat[sid]))
+        ax.plot(floors_x, floors_y, color=PRICE, lw=1.5, ls="--", label="零假设地板")
+        ax.scatter(off_x, off_y, s=10, color="#c9c9c9", zorder=2, label="不合格")
+        ax.scatter(pts_x, pts_y, s=20, color=SIGNAL, zorder=3, label="合格构造")
+        ax.set_title(f"{titles[fam]}（n={len(floors_x)}）", fontsize=8)
+        ax.set_xlabel("本族已读 outcome 次数", fontsize=7.5)
+        ax.tick_params(labelsize=7)
+        for spine in ("top", "right"):
+            ax.spines[spine].set_visible(False)
+    axes[0].set_ylabel("|t|", fontsize=8)
+    axes[0].legend(fontsize=6.2, frameon=False, loc="upper left")
+    fig.tight_layout(pad=0.5)
+    fig.savefig(OUT / "qualifying_climb.png")
+    plt.close(fig)
+    print("qualifying_climb.png 完成")
+
+
 
 
 if __name__ == "__main__":
@@ -367,3 +443,4 @@ if __name__ == "__main__":
     arad_search_curve()
     event_search_curve()
     mechanism_search_curve()
+    qualifying_climb()

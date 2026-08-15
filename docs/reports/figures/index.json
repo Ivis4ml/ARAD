@@ -1300,5 +1300,167 @@
   "feature_id": "pm_hurricane_landfall_dp_rate_innov_2d_15d_resid_brent_and_own_rv_v",
   "defined_points": 15,
   "total_points": 1040
+ },
+ "run29-study-0": {
+  "file": "run29-study-0.png",
+  "feature_id": "pm_fed_hike_dp_dispersion_2d_over_30d_resid_brent_and_own_rv_panel_gap",
+  "defined_points": 672,
+  "total_points": 1040
+ },
+ "run29-study-1": {
+  "file": "run29-study-1.png",
+  "feature_id": "pm_fed_hike_dp_disp_recency_1d_over_3d_resid_brent_and_own_rv_panel_rv",
+  "defined_points": 629,
+  "total_points": 1040
+ },
+ "run29-study-2": {
+  "file": "run29-study-2.png",
+  "feature_id": "pm_ruua_ceasefire_dp_disp_innov_1d_30d_resid_brent_and_own_rv_panel_rv",
+  "defined_points": 477,
+  "total_points": 1040
+ },
+ "run29-study-3": {
+  "file": "run29-study-3.png",
+  "feature_id": "pm_ruua_ceasefire_dp_disp_recency_1d_over_7d_resid_brent_and_own_rv_panel_gap",
+  "defined_points": 477,
+  "total_points": 1040
+ },
+ "run29-study-4": {
+  "file": "run29-study-4.png",
+  "feature_id": "pm_ruua_ceasefire_dp_2d_over_90d_scale_resid_brent_and_own_rv_panel_ret",
+  "defined_points": 599,
+  "total_points": 1040
+ },
+ "run29-study-5": {
+  "file": "run29-study-5.png",
+  "feature_id": "pm_fed_hike_dp_accel_dod_over_90d_scale_resid_brent_and_own_rv_panel_ret",
+  "defined_points": 582,
+  "total_points": 1040
+ },
+ "run29-study-6": {
+  "file": "run29-study-6.png",
+  "feature_id": "pm_fed_hike_dp_jump_asymmetry_1d_over_90d_scale_resid_brent_and_own_rv_ni",
+  "defined_points": 615,
+  "total_points": 1040
+ },
+ "run30-study-0": {
+  "file": "run30-study-0.png",
+  "feature_id": "pm_fed_hike_dp_net_over_intraday_swing_2d_resid_brent_and_own_rv_al",
+  "defined_points": 707,
+  "total_points": 1040
+ },
+ "run30-study-1": {
+  "file": "run30-study-1.png",
+  "feature_id": "pm_fed_hike_dp_jump_range_1d_over_90d_scale_resid_brent_and_own_rv_au_gap",
+  "defined_points": 615,
+  "total_points": 1040
+ },
+ "run30-study-2": {
+  "file": "run30-study-2.png",
+  "feature_id": "pm_ruua_ceasefire_dp_pace_innov_1d_7d_resid_brent_and_own_rv_c",
+  "defined_points": 599,
+  "total_points": 1040
+ },
+ "run30-study-3": {
+  "file": "run30-study-3.png",
+  "feature_id": "pm_fed_hike_dp_pace_innov_1d_7d_resid_brent_and_own_rv_hc",
+  "defined_points": 700,
+  "total_points": 1040
+ },
+ "run30-study-5": {
+  "file": "run30-study-5.png",
+  "feature_id": "pm_ruua_ceasefire_dp_net_1d_per_money_7d_resid_brent_and_own_rv_lu",
+  "defined_points": 599,
+  "total_points": 1040
+ },
+ "run30-study-6": {
+  "file": "run30-study-6.png",
+  "feature_id": "pm_ruua_ceasefire_dp_accel_2d_over_90d_scale_resid_brent_and_own_rv_p",
+  "defined_points": 556,
+  "total_points": 1040
+ },
+ "run30-study-7": {
+  "file": "run30-study-7.png",
+  "feature_id": "pm_fed_hike_dp_disp_accel_dod_over_90d_scale_resid_brent_and_own_rv_pg",
+  "defined_points": 444,
+  "total_points": 1040
+ },
+ "run30-study-8": {
+  "file": "run30-study-8.png",
+  "feature_id": "pm_fed_hike_arrival_intensity_mult_1d_over_30d_resid_brent_and_own_rv_sc_gap",
+  "defined_points": 713,
+  "total_points": 1040
+ },
+ "run30-study-9": {
+  "file": "run30-study-9.png",
+  "feature_id": "pm_ruua_ceasefire_dp_net_1d_x_arrival_mult_resid_brent_and_own_rv_y",
+  "defined_points": 553,
+  "total_points": 1040
+ },
+ "run30-study-10": {
+  "file": "run30-study-10.png",
+  "feature_id": "pm_fed_hike_dp_net_12h_over_90d_scale_resid_brent_and_own_rv_zn",
+  "defined_points": 530,
+  "total_points": 1040
+ },
+ "run30-study-11": {
+  "file": "run30-study-11.png",
+  "feature_id": "pm_ruua_ceasefire_dp_jump_freshness_1d_over_7d_resid_brent_and_own_rv_b",
+  "defined_points": 598,
+  "total_points": 1040
+ },
+ "run30-study-12": {
+  "file": "run30-study-12.png",
+  "feature_id": "pm_fed_hike_plus_ruua_ceasefire_dp_jump_range_sum_1d_over_90d_scale_resid_brent_and_own_rv_panel_rv",
+  "defined_points": 529,
+  "total_points": 1040
+ },
+ "run30-study-14": {
+  "file": "run30-study-14.png",
+  "feature_id": "pm_ruua_ceasefire_dp_net_ex_peak_2d_over_90d_scale_resid_brent_and_own_rv_jm",
+  "defined_points": 599,
+  "total_points": 1040
+ },
+ "run30-study-15": {
+  "file": "run30-study-15.png",
+  "feature_id": "pm_fed_hike_arrival_breadth_share_1d_over_30d_resid_brent_and_own_rv_lu_gap",
+  "defined_points": 713,
+  "total_points": 1040
+ },
+ "run30-study-16": {
+  "file": "run30-study-16.png",
+  "feature_id": "pm_ruua_ceasefire_dp_jump_range_1d_over_90d_scale_resid_brent_and_own_rv_ni_gap",
+  "defined_points": 553,
+  "total_points": 1040
+ },
+ "run30-study-17": {
+  "file": "run30-study-17.png",
+  "feature_id": "pm_fed_hike_dp_net_1d_x_arrival_breadth_share_resid_brent_and_own_rv_pb",
+  "defined_points": 615,
+  "total_points": 1040
+ },
+ "run30-study-18": {
+  "file": "run30-study-18.png",
+  "feature_id": "pm_fed_hike_avg_ticket_premium_1d_over_30d_resid_brent_and_own_rv_panel_gap",
+  "defined_points": 713,
+  "total_points": 1040
+ },
+ "run30-study-19": {
+  "file": "run30-study-19.png",
+  "feature_id": "pm_fed_hike_dp_net_1d_x_avg_ticket_premium_resid_brent_and_own_rv_sn",
+  "defined_points": 615,
+  "total_points": 1040
+ },
+ "run30-study-20": {
+  "file": "run30-study-20.png",
+  "feature_id": "pm_fed_hike_dp_disp_excess_dow_matched_over_90d_scale_resid_brent_and_own_rv_ag_gap",
+  "defined_points": 437,
+  "total_points": 1040
+ },
+ "run30-study-21": {
+  "file": "run30-study-21.png",
+  "feature_id": "pm_fed_hike_dp_motion_intensity_x_breadth_1d_over_norm_resid_brent_and_own_rv_au_rv",
+  "defined_points": 567,
+  "total_points": 1040
  }
 }

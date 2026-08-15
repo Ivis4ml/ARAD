@@ -316,3 +316,52 @@ def test_shipped_skill_carries_the_prescreen_lesson_and_stays_gated():
     assert skill.version >= 2
     assert "事前功效筛" in skill.body
     assert "defined_share_on_decision_grid" in skill.body
+
+
+# ---------------------------------------------------------------- 种子包分道接入
+
+
+def test_seed_pack_proposer_view_carries_existence_only(tmp_path):
+    """进提案器的那一份只含存在性事实，不含任何检验结果。"""
+    import json
+
+    from arad.data_catalog.seed_pack import load_seed_pack
+
+    pack = tmp_path / "seeds.json"
+    pack.write_text(json.dumps({
+        "meta": {"month": "t", "snapshot_checked_at": "2026-08-15"},
+        "driver_gaps_do_not_propose": [
+            {"name_cn": "甲驱动", "channel": "政策", "gap_reason": "从未有市场"},
+            {"name_cn": "乙驱动", "channel": "需求", "gap_reason": "当前无活跃市场"},
+        ],
+        "negative_evidence": {"fdr_passes_period_specific": [
+            {"pair": "cuxTAIWANxcurrent", "direction": "P->F", "p": 0.0016},
+        ]},
+    }, ensure_ascii=False), encoding="utf-8")
+    loaded = load_seed_pack(pack)
+
+    view = loaded.proposer_view()
+    blob = str(view)
+    # 只收时间不变的那一条
+    assert len(view["absent_drivers"]) == 1
+    assert "甲驱动" in blob and "乙驱动" not in blob
+    # 检验结果一个字都不能出现在提案器那一份里
+    assert "0.0016" not in blob and "fdr" not in blob.lower()
+    assert "cuxTAIWAN" not in blob
+
+    # 外部否证只在非盲化视图里
+    assert "cuxTAIWAN" in str(loaded.auditor_view())
+
+
+def test_seed_pack_proposer_view_passes_the_blinding_gate():
+    """仓库里真正会被发出去的那一份必须自己过闸门。"""
+    import json
+
+    from arad.harness.demo import _absent_drivers
+    from arad.providers.base import Role, assert_blinded
+
+    view = _absent_drivers()
+    if view is None:
+        return  # 外部种子包不在时跳过；缺它不应使一轮中断
+    assert view["absent_drivers"]
+    assert_blinded(json.dumps(view, ensure_ascii=False), Role.PROPOSER)

@@ -136,3 +136,32 @@ def test_the_spread_is_undefined_rather_than_guessed():
 
     assert _m.isnan(sharpe_spread([0.1]))
     assert _m.isnan(sharpe_spread([None, float("nan")]))
+
+
+def test_a_sign_mismatched_construction_does_not_occupy_a_beam_slot():
+    """决定 0012：反号构造未支持其所主张的机制，不该占封存重试名额。
+
+    实测必要性：束里最好的两个奖励 +7.11 与 +2.61 全部来自反号构造；
+    run30 的 |t| 前三（3.74/2.38/2.36）也全部反号。
+    """
+    from arad.harness.beam import Beam, Candidate
+
+    beam = Beam(width=2)
+    strong_but_wrong = Candidate(feature_id="wrong", study_id="s1", value=9.3,
+                                 tests_at_evaluation=20, source="pm_market",
+                                 direction_agrees=False)
+    weak_but_right = Candidate(feature_id="right", study_id="s2", value=2.6,
+                               tests_at_evaluation=20, source="pm_market")
+    assert beam.offer(strong_but_wrong) is False
+    assert beam.offer(weak_but_right) is True
+    assert [m.feature_id for m in beam.members] == ["right"]
+    assert strong_but_wrong.reward == float("-inf")
+
+
+def test_an_undeclared_direction_still_enters_the_beam():
+    """不声明方向就不判方向：历史构造不因新判据被追溯逐出。"""
+    from arad.harness.beam import Beam, Candidate
+
+    beam = Beam(width=2)
+    assert beam.offer(Candidate(feature_id="legacy", study_id="s", value=3.0,
+                                tests_at_evaluation=20, source="pm_market")) is True

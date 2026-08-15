@@ -54,6 +54,21 @@ from ..providers.mock import MockProvider
 from ..registry.specs import TaxonomyContamination
 from ..temporal.targets import TARGET_SPECS, specs_for
 
+SEED_PACK_PATH = (
+    "/Users/xinyu/Code/AR-Polymarket/Rev-PLM/data/research/arad_seeds_2026-08.json")
+
+
+def _absent_drivers():
+    """外部种子包里「没有可结算工具」的驱动清单（决定 0013 §四）。
+
+    只取时间不变的那一半；缺文件或不合法就返回 None，不因外部依赖缺失而中断一轮。
+    """
+    from ..data_catalog.seed_pack import SeedPackError, load_seed_pack
+    try:
+        return load_seed_pack(SEED_PACK_PATH).proposer_view()
+    except (SeedPackError, ValueError):
+        return None
+
 
 def _proposer_skill():
     """装载提案器的方法说明。文件缺失或不合规时返回 None 而不是崩掉一整轮 ——
@@ -970,6 +985,7 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dic
             # 不用 CLI 的 skill 自动发现：那条通道账本看不见，闸门也扫不到。
             skill=_proposer_skill(),
             round_index=round_of(task),
+            absent_drivers=_absent_drivers(),
         )
 
     return assemble
@@ -1441,11 +1457,19 @@ def run_service_demo(
                 # null/blocked/candidate 都过了样本闸门，t 值可比；它们照旧。
                 if study.get("verdict") == "underpowered":
                     continue
+                # 决定 0012：反号构造未支持其所主张的机制，不占封存重试名额。
+                # 判据取评价机已出具的阻断理由，不在这里重算符号。
+                mismatched = any(
+                    "direction_mismatch" in (e["payload"].get("blocked_reason_kinds") or [])
+                    for e in ledger.read_events(role=LedgerRole.HUMAN, study_id=study_id)
+                    if e["event_type"] == "evaluation_result"
+                )
                 beam.offer(Candidate(
                     feature_id=spec_id, study_id=study_id,
                     value=study["metrics"].get("abs_t"),
                     tests_at_evaluation=tests_at.get(study_id, 1),
                     source=study.get("source", ""),
+                    direction_agrees=not mismatched,
                 ))
             ledger.append("beam_state", beam.summary())
 
