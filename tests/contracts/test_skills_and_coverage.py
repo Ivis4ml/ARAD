@@ -152,8 +152,30 @@ def test_a_mechanism_family_that_replays_its_predecessor_is_kept_out_of_the_menu
             "NEW": {"verdict": "distinct_object", "lexical_predecessor": "cand:x"},
             "OLD": {"verdict": "replay_of_predecessor", "lexical_predecessor": "cand:y"},
         }},
+        tested_predecessors=frozenset({"cand:y"}),
     )
     assert [r["family_id"] for r in rows] == ["mech:NEW"]
+
+
+def test_a_replay_of_an_untested_predecessor_is_still_admitted():
+    """重放判定回答「是不是同一个东西」，不回答「问过没有」。
+
+    前身零引用时，那条轴仍是没问过的问题；按重放排除等于因为
+    「像一条同样没被检验过的序列」而永久放弃它。
+    """
+    from arad.harness.pm_menu import mechanism_rows
+
+    rows = mechanism_rows(
+        qualification=_qualification("mech:OLD"),
+        families_manifest=_families_manifest("OLD"),
+        overlap_manifest={"mechanism_vs_lexical_predecessor": {
+            "OLD": {"verdict": "replay_of_predecessor", "lexical_predecessor": "cand:y"},
+        }},
+        tested_predecessors=frozenset(),
+    )
+    assert [r["family_id"] for r in rows] == ["mech:OLD"]
+    assert rows[0]["vs_lexical_predecessor"]["predecessor_was_tested"] is False
+    assert rows[0]["vs_lexical_predecessor"]["admitted_despite_verdict"]
 
 
 def test_mechanism_rows_claim_slots_before_the_volume_ranked_strata():
@@ -197,9 +219,10 @@ def test_partially_overlapping_family_is_kept_out_when_admit_narrows():
         families_manifest=_families_manifest("A", "B"),
         overlap_manifest={"mechanism_vs_lexical_predecessor": {
             "A": {"verdict": "distinct_object"},
-            "B": {"verdict": "partially_overlapping"},
+            "B": {"verdict": "partially_overlapping", "lexical_predecessor": "cand:b"},
         }},
         admit=frozenset({"distinct_object"}),
+        tested_predecessors=frozenset({"cand:b"}),
     )
     assert [r["family_id"] for r in rows] == ["mech:A"]
 

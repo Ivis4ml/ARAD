@@ -504,6 +504,26 @@ class LazyPMSeries(dict):
         return dict.__contains__(self, key)
 
 
+def _tested_predecessors(ledger) -> frozenset[str]:
+    """历史规格里真正被引用过的词汇族。
+
+    重放判定回答的是「这两条序列是不是同一个东西」，不回答「问过没有」。
+    只有前身被检验过时，重放才意味着重复消耗预算；前身零引用时，
+    那条轴仍是没问过的问题。本函数只数 feature_spec_locked 里出现过的族名，
+    不读任何判决 —— 与搜索覆盖表同一条纪律。
+    """
+    import re as _re
+
+    from ..memory.ledger import Role as _Role
+
+    seen: set[str] = set()
+    for event in ledger.read_events(role=_Role.HUMAN):
+        if event["event_type"] != "feature_spec_locked":
+            continue
+        seen.update(_re.findall(r"(?:cand|mech):[A-Za-z0-9_]+", str(event["payload"])))
+    return frozenset(seen)
+
+
 def _qualified_families() -> set[str]:
     """惰性装载的准入名单：**词汇族与机制族的并集**。
 
@@ -864,6 +884,8 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dic
         # （partially_overlapping）的检验按裁断属旧族账户，不得在新族的地板下提出。
         admit = (frozenset({"distinct_object"})
                  if family == MECH_FAMILY else MECHANISM_ADMITS)
+        # 只有**确实被检验过**的前身才使重放判定生效（决定 0011 §六）。
+        tested = _tested_predecessors(ledger)
         mechanism_rows_cached = mechanism_rows(
             qualification=json.loads(
                 Path(PM_MECH_QUALIFICATION_PATH).read_text(encoding="utf-8")),
@@ -872,6 +894,7 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dic
             overlap_manifest=json.loads(
                 Path(PM_SERIES_OVERLAP_PATH).read_text(encoding="utf-8")),
             admit=admit,
+            tested_predecessors=tested,
         )
     except OSError:
         mechanism_rows_cached = []

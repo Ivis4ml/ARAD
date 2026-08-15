@@ -206,6 +206,7 @@ def mechanism_rows(
     families_manifest: dict,
     overlap_manifest: dict | None = None,
     admit: frozenset[str] = MECHANISM_ADMITS,
+    tested_predecessors: frozenset[str] = frozenset(),
 ) -> list[dict[str, Any]]:
     """机制族的菜单行。
 
@@ -221,9 +222,20 @@ def mechanism_rows(
         series_id = info.get("series_id") or f"mech:{name}"
         if series_id not in qualified:
             continue
-        verdict = (overlaps.get(name) or {}).get("verdict")
-        if verdict is not None and verdict not in admit:
+        row_overlap = overlaps.get(name) or {}
+        verdict = row_overlap.get("verdict")
+        predecessor = row_overlap.get("lexical_predecessor")
+        # 排除规则原本把「与前身高度重合」直接当成「已经测过」，这两件事不是一回事。
+        # 实测反例：mech:US_SHUTDOWN 与 cand:government 重合 0.883 判重放，
+        # 而 cand:government 在全部历史规格中被引用 0 次 —— 按原规则，
+        # 一条从未被检验过的轴会因为「像一条同样没被检验过的序列」而被永久放弃。
+        # 重放的代价在于重复消耗预算，因此只有当**前身确实被检验过**时才排除。
+        if (verdict is not None and verdict not in admit
+                and predecessor in tested_predecessors):
             continue
+        if verdict is not None and verdict not in admit:
+            row_overlap = {**row_overlap, "admitted_despite_verdict": (
+                "前身从未被检验过，重放不构成重复消耗；该轴仍是未问过的问题")}
         stat = stats.get(series_id, {})
         counts = info.get("counts", {})
         rows.append({
@@ -248,8 +260,10 @@ def mechanism_rows(
                 "conditions 是当桶活跃成员市场数。p 的电平不可跨时期比较"
             ),
             "vs_lexical_predecessor": {
-                "predecessor": (overlaps.get(name) or {}).get("lexical_predecessor"),
+                "predecessor": predecessor,
                 "verdict": verdict,
+                "predecessor_was_tested": predecessor in tested_predecessors,
+                "admitted_despite_verdict": row_overlap.get("admitted_despite_verdict"),
                 "note": "重合度只由 Polymarket 侧序列算出，不含任何期货侧结果",
             },
             "themes": info.get("themes") or [],
