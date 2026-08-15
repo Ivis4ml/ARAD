@@ -80,24 +80,49 @@ def search_coverage(ledger: EvidenceLedger, *, family: str | None = None) -> dic
 
 
 def coverage_menu(coverage: dict, *, families: list[str], universes: list[str],
-                  targets: list[str], width: int = 12) -> dict:
+                  targets: list[str], width: int = 12,
+                  round_index: int = 0, universe_slots: int = 6) -> dict:
     """把覆盖表折成提案器能直接用的两段：走过的与没走过的。
 
-    未走过的组合按确定性顺序取前 width 个 —— 顺序只由名字决定，不由任何结果决定。
+    两处顺序必须是**设计**而不是巧合：
+
+    一、族按**菜单自身的次序**排（机制族在最前），不按字母序。按字母序排会把
+    `cand:11pt5` 这种词汇碎片族推到建议的第一位 —— 那不是广度，是噪声。
+
+    二、universe 每轮只取一个确定性切片（面板恒在，单品种按轮次轮换）。
+    51 个品种 × 30 个族 × 3 个目标是 4,600 多个组合，整张表塞给模型等于没给；
+    轮换保证长期覆盖，切片保证每一轮的建议是可读的。同 round_index 得同切片。
     """
     visited = coverage.get("visited_combinations", {})
+    panel = [u for u in universes if not u.endswith("_dominant_t1")]
+    singles = sorted(u for u in universes if u.endswith("_dominant_t1"))
+    take = max(0, universe_slots - len(panel))
+    if singles and take:
+        offset = (round_index * take) % len(singles)
+        rotated = (singles[offset:] + singles[:offset])[:take]
+    else:
+        rotated = []
+    universes_this_round = panel + rotated
+
+    rank = {name: i for i, name in enumerate(families)}
+    u_rank = {name: i for i, name in enumerate(universes_this_round)}
     unvisited: list[str] = []
     for fam in families:
-        for universe in universes:
+        for universe in universes_this_round:
             for target in targets:
                 key = f"{fam}|{universe}|{target}"
                 if key not in visited:
                     unvisited.append(key)
-    unvisited.sort()
+    def _order(key: str) -> tuple:
+        fam, universe, target = key.split("|")
+        return (rank.get(fam, 999), u_rank.get(universe, 999), target)
+
+    unvisited.sort(key=_order)
     most_visited = sorted(visited.items(), key=lambda kv: (-kv[1], kv[0]))[:8]
     return {
         "version": COVERAGE_VERSION,
-        "combination_space": len(families) * len(universes) * len(targets),
+        "universes_this_round": universes_this_round,
+        "combination_space": len(families) * len(universes_this_round) * len(targets),
         "visited_combinations": len(visited),
         "unvisited_examples": unvisited[:width],
         "unvisited_total": len(unvisited),
@@ -105,6 +130,8 @@ def coverage_menu(coverage: dict, *, families: list[str], universes: list[str],
         "instruction": (
             "优先取 unvisited_examples 里的组合；确有理由重回已问过的组合时，"
             "在 change_summary 里写明这次与之前那些提案的差别。"
-            "次数只反映提问历史，不含任何结果"
+            "次数只反映提问历史，不含任何结果。"
+            "本轮列出的 universe 是确定性切片（面板恒在，单品种按轮次轮换）；"
+            "要提切片之外的品种也可以，直接写它的 universe 名"
         ),
     }

@@ -229,6 +229,7 @@ def assemble_proposer_context(
     learned_mismatches: tuple[str, ...] = (),
     research_direction: str | None = None,
     skill: Any = None,
+    round_index: int = 0,
 ) -> ContextBundle:
     """组装提案器上下文。渲染后再过一次盲化检查。
 
@@ -292,6 +293,7 @@ def assemble_proposer_context(
             families=[row.get("family_id") for row in menu if row.get("family_id")],
             universes=[u.get("universe") for u in (universes or []) if u.get("universe")],
             targets=[t.get("name") for t in targets if t.get("name")],
+            round_index=round_index,
         ),
         # **判决分类不再进提案器上下文（决定 0006）。**
         # M7 把它定价为安全，前提是它指向一个**匿名总体**：提案器每轮由独立子进程

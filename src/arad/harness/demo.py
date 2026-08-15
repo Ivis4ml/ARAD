@@ -858,13 +858,16 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dic
     except OSError:
         mechanism_rows_cached = []
 
+    def round_of(task: dict) -> int:
+        try:
+            return int(str(task.get("task_id", "0")).rsplit("-", 1)[-1])
+        except ValueError:
+            return 0
+
     def menu_for(task: dict) -> list[dict]:
         if not qualification:
             return legacy_menu
-        try:
-            round_index = int(str(task.get("task_id", "0")).rsplit("-", 1)[-1])
-        except ValueError:
-            round_index = 0
+        round_index = round_of(task)
         from .pm_menu import build_menu
 
         return build_menu(round_index=round_index, qualification=qualification,
@@ -914,6 +917,7 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dic
             # 方法说明（M17）。显式装载、过闸门、内容指纹进账本 ——
             # 不用 CLI 的 skill 自动发现：那条通道账本看不见，闸门也扫不到。
             skill=_proposer_skill(),
+            round_index=round_of(task),
         )
 
     return assemble
