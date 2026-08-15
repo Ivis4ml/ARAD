@@ -157,12 +157,12 @@ def test_a_mechanism_family_that_replays_its_predecessor_is_kept_out_of_the_menu
     assert [r["family_id"] for r in rows] == ["mech:NEW"]
 
 
-def test_a_replay_of_an_untested_predecessor_is_not_permanently_excluded():
-    """重放判定回答「是不是同一个东西」，不回答「问过没有」。
+def test_a_replay_of_an_untested_predecessor_enters_the_new_family():
+    """重放判定回答「是不是同一个东西」，不回答「这片区域问过没有」。
 
-    前身零引用时，那条轴仍是没问过的问题；按重放永久排除等于因为
-    「像一条同样没被检验过的序列」而放弃它。它仍进旧族账户的菜单
-    （账户路由是另一条规则，见 test_family_routing_and_permanent_exclusion_are_separate_rules）。
+    分族的统计理由是「家族应当是实际取过极大值的那个集合」。前身零引用时，
+    旧族的极大值从没在这片区域取过，让它去越旧族门槛等于替一段与它无关的
+    搜索史付费。实测：mech:BIRD_FLU 与 cand:flu 序数一致 1.000 而 cand:flu 引用 0 次。
     """
     from arad.harness.pm_menu import mechanism_rows
 
@@ -172,12 +172,12 @@ def test_a_replay_of_an_untested_predecessor_is_not_permanently_excluded():
         overlap_manifest={"mechanism_vs_lexical_predecessor": {
             "OLD": {"verdict": "replay_of_predecessor", "lexical_predecessor": "cand:y"},
         }},
-        admit=frozenset({"distinct_object", "replay_of_predecessor"}),
+        admit=frozenset({"distinct_object"}),
         tested_predecessors=frozenset(),
     )
     assert [r["family_id"] for r in rows] == ["mech:OLD"]
     assert rows[0]["vs_lexical_predecessor"]["predecessor_was_tested"] is False
-    assert "旧族账户" in rows[0]["vs_lexical_predecessor"]["account_note"]
+    assert "未被搜索过" in rows[0]["vs_lexical_predecessor"]["account_note"]
 
 
 def test_mechanism_rows_claim_slots_before_the_volume_ranked_strata():
@@ -264,11 +264,13 @@ def test_qualified_set_covers_both_family_layers(monkeypatch, tmp_path):
     assert demo._qualified_families() == {"cand:iran", "mech:FED_HIKE"}
 
 
-def test_family_routing_and_permanent_exclusion_are_separate_rules():
-    """两条规则不可揉成一条（M18.3 曾揉成一条，部分重合与重放的族漏进新族）。
+def test_routing_and_exclusion_both_key_on_whether_the_region_was_searched():
+    """两条规则的判据都是「这片区域被搜索过没有」，不是「序列是不是新的」。
 
-    永久排除：与前身重放**且**前身被检验过 —— 重复消耗预算。
-    账户路由：只有 distinct_object 进新族的账，其余属旧族账户。
+    永久排除：与前身重放**且**前身被检验过 —— 那是重复消耗预算。
+    账户路由：前身被检验过的（重放或部分重合）属旧族账户；其余进新族。
+    「序列相同」只是「已经搜过」的代用品，它在 cand:iran（474 次）上成立，
+    在 cand:flu（0 次）上不成立 —— 后者把代用品与本体的差别暴露了出来。
     """
     from arad.harness.pm_menu import MECHANISM_ADMITS, mechanism_rows
 
@@ -283,20 +285,23 @@ def test_family_routing_and_permanent_exclusion_are_separate_rules():
     }}
     qual = _qualification("mech:NEW", "mech:PARTIAL",
                           "mech:REPLAY_TESTED", "mech:REPLAY_UNTESTED")
-    tested = frozenset({"cand:tested"})
+    # cand:b 也标为已检验过：这样 PARTIAL 表达的才是「区域搜过 → 旧族账户」，
+    # 而 REPLAY_UNTESTED 表达「区域没搜过 → 新族」，两者的差别落在判据上。
+    tested = frozenset({"cand:tested", "cand:b"})
 
-    new_family = mechanism_rows(
+    new_family = {r["family_id"] for r in mechanism_rows(
         qualification=qual, families_manifest=manifest, overlap_manifest=overlaps,
-        admit=frozenset({"distinct_object"}), tested_predecessors=tested)
-    assert [r["family_id"] for r in new_family] == ["mech:NEW"]
+        admit=frozenset({"distinct_object"}), tested_predecessors=tested)}
+    assert "mech:NEW" in new_family                # 序列新且区域没搜过
+    assert "mech:REPLAY_UNTESTED" in new_family    # 序列旧但区域没搜过 → 仍进新族
+    assert "mech:PARTIAL" not in new_family        # 前身测过 → 旧族账户
+    assert "mech:REPLAY_TESTED" not in new_family  # 前身测过且重放 → 永久排除
 
-    old_family = mechanism_rows(
+    old_family = {r["family_id"] for r in mechanism_rows(
         qualification=qual, families_manifest=manifest, overlap_manifest=overlaps,
-        admit=MECHANISM_ADMITS, tested_predecessors=tested)
-    got = {r["family_id"] for r in old_family}
-    assert "mech:PARTIAL" in got            # 部分重合属旧族账户
-    assert "mech:REPLAY_TESTED" not in got  # 前身测过，永久排除
-    assert "mech:NEW" in got
+        admit=MECHANISM_ADMITS, tested_predecessors=tested)}
+    assert "mech:PARTIAL" in old_family            # 区域搜过，计旧账
+    assert "mech:REPLAY_TESTED" not in old_family  # 永久排除对两张菜单都生效
 
 
 def test_universe_menu_states_the_consequence_not_only_the_mechanism():
@@ -365,3 +370,39 @@ def test_seed_pack_proposer_view_passes_the_blinding_gate():
         return  # 外部种子包不在时跳过；缺它不应使一轮中断
     assert view["absent_drivers"]
     assert_blinded(json.dumps(view, ensure_ascii=False), Role.PROPOSER)
+
+
+# ---------------------------------------------------------------- 机制子面板
+
+
+def test_mechanism_sub_panel_resolves_and_is_candidate_reachable():
+    """子面板一次覆盖多个品种且品种维有变异 —— 这是逐品种形态做不到的。"""
+    from arad.harness.demo import universe_members
+
+    members = universe_members("mech_panel:jd+lh+c+m")
+    assert members == ["c", "jd", "lh", "m"]
+    assert len(members) >= 2  # 品种维有变异，双向 cluster 不退化
+
+
+def test_a_one_member_sub_panel_is_refused():
+    """一个成员的子面板就是单品种，不该用另一个名字表达（否则绕过品种维退化的记账）。"""
+    from arad.harness.demo import UnknownUniverse, universe_members
+
+    with pytest.raises(UnknownUniverse, match="至少要两个品种"):
+        universe_members("mech_panel:jd")
+
+
+def test_a_sub_panel_with_an_unbuilt_product_is_refused_not_guessed():
+    from arad.harness.demo import UnknownUniverse, universe_members
+
+    with pytest.raises(UnknownUniverse, match="没有已物化的目标表"):
+        universe_members("mech_panel:jd+not_a_product")
+
+
+def test_the_universe_menu_offers_the_sub_panel_form_without_enumerating_combinations():
+    """菜单只给形态与可用品种，不替提案挑组合 —— 挑组合是研究判断。"""
+    from arad.harness.demo import universe_menu
+
+    row = next(u for u in universe_menu() if u["universe"].startswith("mech_panel:"))
+    assert "候选可达" in row["note"]
+    assert len(row["members"]) > 10

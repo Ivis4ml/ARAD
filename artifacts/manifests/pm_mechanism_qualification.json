@@ -8,8 +8,20 @@
     "min_notional_usdc": 50000.0,
     "note": "与 qualify-v1 同样的四道阈值，统计窗口限定在 discovery 段。限定窗口是必要的：族在 2025-26 年的活跃度不能替它在 discovery 段的可求值性作保。"
   },
-  "built_at": "2026-08-15T14:56:12.408564+00:00",
+  "built_at": "2026-08-15T23:05:11.812150+00:00",
   "families": {
+    "mech:BIRD_FLU": {
+      "buckets": 1483,
+      "span_days": 691,
+      "from": "2023-02-09T03:00:00+00:00",
+      "to": "2024-12-31T23:00:00+00:00",
+      "notional": 1159094.885001,
+      "mean_unresolved": 0.07297238423014701,
+      "defined_share_p": 0.2231,
+      "defined_share_dp": 0.2087,
+      "decision_points": 1040,
+      "coverage_window_seconds": 21600
+    },
     "mech:FED_DECISION": {
       "buckets": 1639,
       "span_days": 631,
@@ -31,6 +43,18 @@
       "mean_unresolved": 0.1150707818603999,
       "defined_share_p": 0.6365,
       "defined_share_dp": 0.5317,
+      "decision_points": 1040,
+      "coverage_window_seconds": 21600
+    },
+    "mech:HEZBOLLAH_LEBANON": {
+      "buckets": 4654,
+      "span_days": 451,
+      "from": "2023-10-07T21:00:00+00:00",
+      "to": "2024-12-31T23:00:00+00:00",
+      "notional": 41224311.907674,
+      "mean_unresolved": 0.13867252084541443,
+      "defined_share_p": 0.424,
+      "defined_share_dp": 0.4087,
       "decision_points": 1040,
       "coverage_window_seconds": 21600
     },
@@ -82,6 +106,18 @@
       "decision_points": 1040,
       "coverage_window_seconds": 21600
     },
+    "mech:US_ELECTION_2024": {
+      "buckets": 5911,
+      "span_days": 703,
+      "from": "2023-01-14T21:00:00+00:00",
+      "to": "2024-12-17T23:00:00+00:00",
+      "notional": 35369983.638737,
+      "mean_unresolved": 0.17853533904414357,
+      "defined_share_p": 0.5212,
+      "defined_share_dp": 0.3904,
+      "decision_points": 1040,
+      "coverage_window_seconds": 21600
+    },
     "mech:US_INFLATION_MONTHLY": {
       "buckets": 1347,
       "span_days": 701,
@@ -108,40 +144,43 @@
     }
   },
   "qualified": [
+    "mech:BIRD_FLU",
     "mech:FED_DECISION",
     "mech:FED_HIKE",
+    "mech:HEZBOLLAH_LEBANON",
     "mech:HOUTHI_ATTACKS",
     "mech:HURRICANE_LANDFALL",
     "mech:ISR_IRAN",
     "mech:RU_UA_CEASEFIRE",
+    "mech:US_ELECTION_2024",
     "mech:US_INFLATION_MONTHLY",
     "mech:US_SHUTDOWN"
   ],
   "threshold_sensitivity": {
     "min_buckets": {
-      "100": 8,
-      "250": 8,
-      "500": 8,
-      "1000": 7,
-      "2000": 3
+      "100": 11,
+      "250": 11,
+      "500": 11,
+      "1000": 10,
+      "2000": 5
     },
     "min_span_days": {
-      "30": 8,
-      "90": 8,
-      "180": 8,
-      "365": 7
+      "30": 11,
+      "90": 11,
+      "180": 11,
+      "365": 10
     },
     "min_mean_unresolved": {
-      "0.005": 8,
-      "0.01": 8,
-      "0.02": 8,
-      "0.05": 8
+      "0.005": 11,
+      "0.01": 11,
+      "0.02": 11,
+      "0.05": 11
     },
     "min_notional_usdc": {
-      "1000.0": 8,
-      "10000.0": 8,
-      "50000.0": 8,
-      "200000.0": 7
+      "1000.0": 11,
+      "10000.0": 11,
+      "50000.0": 11,
+      "200000.0": 10
     }
   }
 }

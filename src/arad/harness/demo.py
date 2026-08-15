@@ -309,13 +309,37 @@ def _product_target_path(product: str, target_name: str) -> str:
 def universe_members(universe: str) -> list[str]:
     """把 universe 名解析成品种清单。**不认识的名字直接报错，不猜。**
 
-    两种形态：
-    - `<品种>_dominant_t1`：单品种。`sc_dominant_t1` 是既有的那一个，取值不变；
+    三种形态：
+    - `<品种>_dominant_t1`：单品种。`sc_dominant_t1` 是既有的那一个，取值不变。
+      注意品种维在这里恒为一组，双向 cluster 退化，**取不到 candidate**；
     - `full_coverage_panel`：样本期内目标表满行的全部品种。成员资格是**数据可得性**
       规则，与任何结果无关，因此不构成结果依赖的选择；但它排除了样本期内退市或
-      中途上市的品种，这一条是幸存者性质的，必须在证据里读得出来。
+      中途上市的品种，这一条是幸存者性质的，必须在证据里读得出来；
+    - `mech_panel:<品种>+<品种>+…`：**机制子面板**（决定 0013）。按传导通道选出的
+      品种集合，一次评价覆盖全部成员，且品种维有变异因而候选可达。
+      品种集合是提案的一部分，随 proposal 进 content id 并在读取任何结果之前冻结 ——
+      它必须由机制文本给出理由，事后按结果挑品种在盲化下也做不到。
+      至少两个成员：一个成员的子面板就是单品种，不该用另一个名字表达。
+
+    为什么需要第三种：全覆盖面板把 36 个品种一次问完，但一条只作用于少数品种的机制
+    在面板上会被其余品种稀释甚至反号抵消；逐品种问则每条一票且取不到 candidate。
+    子面板是这两者之间唯一既省票又保留候选可达性的形态。
     """
     built = built_products()
+    if universe.startswith("mech_panel:"):
+        members = [p for p in universe[len("mech_panel:"):].split("+") if p]
+        unknown = [p for p in members if p not in built]
+        if unknown:
+            raise UnknownUniverse(
+                f"机制子面板里的品种 {unknown} 没有已物化的目标表；"
+                f"可用品种共 {len(built)} 个")
+        if len(members) < 2:
+            raise UnknownUniverse(
+                "机制子面板至少要两个品种：一个成员的子面板就是单品种，"
+                "应写作 <品种>_dominant_t1")
+        if len(set(members)) != len(members):
+            raise UnknownUniverse(f"机制子面板里有重复品种：{universe!r}")
+        return sorted(set(members))
     if universe == "full_coverage_panel":
         full = []
         for product in built:
@@ -330,7 +354,8 @@ def universe_members(universe: str) -> list[str]:
         if product in built:
             return [product]
     raise UnknownUniverse(
-        f"不认识的 universe {universe!r}；可用：full_coverage_panel 与 "
+        f"不认识的 universe {universe!r}；可用：full_coverage_panel、"
+        f"mech_panel:<品种>+<品种>+… 与 "
         f"{[p + '_dominant_t1' for p in built[:6]]}… 共 {len(built)} 个单品种"
     )
 
@@ -648,6 +673,20 @@ def universe_menu() -> list[dict]:
             "cluster_structure_insufficient，按失效表该理由使 candidate 失效"
         ),
     }]
+    # 机制子面板：只给形态说明与可用品种全表，**不预先枚举组合** ——
+    # 品种集合应由提案的机制文本给出理由，菜单替它挑就成了菜单的选择而非研究判断。
+    out.append({
+        "universe": "mech_panel:<品种>+<品种>+…",
+        "products": f"由提案声明，至少 2 个，取自下列 {len(built)} 个",
+        "members": built,
+        "membership_rule": (
+            "按传导通道选出的品种集合，随提案进 content id 并在读取任何结果之前冻结"),
+        "note": (
+            "一次评价覆盖全部成员且品种维有变异，因此**候选可达**，"
+            "这是逐品种形态做不到的；同时避免了全覆盖面板把只作用于少数品种的机制"
+            "稀释或反号抵消。品种集合必须由 mechanism 文本论证，不得事后按结果挑选"
+        ),
+    })
     out += [{
         "universe": f"{p}_dominant_t1",
         "products": 1,

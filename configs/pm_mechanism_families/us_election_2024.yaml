@@ -1,0 +1,31 @@
+family_id: US_ELECTION_2024
+name_cn: 美国 2024 大选的关税倾向
+driver_channel: 政策-贸易
+mechanism_cn: 大选结果改变对华关税与贸易政策的预期路径，经进口平价、替代采购与风险溢价三条通道作用于农产品与工业金属。族概率的取值为「关税更强硬的一方胜出」。
+match_field: slug_raw
+scope: presidential-election|electoral-college|popular-vote|win-the-2024|2024-election|swing-state|will-trump-win|will-biden-win|will-harris-win|republican-nominee|democratic-nominee
+themes:
+- us_china_trade
+seed_family: null
+seed_pack: arad-native-2026-08
+expected_discovery_markets: 76
+require_all:
+- 2024|trump|biden|harris|republican|democrat
+stages:
+- kind: exclude
+  name: speech_noise
+  pattern: -say-|-says-|-said-|be-said|-mention|-times-during|truth-social|press-briefing|podcast|front-page|headline|-visit-|rotten|box-office|oscar|grammy|eurovision
+  reason: noise
+- kind: exclude
+  name: foreign_election
+  pattern: czech|macedonia|slovak|austria|finland|iceland|lithuania|senegal|indonesia|mexico|taiwan|venezuela|russia|iran|france|india|south-africa|argentina|turkey|poland|portugal|romania
+  reason: other_country
+- kind: member
+  name: tariff_dove
+  pattern: biden-win|harris-win|democrat(ic)?-(nominee-)?win|will-democrats-win
+  sign: -1
+- kind: member
+  name: tariff_hawk
+  pattern: .
+  sign: 1
+notes: 极性按「关税更强硬」定义，不按党派好恶：共和党方向记 +1、民主党方向记 −1。外国选举整批排除 —— 它们与本机制的传导通道不同。

@@ -234,10 +234,17 @@ def mechanism_rows(
         #    没被检验过的序列」而放弃。
         if verdict == "replay_of_predecessor" and predecessor in tested_predecessors:
             continue
-        # 二、**账户路由**：只有 distinct_object 满足「回归对象的宇宙构造真的换了」，
-        #    因而才有资格进新族的账；其余（部分重合、前身未测过的重放）属旧族账户，
-        #    在旧族运行的菜单里出现。`admit` 由调用方按本次运行的族传入。
-        if verdict is not None and verdict not in admit:
+        # 二、**账户路由**：判据是「这个区域被搜索过没有」，不是「序列是不是新的」。
+        #    分族的统计理由是「家族应当是实际取过极大值的那个集合」；一条序列即使与
+        #    某个词汇族逐点相同，只要那个词汇族**从未被任何历史规格引用过**，
+        #    旧族的极大值就从没在这片区域取过，让它去越旧族的门槛等于替一段
+        #    与它无关的搜索史付费。实测反例：mech:BIRD_FLU 与 cand:flu 在 discovery
+        #    段序数一致 1.000（该词汇族 344 个成员里只有 10 个在该段有成交，恰好
+        #    都是禽流感市场），而 cand:flu 引用 0 次 —— 禽流感这条轴一次都没被问过。
+        #    「序列相同」只是「已经搜过」的代用品，它在 cand:iran（引用 474 次）上
+        #    成立，在 cand:flu 上不成立。防洗白的那一半保留在规则一里。
+        if (verdict is not None and verdict not in admit
+                and predecessor in tested_predecessors):
             continue
         stat = stats.get(series_id, {})
         counts = info.get("counts", {})
@@ -278,8 +285,10 @@ def mechanism_rows(
                 "verdict": verdict,
                 "predecessor_was_tested": predecessor in tested_predecessors,
                 "account_note": (
-                    "本族的检验计入机制先验族的账" if verdict == "distinct_object"
-                    else "与词汇前身部分或近似等价，检验计入旧族账户"),
+                    "该区域此前未被搜索过，检验计入机制先验族的账"
+                    if (verdict == "distinct_object"
+                        or predecessor not in tested_predecessors)
+                    else "词汇前身已被检验过，检验计入旧族账户"),
                 "note": "重合度只由 Polymarket 侧序列算出，不含任何期货侧结果",
             },
             "themes": info.get("themes") or [],

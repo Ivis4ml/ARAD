@@ -113,7 +113,17 @@ def main() -> None:
     # 决策网格覆盖：模型此前要到提案之后才从 visible_data_range 得知某条轴的数据
     # 撑不撑得起检验（实测飓风族只有 9.5%）。覆盖率与功效属盲化角色允许看到的类别，
     # 提前给出可以省下整轮预算。
-    rows_sc, sc_pack, _vis = _load_sc(args.target)
+    # 惰性装载按资格名单放行，而本脚本正是在**产出**那份名单 —— 直接调用会自锁
+    # （实测：新轴不在旧名单里 → 序列不装载 → 覆盖算不出）。因此在探针期间
+    # 把本次统计到的全部机制族当作已合格；这只影响探针，不影响随后的合格判定。
+    from arad.harness import demo as _demo
+
+    _original = _demo._qualified_families
+    _demo._qualified_families = lambda: set(_original()) | set(stats)
+    try:
+        rows_sc, sc_pack, _vis = _load_sc(args.target)
+    finally:
+        _demo._qualified_families = _original
     grid = [r["decision_time"] for r in rows_sc]
     for fid, stat in stats.items():
         for field_name in ("p", "dp"):

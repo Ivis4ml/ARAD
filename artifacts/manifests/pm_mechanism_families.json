@@ -1,18 +1,46 @@
 {
   "version": "mech-rules-v1",
-  "content_id": "e90addfe4641482abe3ce254e053ff931ee2bb93ba710c7956c0d8d4da6b3a58",
-  "built_at": "2026-08-15T06:16:09.660036+00:00",
+  "content_id": "0660fdebe064ac97f984a1383ca83665beec750d1f86fc52563557ea292210a6",
+  "built_at": "2026-08-15T22:37:03.514911+00:00",
   "seed_pack": [
+    "arad-native-2026-08",
     "revplm-2026-08"
   ],
   "segments": {
     "discovery_end": "2024-12-31",
     "historical_validation_end": "2025-12-31"
   },
-  "membership_rows": 1410,
-  "excluded_rows": 2606,
+  "membership_rows": 1842,
+  "excluded_rows": 2872,
   "discovery_blind_spots": {},
   "families": {
+    "BIRD_FLU": {
+      "counts": {
+        "member_pos": 11,
+        "member_neg": 1,
+        "excluded": 0,
+        "routed_out": 0,
+        "unmatched": 0
+      },
+      "by_segment": {
+        "discovery": 11,
+        "historical_validation": 1
+      },
+      "series_id": "mech:BIRD_FLU",
+      "driver_channel": "供给-干扰",
+      "stratum": "mechanism",
+      "seed_family": null,
+      "name_cn": "禽流感疫情",
+      "mechanism_cn": "禽流感疫情扩大导致蛋鸡与家禽扑杀，直接收缩鸡蛋与禽肉供给；同时抑制饲料（玉米、豆粕）的派生需求。族概率的取值为「疫情升级」。",
+      "themes": [],
+      "expected_discovery_markets": 11,
+      "notes": "反向段收「疫苗、控制住、宣告结束」这类缓和式提问；其余（新增州进入紧急状态、宣布公共卫生紧急、人传人病例）均属疫情升级。",
+      "lexical_predecessor": "cand:flu",
+      "shared_discovery_markets": 10,
+      "mechanism_discovery_markets": 11,
+      "share_of_mechanism_in_predecessor": 0.9090909090909091,
+      "predecessor_total_markets": 344
+    },
     "FED_DECISION": {
       "counts": {
         "member_pos": 16,
@@ -71,6 +99,36 @@
       "mechanism_discovery_markets": 16,
       "share_of_mechanism_in_predecessor": 0.8125,
       "predecessor_total_markets": 385
+    },
+    "HEZBOLLAH_LEBANON": {
+      "counts": {
+        "member_pos": 311,
+        "member_neg": 32,
+        "excluded": 35,
+        "routed_out": 0,
+        "unmatched": 0
+      },
+      "by_segment": {
+        "discovery": 30,
+        "contaminated_audit": 222,
+        "historical_validation": 91
+      },
+      "series_id": "mech:HEZBOLLAH_LEBANON",
+      "driver_channel": "地缘-冲突",
+      "stratum": "mechanism",
+      "seed_family": null,
+      "name_cn": "黎巴嫩真主党战线",
+      "mechanism_cn": "黎巴嫩战线升级抬高中东整体地缘风险溢价，主要作用于避险资产；与伊朗直接冲突轴是不同的战线，须经重合度闸门确认二者不是同一对象。族概率的取值为「战线升级」。",
+      "themes": [
+        "mideast_conflict"
+      ],
+      "expected_discovery_markets": 30,
+      "notes": "人事任免与领导人去留归排除：它们不是战线强度。",
+      "lexical_predecessor": "cand:israel",
+      "shared_discovery_markets": 23,
+      "mechanism_discovery_markets": 30,
+      "share_of_mechanism_in_predecessor": 0.7666666666666667,
+      "predecessor_total_markets": 1231
     },
     "HOUTHI_ATTACKS": {
       "counts": {
@@ -190,6 +248,35 @@
       "share_of_mechanism_in_predecessor": 0.5454545454545454,
       "predecessor_total_markets": 516
     },
+    "US_ELECTION_2024": {
+      "counts": {
+        "member_pos": 65,
+        "member_neg": 12,
+        "excluded": 231,
+        "routed_out": 0,
+        "unmatched": 0
+      },
+      "by_segment": {
+        "discovery": 76,
+        "historical_validation": 1
+      },
+      "series_id": "mech:US_ELECTION_2024",
+      "driver_channel": "政策-贸易",
+      "stratum": "mechanism",
+      "seed_family": null,
+      "name_cn": "美国 2024 大选的关税倾向",
+      "mechanism_cn": "大选结果改变对华关税与贸易政策的预期路径，经进口平价、替代采购与风险溢价三条通道作用于农产品与工业金属。族概率的取值为「关税更强硬的一方胜出」。",
+      "themes": [
+        "us_china_trade"
+      ],
+      "expected_discovery_markets": 76,
+      "notes": "极性按「关税更强硬」定义，不按党派好恶：共和党方向记 +1、民主党方向记 −1。外国选举整批排除 —— 它们与本机制的传导通道不同。",
+      "lexical_predecessor": "cand:from",
+      "shared_discovery_markets": 21,
+      "mechanism_discovery_markets": 76,
+      "share_of_mechanism_in_predecessor": 0.27631578947368424,
+      "predecessor_total_markets": 926
+    },
     "US_INFLATION_MONTHLY": {
       "counts": {
         "member_pos": 53,
@@ -252,6 +339,58 @@
     }
   },
   "rules": {
+    "BIRD_FLU": {
+      "family_id": "BIRD_FLU",
+      "name_cn": "禽流感疫情",
+      "driver_channel": "供给-干扰",
+      "mechanism_cn": "禽流感疫情扩大导致蛋鸡与家禽扑杀，直接收缩鸡蛋与禽肉供给；同时抑制饲料（玉米、豆粕）的派生需求。族概率的取值为「疫情升级」。",
+      "match_field": "slug_raw",
+      "scope": "bird-flu|h5n1|avian-influenza|avian-flu",
+      "require_all": [],
+      "seed_family": null,
+      "seed_pack": "arad-native-2026-08",
+      "themes": [],
+      "stratum": "mechanism",
+      "yes_outcome_seq": 1,
+      "stages": [
+        {
+          "kind": "exclude",
+          "name": "speech_noise",
+          "pattern": "-say-|-says-|-said-|be-said|-mention|-times-during|truth-social|press-briefing|podcast|front-page|headline|-visit-|rotten|box-office|oscar|grammy|eurovision",
+          "unless": null,
+          "sign": null,
+          "reason": "noise",
+          "route_to": null
+        },
+        {
+          "kind": "exclude",
+          "name": "sports",
+          "pattern": "(^|-)(nba|nfl|nhl|mlb|wnba|ncaa|ufc|atp|wta|mls|epl|f1|pga)(-|$)|-vs-|super-bowl",
+          "unless": null,
+          "sign": null,
+          "reason": "sports",
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "containment",
+          "pattern": "vaccine|contained|eradicat|end-of-the-outbreak|declared-over",
+          "unless": null,
+          "sign": -1,
+          "reason": null,
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "escalation",
+          "pattern": ".",
+          "unless": null,
+          "sign": 1,
+          "reason": null,
+          "route_to": null
+        }
+      ]
+    },
     "FED_DECISION": {
       "family_id": "FED_DECISION",
       "name_cn": "美联储议息会议的幅度档位",
@@ -346,6 +485,60 @@
           "pattern": "rate-cut|cut-rates",
           "unless": null,
           "sign": -1,
+          "reason": null,
+          "route_to": null
+        }
+      ]
+    },
+    "HEZBOLLAH_LEBANON": {
+      "family_id": "HEZBOLLAH_LEBANON",
+      "name_cn": "黎巴嫩真主党战线",
+      "driver_channel": "地缘-冲突",
+      "mechanism_cn": "黎巴嫩战线升级抬高中东整体地缘风险溢价，主要作用于避险资产；与伊朗直接冲突轴是不同的战线，须经重合度闸门确认二者不是同一对象。族概率的取值为「战线升级」。",
+      "match_field": "slug_raw",
+      "scope": "hezbollah|lebanon|nasrallah|beirut",
+      "require_all": [],
+      "seed_family": null,
+      "seed_pack": "arad-native-2026-08",
+      "themes": [
+        "mideast_conflict"
+      ],
+      "stratum": "mechanism",
+      "yes_outcome_seq": 1,
+      "stages": [
+        {
+          "kind": "exclude",
+          "name": "speech_noise",
+          "pattern": "-say-|-says-|-said-|be-said|-mention|-times-during|truth-social|press-briefing|podcast|front-page|headline|-visit-|rotten|box-office|oscar|grammy|eurovision",
+          "unless": null,
+          "sign": null,
+          "reason": "noise",
+          "route_to": null
+        },
+        {
+          "kind": "exclude",
+          "name": "personnel",
+          "pattern": "remains-leader|out-as-|prime-minister|president-of-lebanon|elected",
+          "unless": null,
+          "sign": null,
+          "reason": "personnel",
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "de_escalation",
+          "pattern": "ceasefire|truce|withdraw|peace-deal|agreement",
+          "unless": null,
+          "sign": -1,
+          "reason": null,
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "escalation",
+          "pattern": ".",
+          "unless": null,
+          "sign": 1,
           "reason": null,
           "route_to": null
         }
@@ -597,6 +790,62 @@
           "kind": "member",
           "name": "ceasefire",
           "pattern": "(ceasefire|cease-fire|truce|armistice|peace-deal|peace-agreement|peace-plan|ends?-(the-)?(ukraine-)?war|war-ends?|end-of-the-war)",
+          "unless": null,
+          "sign": 1,
+          "reason": null,
+          "route_to": null
+        }
+      ]
+    },
+    "US_ELECTION_2024": {
+      "family_id": "US_ELECTION_2024",
+      "name_cn": "美国 2024 大选的关税倾向",
+      "driver_channel": "政策-贸易",
+      "mechanism_cn": "大选结果改变对华关税与贸易政策的预期路径，经进口平价、替代采购与风险溢价三条通道作用于农产品与工业金属。族概率的取值为「关税更强硬的一方胜出」。",
+      "match_field": "slug_raw",
+      "scope": "presidential-election|electoral-college|popular-vote|win-the-2024|2024-election|swing-state|will-trump-win|will-biden-win|will-harris-win|republican-nominee|democratic-nominee",
+      "require_all": [
+        "2024|trump|biden|harris|republican|democrat"
+      ],
+      "seed_family": null,
+      "seed_pack": "arad-native-2026-08",
+      "themes": [
+        "us_china_trade"
+      ],
+      "stratum": "mechanism",
+      "yes_outcome_seq": 1,
+      "stages": [
+        {
+          "kind": "exclude",
+          "name": "speech_noise",
+          "pattern": "-say-|-says-|-said-|be-said|-mention|-times-during|truth-social|press-briefing|podcast|front-page|headline|-visit-|rotten|box-office|oscar|grammy|eurovision",
+          "unless": null,
+          "sign": null,
+          "reason": "noise",
+          "route_to": null
+        },
+        {
+          "kind": "exclude",
+          "name": "foreign_election",
+          "pattern": "czech|macedonia|slovak|austria|finland|iceland|lithuania|senegal|indonesia|mexico|taiwan|venezuela|russia|iran|france|india|south-africa|argentina|turkey|poland|portugal|romania",
+          "unless": null,
+          "sign": null,
+          "reason": "other_country",
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "tariff_dove",
+          "pattern": "biden-win|harris-win|democrat(ic)?-(nominee-)?win|will-democrats-win",
+          "unless": null,
+          "sign": -1,
+          "reason": null,
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "tariff_hawk",
+          "pattern": ".",
           "unless": null,
           "sign": 1,
           "reason": null,

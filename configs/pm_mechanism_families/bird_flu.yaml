@@ -1,0 +1,28 @@
+family_id: BIRD_FLU
+name_cn: 禽流感疫情
+driver_channel: 供给-干扰
+mechanism_cn: 禽流感疫情扩大导致蛋鸡与家禽扑杀，直接收缩鸡蛋与禽肉供给；同时抑制饲料（玉米、豆粕）的派生需求。族概率的取值为「疫情升级」。
+match_field: slug_raw
+scope: bird-flu|h5n1|avian-influenza|avian-flu
+themes: []
+seed_family: null
+seed_pack: arad-native-2026-08
+expected_discovery_markets: 11
+stages:
+- kind: exclude
+  name: speech_noise
+  pattern: -say-|-says-|-said-|be-said|-mention|-times-during|truth-social|press-briefing|podcast|front-page|headline|-visit-|rotten|box-office|oscar|grammy|eurovision
+  reason: noise
+- kind: exclude
+  name: sports
+  pattern: (^|-)(nba|nfl|nhl|mlb|wnba|ncaa|ufc|atp|wta|mls|epl|f1|pga)(-|$)|-vs-|super-bowl
+  reason: sports
+- kind: member
+  name: containment
+  pattern: vaccine|contained|eradicat|end-of-the-outbreak|declared-over
+  sign: -1
+- kind: member
+  name: escalation
+  pattern: .
+  sign: 1
+notes: 反向段收「疫苗、控制住、宣告结束」这类缓和式提问；其余（新增州进入紧急状态、宣布公共卫生紧急、人传人病例）均属疫情升级。

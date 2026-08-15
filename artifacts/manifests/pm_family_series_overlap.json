@@ -13,7 +13,7 @@
     "derivation": "distinct_upper 取参照分布（无关机制族两两）的序数一致比例上界；replay_lower 取 distinct_upper 与 1.0 的中点。两者都由数据的参照分布决定，不由本次结果决定。判据作用在决策网格上的窗口取值，因为那才是特征真正看到的量。",
     "consequence": "distinct_object：与前身在决策网格上不可区分于无关序列，可作为新问题对待；partially_overlapping：并入既有族分母，不另起地板；replay_of_predecessor：同一次检验的重放，既不另开分母也不重测已读过的目标。"
   },
-  "built_at": "2026-08-15T06:21:18.604889+00:00",
+  "built_at": "2026-08-15T22:38:15.674707+00:00",
   "series": "mechanism_hourly_discovery.parquet",
   "segment": "discovery (≤2024-12-31)",
   "decision_grid": {
@@ -23,6 +23,33 @@
     "note": "决策时点为开盘前 60 秒（日盘 08:59、夜盘 20:59）；offset 取 0 时该窗口整体落在停市区间。"
   },
   "mechanism_vs_lexical_predecessor": {
+    "BIRD_FLU": {
+      "lexical_predecessor": "cand:flu",
+      "shared_discovery_markets": 10,
+      "mechanism_discovery_markets": 11,
+      "predecessor_total_markets": 344,
+      "on_repricing": {
+        "common_buckets": 1356,
+        "rank_agreement_share": 1.0,
+        "sign_agreement_share": 1.0,
+        "quantile_overlap_share": 1.0
+      },
+      "on_level": {
+        "common_buckets": 1455,
+        "rank_agreement_share": 1.0,
+        "sign_agreement_share": 1.0,
+        "quantile_overlap_share": 1.0
+      },
+      "on_decision_grid": {
+        "grid_points": 1054,
+        "left_defined_points": 235,
+        "right_defined_points": 224,
+        "both_defined_points": 224,
+        "rank_agreement_share": 1.0,
+        "quantile_overlap_share": 1.0
+      },
+      "verdict": "replay_of_predecessor"
+    },
     "FED_DECISION": {
       "lexical_predecessor": "cand:interest",
       "shared_discovery_markets": 20,
@@ -76,6 +103,33 @@
         "quantile_overlap_share": 0.0671
       },
       "verdict": "distinct_object"
+    },
+    "HEZBOLLAH_LEBANON": {
+      "lexical_predecessor": "cand:israel",
+      "shared_discovery_markets": 23,
+      "mechanism_discovery_markets": 30,
+      "predecessor_total_markets": 1231,
+      "on_repricing": {
+        "common_buckets": 3909,
+        "rank_agreement_share": 0.6286,
+        "sign_agreement_share": 0.6314,
+        "quantile_overlap_share": 0.329
+      },
+      "on_level": {
+        "common_buckets": 4600,
+        "rank_agreement_share": 0.6262,
+        "sign_agreement_share": 1.0,
+        "quantile_overlap_share": 0.1674
+      },
+      "on_decision_grid": {
+        "grid_points": 1054,
+        "left_defined_points": 447,
+        "right_defined_points": 581,
+        "both_defined_points": 446,
+        "rank_agreement_share": 0.5998,
+        "quantile_overlap_share": 0.1233
+      },
+      "verdict": "partially_overlapping"
     },
     "HOUTHI_ATTACKS": {
       "lexical_predecessor": "cand:military",
@@ -185,6 +239,33 @@
       },
       "verdict": "distinct_object"
     },
+    "US_ELECTION_2024": {
+      "lexical_predecessor": "cand:from",
+      "shared_discovery_markets": 21,
+      "mechanism_discovery_markets": 76,
+      "predecessor_total_markets": 926,
+      "on_repricing": {
+        "common_buckets": 2703,
+        "rank_agreement_share": 0.5051,
+        "sign_agreement_share": 0.5189,
+        "quantile_overlap_share": 0.1147
+      },
+      "on_level": {
+        "common_buckets": 3869,
+        "rank_agreement_share": 0.5006,
+        "sign_agreement_share": 1.0,
+        "quantile_overlap_share": 0.1044
+      },
+      "on_decision_grid": {
+        "grid_points": 1054,
+        "left_defined_points": 549,
+        "right_defined_points": 581,
+        "both_defined_points": 426,
+        "rank_agreement_share": 0.5361,
+        "quantile_overlap_share": 0.1244
+      },
+      "verdict": "distinct_object"
+    },
     "US_INFLATION_MONTHLY": {
       "lexical_predecessor": "cand:inflation",
       "shared_discovery_markets": 40,
@@ -242,6 +323,86 @@
   },
   "reference_unrelated_mechanism_pairs": [
     {
+      "left": "mech:BIRD_FLU",
+      "right": "mech:FED_HIKE",
+      "on_repricing": {
+        "common_buckets": 830,
+        "rank_agreement_share": 0.5128,
+        "sign_agreement_share": 0.5132,
+        "quantile_overlap_share": 0.1217
+      }
+    },
+    {
+      "left": "mech:BIRD_FLU",
+      "right": "mech:HEZBOLLAH_LEBANON",
+      "on_repricing": {
+        "common_buckets": 949,
+        "rank_agreement_share": 0.4817,
+        "sign_agreement_share": 0.4926,
+        "quantile_overlap_share": 0.0875
+      }
+    },
+    {
+      "left": "mech:BIRD_FLU",
+      "right": "mech:HOUTHI_ATTACKS",
+      "on_repricing": {
+        "common_buckets": 189,
+        "rank_agreement_share": 0.4695,
+        "sign_agreement_share": 0.5057,
+        "quantile_overlap_share": 0.0952
+      }
+    },
+    {
+      "left": "mech:BIRD_FLU",
+      "right": "mech:ISR_IRAN",
+      "on_repricing": {
+        "common_buckets": 1083,
+        "rank_agreement_share": 0.5043,
+        "sign_agreement_share": 0.5098,
+        "quantile_overlap_share": 0.1016
+      }
+    },
+    {
+      "left": "mech:BIRD_FLU",
+      "right": "mech:RU_UA_CEASEFIRE",
+      "on_repricing": {
+        "common_buckets": 1124,
+        "rank_agreement_share": 0.4941,
+        "sign_agreement_share": 0.5,
+        "quantile_overlap_share": 0.0988
+      }
+    },
+    {
+      "left": "mech:BIRD_FLU",
+      "right": "mech:US_ELECTION_2024",
+      "on_repricing": {
+        "common_buckets": 843,
+        "rank_agreement_share": 0.4953,
+        "sign_agreement_share": 0.4974,
+        "quantile_overlap_share": 0.1115
+      }
+    },
+    {
+      "left": "mech:BIRD_FLU",
+      "right": "mech:US_INFLATION_MONTHLY",
+      "on_repricing": {
+        "common_buckets": 199,
+        "rank_agreement_share": 0.5238,
+        "sign_agreement_share": 0.5294,
+        "quantile_overlap_share": 0.1055
+      }
+    },
+    {
+      "left": "mech:BIRD_FLU",
+      "right": "mech:US_SHUTDOWN",
+      "on_repricing": {
+        "common_buckets": 261,
+        "rank_agreement_share": 0.5097,
+        "sign_agreement_share": 0.4798,
+        "quantile_overlap_share": 0.1571
+      }
+    },
+    {
       "left": "mech:FED_DECISION",
       "right": "mech:FED_HIKE",
       "on_repricing": {
@@ -249,6 +410,16 @@
         "rank_agreement_share": 0.5244,
         "sign_agreement_share": 0.5072,
         "quantile_overlap_share": 0.1512
+      }
+    },
+    {
+      "left": "mech:FED_DECISION",
+      "right": "mech:HEZBOLLAH_LEBANON",
+      "on_repricing": {
+        "common_buckets": 261,
+        "rank_agreement_share": 0.5199,
+        "sign_agreement_share": 0.5202,
+        "quantile_overlap_share": 0.1188
       }
     },
     {
@@ -273,12 +444,32 @@
     },
     {
       "left": "mech:FED_DECISION",
+      "right": "mech:US_ELECTION_2024",
+      "on_repricing": {
+        "common_buckets": 310,
+        "rank_agreement_share": 0.5037,
+        "sign_agreement_share": 0.4964,
+        "quantile_overlap_share": 0.1032
+      }
+    },
+    {
+      "left": "mech:FED_DECISION",
       "right": "mech:US_INFLATION_MONTHLY",
       "on_repricing": {
         "common_buckets": 174,
         "rank_agreement_share": 0.4626,
         "sign_agreement_share": 0.4817,
         "quantile_overlap_share": 0.1264
+      }
+    },
+    {
+      "left": "mech:FED_HIKE",
+      "right": "mech:HEZBOLLAH_LEBANON",
+      "on_repricing": {
+        "common_buckets": 2260,
+        "rank_agreement_share": 0.4959,
+        "sign_agreement_share": 0.488,
+        "quantile_overlap_share": 0.1044
       }
     },
     {
@@ -323,6 +514,16 @@
     },
     {
       "left": "mech:FED_HIKE",
+      "right": "mech:US_ELECTION_2024",
+      "on_repricing": {
+        "common_buckets": 2405,
+        "rank_agreement_share": 0.4965,
+        "sign_agreement_share": 0.4846,
+        "quantile_overlap_share": 0.0973
+      }
+    },
+    {
+      "left": "mech:FED_HIKE",
       "right": "mech:US_INFLATION_MONTHLY",
       "on_repricing": {
         "common_buckets": 632,
@@ -339,6 +540,76 @@
         "rank_agreement_share": 0.4927,
         "sign_agreement_share": 0.5108,
         "quantile_overlap_share": 0.1031
+      }
+    },
+    {
+      "left": "mech:HEZBOLLAH_LEBANON",
+      "right": "mech:HOUTHI_ATTACKS",
+      "on_repricing": {
+        "common_buckets": 711,
+        "rank_agreement_share": 0.5071,
+        "sign_agreement_share": 0.5331,
+        "quantile_overlap_share": 0.1252
+      }
+    },
+    {
+      "left": "mech:HEZBOLLAH_LEBANON",
+      "right": "mech:HURRICANE_LANDFALL",
+      "on_repricing": {
+        "common_buckets": 296,
+        "rank_agreement_share": 0.5042,
+        "sign_agreement_share": 0.493,
+        "quantile_overlap_share": 0.1149
+      }
+    },
+    {
+      "left": "mech:HEZBOLLAH_LEBANON",
+      "right": "mech:ISR_IRAN",
+      "on_repricing": {
+        "common_buckets": 2800,
+        "rank_agreement_share": 0.5126,
+        "sign_agreement_share": 0.5242,
+        "quantile_overlap_share": 0.1075
+      }
+    },
+    {
+      "left": "mech:HEZBOLLAH_LEBANON",
+      "right": "mech:RU_UA_CEASEFIRE",
+      "on_repricing": {
+        "common_buckets": 2746,
+        "rank_agreement_share": 0.5055,
+        "sign_agreement_share": 0.5006,
+        "quantile_overlap_share": 0.1118
+      }
+    },
+    {
+      "left": "mech:HEZBOLLAH_LEBANON",
+      "right": "mech:US_ELECTION_2024",
+      "on_repricing": {
+        "common_buckets": 2688,
+        "rank_agreement_share": 0.5044,
+        "sign_agreement_share": 0.5158,
+        "quantile_overlap_share": 0.1198
+      }
+    },
+    {
+      "left": "mech:HEZBOLLAH_LEBANON",
+      "right": "mech:US_INFLATION_MONTHLY",
+      "on_repricing": {
+        "common_buckets": 724,
+        "rank_agreement_share": 0.5116,
+        "sign_agreement_share": 0.5095,
+        "quantile_overlap_share": 0.1064
+      }
+    },
+    {
+      "left": "mech:HEZBOLLAH_LEBANON",
+      "right": "mech:US_SHUTDOWN",
+      "on_repricing": {
+        "common_buckets": 508,
+        "rank_agreement_share": 0.5144,
+        "sign_agreement_share": 0.5394,
+        "quantile_overlap_share": 0.0945
       }
     },
     {
@@ -369,6 +640,16 @@
         "rank_agreement_share": 0.5224,
         "sign_agreement_share": 0.5043,
         "quantile_overlap_share": 0.1108
+      }
+    },
+    {
+      "left": "mech:HOUTHI_ATTACKS",
+      "right": "mech:US_ELECTION_2024",
+      "on_repricing": {
+        "common_buckets": 736,
+        "rank_agreement_share": 0.5093,
+        "sign_agreement_share": 0.4986,
+        "quantile_overlap_share": 0.1005
       }
     },
     {
@@ -413,6 +694,16 @@
     },
     {
       "left": "mech:HURRICANE_LANDFALL",
+      "right": "mech:US_ELECTION_2024",
+      "on_repricing": {
+        "common_buckets": 337,
+        "rank_agreement_share": 0.5182,
+        "sign_agreement_share": 0.52,
+        "quantile_overlap_share": 0.0831
+      }
+    },
+    {
+      "left": "mech:HURRICANE_LANDFALL",
       "right": "mech:US_INFLATION_MONTHLY",
       "on_repricing": {
         "common_buckets": 135,
@@ -429,6 +720,16 @@
         "rank_agreement_share": 0.4964,
         "sign_agreement_share": 0.5002,
         "quantile_overlap_share": 0.1094
+      }
+    },
+    {
+      "left": "mech:ISR_IRAN",
+      "right": "mech:US_ELECTION_2024",
+      "on_repricing": {
+        "common_buckets": 2811,
+        "rank_agreement_share": 0.4909,
+        "sign_agreement_share": 0.5017,
+        "quantile_overlap_share": 0.1092
       }
     },
     {
@@ -453,6 +754,16 @@
     },
     {
       "left": "mech:RU_UA_CEASEFIRE",
+      "right": "mech:US_ELECTION_2024",
+      "on_repricing": {
+        "common_buckets": 2854,
+        "rank_agreement_share": 0.5054,
+        "sign_agreement_share": 0.5004,
+        "quantile_overlap_share": 0.1034
+      }
+    },
+    {
+      "left": "mech:RU_UA_CEASEFIRE",
       "right": "mech:US_INFLATION_MONTHLY",
       "on_repricing": {
         "common_buckets": 936,
@@ -469,6 +780,26 @@
         "rank_agreement_share": 0.5069,
         "sign_agreement_share": 0.5008,
         "quantile_overlap_share": 0.1073
+      }
+    },
+    {
+      "left": "mech:US_ELECTION_2024",
+      "right": "mech:US_INFLATION_MONTHLY",
+      "on_repricing": {
+        "common_buckets": 839,
+        "rank_agreement_share": 0.4951,
+        "sign_agreement_share": 0.4847,
+        "quantile_overlap_share": 0.0954
+      }
+    },
+    {
+      "left": "mech:US_ELECTION_2024",
+      "right": "mech:US_SHUTDOWN",
+      "on_repricing": {
+        "common_buckets": 409,
+        "rank_agreement_share": 0.5123,
+        "sign_agreement_share": 0.5262,
+        "quantile_overlap_share": 0.1149
       }
     },
     {

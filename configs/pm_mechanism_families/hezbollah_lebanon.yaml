@@ -1,0 +1,29 @@
+family_id: HEZBOLLAH_LEBANON
+name_cn: 黎巴嫩真主党战线
+driver_channel: 地缘-冲突
+mechanism_cn: 黎巴嫩战线升级抬高中东整体地缘风险溢价，主要作用于避险资产；与伊朗直接冲突轴是不同的战线，须经重合度闸门确认二者不是同一对象。族概率的取值为「战线升级」。
+match_field: slug_raw
+scope: hezbollah|lebanon|nasrallah|beirut
+themes:
+- mideast_conflict
+seed_family: null
+seed_pack: arad-native-2026-08
+expected_discovery_markets: 30
+stages:
+- kind: exclude
+  name: speech_noise
+  pattern: -say-|-says-|-said-|be-said|-mention|-times-during|truth-social|press-briefing|podcast|front-page|headline|-visit-|rotten|box-office|oscar|grammy|eurovision
+  reason: noise
+- kind: exclude
+  name: personnel
+  pattern: remains-leader|out-as-|prime-minister|president-of-lebanon|elected
+  reason: personnel
+- kind: member
+  name: de_escalation
+  pattern: ceasefire|truce|withdraw|peace-deal|agreement
+  sign: -1
+- kind: member
+  name: escalation
+  pattern: .
+  sign: 1
+notes: 人事任免与领导人去留归排除：它们不是战线强度。
