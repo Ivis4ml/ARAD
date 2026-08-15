@@ -58,12 +58,19 @@ def _step_shape(step: dict) -> str:
     return f"{kind}({field}, {op}, {step.get('window_seconds')}s)"
 
 
-def tried_features(ledger: EvidenceLedger, *, limit: int = 200) -> list[dict]:
-    """已经写过的规格。**按 content_id 排序，不带 study_id，不带任何判决。**
+def tried_features(ledger: EvidenceLedger, *, limit: int = 200,
+                   full_detail: int = 12) -> list[dict]:
+    """已经写过的规格。**不带 study_id，不带任何判决。**
 
     走 `ledger.proposer_memory()`：那是账本自己强制的窄口子，只放两种事件、
     逐字段过白名单、且不返回 study_id。不走 `read_events` —— 全量读取对提案器
     是禁止的，而「在调用方小心一点」不是边界。
+
+    只有**最近 `full_detail` 条**带完整的机制叙述，更早的只留 feature_id 与形状。
+    实测理由：196 条提案累积之后，这一节占了整份提示词的 93%（49 万字符），
+    模型要在四十多万字的旧提案里找自己的位置。「不要重复」需要的是一张清单，
+    不是四十万字的散文；机制叙述对更早的条目已经不起作用，只在稀释注意力。
+    近期的仍保留全文 —— 迭代改进要看得见上一版到底说了什么。
     """
     seen: dict[str, dict] = {}
     for payload in ledger.proposer_memory("feature_spec_locked"):
@@ -77,7 +84,11 @@ def tried_features(ledger: EvidenceLedger, *, limit: int = 200) -> list[dict]:
             "shape": " -> ".join(_step_shape(s) for s in payload.get("steps", [])),
             "sources": payload.get("sources", []),
         }
-    return [seen[k] for k in sorted(seen)][:limit]
+    ordered = list(seen.values())[-limit:]
+    cutoff = max(0, len(ordered) - max(0, full_detail))
+    for row in ordered[:cutoff]:
+        row.pop("mechanism", None)
+    return ordered
 
 
 def search_price(ledger: EvidenceLedger, family: str) -> dict:

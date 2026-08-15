@@ -1140,3 +1140,23 @@ M15.1（run26 结算：评审最短路径检验完毕，归因偏向市场真相
 报告第八版 127 页：摘要、要点第十条、结论第十条、§9 后记、下一步第一梯队标注
 完成状态、run25/run26 编年入册。第一梯队唯一未做项：稀疏族延用末值语义
 （需先出决定文档）。
+
+M17（决定 0010：研究员进程封闭化、方法说明显式装载、搜索覆盖表）：核查「claude -p
+用得好不好」时实测到一个结构性漏洞 —— 默认调用给盲化研究员 Bash/Read/Write/Edit/
+Task/WebSearch 与全部 MCP 服务器，工作目录即仓库根，原理上可自行读取账本的全部判决；
+用户级 CLAUDE.md 也在进上下文。两条通道都在 assert_blinded 的射程之外。过去是否
+被用过无法追认（provider 不记 num_turns 与 tool_use）。处置：四个封闭参数
+（--disallowed-tools 37 项、--strict-mcp-config、--disable-slash-commands、
+--setting-sources ""），并以 CLI 自己的 init 回报做断言（清单会过期，断言不会），
+num_turns 与 tool_use 入证据。方法说明改为显式装载：configs/skills/arad-proposer.md
+经 assert_blinded、内容寻址、作为 ProviderRequest.system_prompt（该字段进 request_id）
+发出，指纹入账本；frontmatter 的 update_rule 必须是 mechanical_failures_only，
+否则拒绝装载 —— 它只承载机械失败的教训，承载判决即成为结果回流通道。
+搜索覆盖表（只数 proposal_locked，不含任何判决）进上下文，回答「为什么只看伊朗轴」：
+196 条提案里 119 条 sc_dominant_t1、只用过 3 个 target、1998 族只引用过 23 个，
+单个组合 cand:iran×sc×rv 就有 34 条提案。菜单升 menu-v3 加机制族层（配额 6，
+先认领名额），重合度裁断为「重放」的 ISR_IRAN 与 US_SHUTDOWN 被排除；
+机制族资格筛只在 discovery 段统计（qualify-mech-v1，八族全过）。
+另修：提示词 93% 是旧提案的机制叙述（633,755 字符 → 246,890），
+只保留最近 12 条全文；27 条非 sc 的 Study 此前在账本里记着 sc 的目标名，
+现改为声明名与逐品种实解名并列。

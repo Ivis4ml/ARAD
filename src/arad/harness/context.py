@@ -404,8 +404,11 @@ def render_proposer_prompt(facts: dict, biases: list[DeclaredBias]) -> str:
             "**不要重复其中任何一条。**重复一次要付一次地板抬升，而换来的是已经有的答案。",
             "",
         ]
+        # 只有最近的几条带机制全文（induction.tried_features 的 full_detail）：
+        # 早期条目只留 id 与形状，够回答「这条写过没有」，不占注意力。
         lines += [
-            f"- `{t['feature_id']}`：{t['shape']}\n  机制：{t['mechanism'][:110]}"
+            f"- `{t['feature_id']}`：{t['shape']}"
+            + (f"\n  机制：{t['mechanism'][:110]}" if t.get("mechanism") else "")
             for t in tried
         ]
         lines.append("")
