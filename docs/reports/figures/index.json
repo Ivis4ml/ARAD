@@ -1168,5 +1168,137 @@
   "feature_id": "pm_iran_belief_churn_recency_12h_over_1d_resid_brent_and_own_rv_90d_sc_absorb",
   "defined_points": 432,
   "total_points": 1040
+ },
+ "run27-study-0": {
+  "file": "run27-study-0.png",
+  "feature_id": "pm_fed_hike_dp_closed_6h_over_30d_scale_resid_brent_and_own_rv_ag",
+  "defined_points": 435,
+  "total_points": 1040
+ },
+ "run27-study-1": {
+  "file": "run27-study-1.png",
+  "feature_id": "pm_fed_hike_dp_1d_over_30d_scale_resid_brent_and_own_rv_au",
+  "defined_points": 676,
+  "total_points": 1040
+ },
+ "run27-study-2": {
+  "file": "run27-study-2.png",
+  "feature_id": "pm_ruua_ceasefire_dp_12h_over_30d_scale_resid_brent_and_own_rv_c",
+  "defined_points": 497,
+  "total_points": 1040
+ },
+ "run28-study-0": {
+  "file": "run28-study-0.png",
+  "feature_id": "pm_ruua_ceasefire_dp_1d_over_30d_scale_resid_brent_and_own_rv_al",
+  "defined_points": 599,
+  "total_points": 1040
+ },
+ "run28-study-1": {
+  "file": "run28-study-1.png",
+  "feature_id": "pm_fed_hike_dp_per_unit_flow_12h_over_1d_resid_brent_and_own_rv_bc",
+  "defined_points": 586,
+  "total_points": 1040
+ },
+ "run28-study-2": {
+  "file": "run28-study-2.png",
+  "feature_id": "pm_fed_hike_dp_closed_minus_open_6h_over_30d_scale_resid_brent_and_own_rv_cu",
+  "defined_points": 325,
+  "total_points": 1040
+ },
+ "run28-study-3": {
+  "file": "run28-study-3.png",
+  "feature_id": "pm_ruua_ceasefire_dp_accel_12h_over_30d_scale_resid_brent_and_own_rv_fu",
+  "defined_points": 306,
+  "total_points": 1040
+ },
+ "run28-study-4": {
+  "file": "run28-study-4.png",
+  "feature_id": "pm_fed_hike_dp_pace_innov_over_30d_scale_resid_brent_and_own_rv_i",
+  "defined_points": 575,
+  "total_points": 1040
+ },
+ "run28-study-5": {
+  "file": "run28-study-5.png",
+  "feature_id": "pm_ruua_ceasefire_dp_3d_over_30d_scale_resid_brent_and_own_rv_m",
+  "defined_points": 689,
+  "total_points": 1040
+ },
+ "run28-study-6": {
+  "file": "run28-study-6.png",
+  "feature_id": "pm_hurricane_landfall_dp_3d_resid_brent_and_own_rv_pg",
+  "defined_points": 13,
+  "total_points": 1040
+ },
+ "run28-study-7": {
+  "file": "run28-study-7.png",
+  "feature_id": "pm_us_inflation_dp_7d_over_90d_scale_resid_brent_and_own_rv_au",
+  "defined_points": 144,
+  "total_points": 1040
+ },
+ "run28-study-8": {
+  "file": "run28-study-8.png",
+  "feature_id": "pm_ruua_ceasefire_dp_dispersion_1d_over_30d_resid_brent_and_own_rv_sc",
+  "defined_points": 477,
+  "total_points": 1040
+ },
+ "run28-study-9": {
+  "file": "run28-study-9.png",
+  "feature_id": "pm_ruua_ceasefire_dp_lagged_2d_over_30d_scale_resid_brent_and_own_rv_y",
+  "defined_points": 649,
+  "total_points": 1040
+ },
+ "run28-study-10": {
+  "file": "run28-study-10.png",
+  "feature_id": "pm_fed_decision_dp_3d_over_90d_scale_resid_brent_and_own_rv_zn",
+  "defined_points": 209,
+  "total_points": 1040
+ },
+ "run28-study-11": {
+  "file": "run28-study-11.png",
+  "feature_id": "pm_ruua_ceasefire_dp_closed_minus_open_6h_over_30d_scale_resid_brent_and_own_rv_au",
+  "defined_points": 188,
+  "total_points": 1040
+ },
+ "run28-study-12": {
+  "file": "run28-study-12.png",
+  "feature_id": "pm_fed_hike_dp_3d_over_90d_scale_resid_brent_and_own_rv_panel",
+  "defined_points": 644,
+  "total_points": 1040
+ },
+ "run28-study-14": {
+  "file": "run28-study-14.png",
+  "feature_id": "pm_ruua_ceasefire_dp_pace_innov_2d_over_90d_scale_resid_brent_and_own_rv_jm",
+  "defined_points": 599,
+  "total_points": 1040
+ },
+ "run28-study-15": {
+  "file": "run28-study-15.png",
+  "feature_id": "pm_fed_hike_dp_2d_over_90d_scale_resid_brent_and_own_rv_l",
+  "defined_points": 637,
+  "total_points": 1040
+ },
+ "run28-study-16": {
+  "file": "run28-study-16.png",
+  "feature_id": "pm_fed_hike_dp_dispersion_per_flow_1d_over_90d_resid_brent_and_own_rv_ni",
+  "defined_points": 567,
+  "total_points": 1040
+ },
+ "run28-study-17": {
+  "file": "run28-study-17.png",
+  "feature_id": "pm_hurricane_landfall_dp_2d_resid_brent_and_own_rv_pp",
+  "defined_points": 17,
+  "total_points": 1040
+ },
+ "run28-study-18": {
+  "file": "run28-study-18.png",
+  "feature_id": "pm_fed_hike_dp_3d_over_30d_scale_resid_brent_and_own_rv_ru",
+  "defined_points": 719,
+  "total_points": 1040
+ },
+ "run28-study-19": {
+  "file": "run28-study-19.png",
+  "feature_id": "pm_hurricane_landfall_dp_rate_innov_2d_15d_resid_brent_and_own_rv_v",
+  "defined_points": 15,
+  "total_points": 1040
  }
 }

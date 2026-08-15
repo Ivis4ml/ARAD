@@ -1,4 +1,4 @@
-% 由 scripts/build_report_tex.py 生成；数字全部来自账本快照 seq 3131
+% 由 scripts/build_report_tex.py 生成；数字全部来自账本快照 seq 3325
 \documentclass[11pt]{ctexart}
 \usepackage[a4paper,margin=2.4cm]{geometry}
 \usepackage{array,booktabs,longtable,graphicx,amsmath,amssymb,url,xcolor,caption}
@@ -15,9 +15,9 @@
 \maketitle
 \begin{abstract}
 研究者是大语言模型（claude-opus-5，经 \path{claude -p} 调用），确定性框架负责使其产出
-可信且可累积。截至账本冻结点（事件 seq 3131），系统在
+可信且可累积。截至账本冻结点（事件 seq 3325），系统在
 Polymarket 预测市场 $\times$ 中国商品期货（以 SC 原油为主）上共冻结 \textbf{159 个互异假设}，读取 outcome \textbf{135 次}，
-判决为 null \textbf{133}、blocked \textbf{59}、underpowered \textbf{11}、candidate \textbf{0}；噪声地板升至 \textbf{2.862}。三条主结果：（一）不加控制时最大的统计量
+判决为 null \textbf{141}、blocked \textbf{63}、underpowered \textbf{11}、candidate \textbf{1}；噪声地板升至 \textbf{2.862}。三条主结果：（一）不加控制时最大的统计量
 （$|t|$ 至 9.30）全部是波动率聚集这一教科书事实；
 （二）对品种自身波动或国际油价残差化后，Polymarket 特征大面积失去线性预测力；
 （三）第一条走完全流程的候选在一次性的封存段被否决；
@@ -96,7 +96,7 @@ Polymarket 仍在交易 —— 停市期间到达的信息，理论上要等次�
 \begin{center}\footnotesize
 \begin{tabular}{@{}l p{0.72\textwidth}@{}}\toprule
 术语 & 含义 \\ \midrule
-Study & 一次完整的研究：从提出假设到得出判决。本文共 234 个。 \\
+Study & 一次完整的研究：从提出假设到得出判决。本文共 247 个。 \\
 族（family） & 按上下文两义：（一）\textbf{事件族}，Polymarket 上语义相近的一批
   市场合成的一条序列，如 \path{cand:iran}；（二）\textbf{问题族}，共享同一本
   「搜索代价账」的一批研究，见「地板」。 \\
@@ -187,7 +187,7 @@ $|t|=9.30$ 的构造，其分母与预测目标同为已实现波动 —— 它�
 「多试几次」从来不是免费的（\S\ref{sec:selection}）。
 
 \paragraph{七、否定是产出，不是失败。}
-全部 234 个 Study 中 133 条是带排除界的可信否定：每条都预注册了证否条件、
+全部 247 个 Study 中 141 条是带排除界的可信否定：每条都预注册了证否条件、
 通过了语义审计、并被置换检验确认「打乱的假数据做得一样好」。对「Polymarket
 能否预测中国商品期货」这个问题，这批否定就是当前最可信的答案（\S\ref{sec:conclusions}）。
 
@@ -764,9 +764,9 @@ p{0.09\textwidth} >{\raggedright\arraybackslash}p{0.38\textwidth}@{}}\toprule
 账本 & 分母 & 适用地板 & 说明 \\ \midrule
 \path{demo_sc_price_volume} & 135 & 2.862 & 常在线性检验 \\
 \path{sc_event_conditional_v1} & 33 & 2.381 & 由触发器的问题形态定义 \\
-\path{sc_mechanism_prior_v1} & 6 & 1.665 &
+\path{sc_mechanism_prior_v1} & 15 & 2.073 &
   机制族；预算 20 回合，全轮以预算末地板 2.1895 为证否线 \\
-合并口径（不分族） & 174 & 2.942 & 约束 4 要求随时可读 \\
+合并口径（不分族） & 183 & 2.957 & 约束 4 要求随时可读 \\
 \bottomrule\end{tabular}
 \caption{三本账的现状。「适用地板」指该族按当前分母算出的线；
 新族另按约束 3 以预算末地板为证否线。candidate 指通过全部预注册闸门、
@@ -797,6 +797,64 @@ blocked，不可能是 candidate。全史实测：122 条单品种 Study 中 118
 run16-study-3 是\textbf{面板}研究，而同期的 run11-study-3 在单品种上同时带
 成本模型缺失与 cluster 两条阻断，即使成本模型建成也翻不成 candidate。
 逐品种买到的是机制证据与排除界，买不到 candidate。
+
+\subsection{第一轮完整检验的结算（run28）}\label{sec:run28}
+新账的第一轮跑满二十回合，产出十九版判决、统计分母十五。
+下表与图~\ref{fig:mechcurve} 成对读：表给构成，图给每一次检验相对两条地板的位置。
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}p{0.30\textwidth} p{0.24\textwidth} p{0.36\textwidth}@{}}\toprule
+读数 & 本轮 & 对照 \\ \midrule
+判决 & 13 null、5 blocked、1 candidate & 分母 15，提案分母 22 \\
+引用机制族的规格 & 19 / 19 & 此前 196 条提案中机制族出现 0 次 \\
+互异品种 & 18 个（面板 1 次） & 此前 196 条提案里 119 条集中于原油单品种 \\
+机制族覆盖 & 五族全部用上 & 停火 7、加息路径 7、飓风 3、通胀 1、议息 1 \\
+最好 $|t|$ & 2.028 & 本族地板 $E_2(15)=2.0734$；预注册证否线 $E_2(20)=2.1895$ \\
+越过证否线者 & 无 & \\
+机械失败 & 解析失败 0、provider 修复 0 & run26 同类损耗约占四分之一回合 \\
+\bottomrule\end{tabular}\end{center}
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.92\textwidth]{figures/mechanism_search_curve.png}
+\caption{机制先验族的搜索曲线。虚线为本族地板（分母从零起），点线为合并地板
+（三族分母相加）。两条线同时画出是决定 0011 约束 4 的要求：分族的正当性
+以未分族的那个数字随时可读为前提。}
+\label{fig:mechcurve}
+\end{figure}
+
+五次 blocked 分两类，都不是缺陷：一次是单品种的品种维退化（本节前述的限定），
+四次是信号事前筛在读取结果之前拦下（有效独立观测分别低至 7.7 与 11.5），
+未读结果、不占统计预算。四次拦截集中在长窗水平类构造上，
+说明方法说明里「构成受控的变化量比长窗电平更能反映重定价」这一条还不够强，
+属于下一版应当补强的机械失败教训。
+
+\subsection{一个词的辨析：candidate 不等于「越过地板」}\label{sec:candmeaning}
+本版出现了本项目历史上第一个 candidate 判决（run28-study-12），因此必须先把这个词
+说清楚，否则它会被读成「找到了」。
+
+判决档回答的是\textbf{这次检验做得对不对}：全部预注册闸门是否通过 ——
+成本模型是否已声明且经济性成立、双向 cluster 两维是否都有内容、
+是否存在单点影响、置换检验是否被判失败。自罚奖励回答的是另一个问题，
+\textbf{效应大不大}：$|t|$ 减去同样次数搜索在纯噪声上的期望。两套判据互相独立。
+
+这条 candidate 的两个数字正好落在两端：闸门全过（阻断理由为空，置换检验
+200 次整块打乱的超出比例为 0.000，事前功效筛的有效独立观测 4{,}014），
+而 $|t|=1.3531$，低于本族当时地板 $E_2(11)=1.9423$，自罚奖励为 $-0.589$；
+更低于本轮按约束 3 预注册的证否线 $E_2(20)=2.1895$，差 0.836。
+\textbf{按预注册，该构造是被证否的，不是被支持的。}
+
+两件事因此要一并记下。其一，此前「candidate 累计 0」主要由成本模型缺失造成
+（\S\ref{sec:retro}）；成本模型建成之后，一条设计干净而效应微弱的面板研究就足以
+取得该判决档，这个档位从此不再稀缺，读者不应把它当作强度的证明。
+其二，它是\textbf{面板}研究，与本节前述的限定一致：单品种取不到 candidate，
+本轮此前 11 条单品种提案没有一条能到这一档。
+
+\paragraph{不因此改判据。}一个自然的反应是把「越过地板」加进 candidate 的必要条件。
+本版\textbf{不做}这个改动：判据是在读到这条结果之前预注册的，
+看到一个不喜欢的结果之后再收紧判据，正是本系统整套纪律要防的那类研究者自由度。
+如需修改，应在下一轮开始之前、以决定文档预注册，并对既有记录一律重印两套读数。
+当前的保护由别处提供：封条的地板门（下一小节）判定该构造 $|t|<1.9423$，
+不予开封，因此它不会消耗那个一次性的封存机会。
 
 \subsection{连带修复：封条的地板门}
 先给三个词的定义。\textbf{束}指通过评价、待封存检验的特征集合；\textbf{封存}
@@ -918,7 +976,7 @@ DFBETAS & 0.04836 & 最大单点影响，闸门 1.0 \\
 统计量最大的构造（$|t|$ 至 9.30）分母为已实现波动、
 目标亦为已实现波动。PIT 无误、置换通过 —— 关系是真的，但它是 Baseline Control，
 不是另类数据 alpha。诊断（离线，不进账本，本文唯一非快照数字）：对最大一条做残差化，
-秩相关由 $-0.5695$ 塌至 $-0.0077$，缩小约 74 倍。此后 151/204 的规格自带控制项。
+秩相关由 $-0.5695$ 塌至 $-0.0077$，缩小约 74 倍。此后 164/217 的规格自带控制项。
 \begin{figure}[htbp]\centering
 \includegraphics[width=0.95\textwidth]{figures/run5-study-2.png}
 \caption{波动假象 \texttt{run5-study-2}（$t=-9.30$）：信号与价格。该信号实为已实现波动的函数，与目标同源。}\label{fig:run5-study-2}
@@ -954,7 +1012,7 @@ $\sqrt{n_s/n_d}\approx 0.81$ 缩小；样本量修正后效应保留率约 21.8\
 \end{figure}
 
 
-\subsection{干净的 null（133 条）}
+\subsection{干净的 null（141 条）}
 残差化普及后，模型系统扫过互异机制：资金集中度、信念下限棘轮、闭市时段资金份额、
 停火/伊朗资金倾斜、平均单笔金额、方向性信念离散度、事件不确定性 $\bar p(1-\bar p)$、
 到达加速度、对娱乐族的安慰剂对照。按判决导出规则 null 只能经由置换检验产出，因此
@@ -1222,7 +1280,7 @@ $0.86$ 休市吸收相关，在七倍规模的样本上没有再现。评审列�
 \end{enumerate}
 
 \appendix
-\section{全部 234 个 Study}
+\section{全部 247 个 Study}
 {\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.42\textwidth} r r r l@{}}
 \toprule Study & 特征 & $t$ & IC & 置换 $p$ & 判决 \\ \midrule\endhead
 auto-study-0 & \path{pm_iran_trade_arrival_z} & +0.776 & +0.047 & 0.55 & null \\
@@ -1458,7 +1516,20 @@ run28-study-2 & \path{pm_fed_hike_dp_closed_minus_open_6h_over_30d_scale_resid_b
 run28-study-3 & \path{pm_ruua_ceasefire_dp_accel_12h_over_30d_scale_resid_brent_and_own_rv_fu} & +0.746 & +0.080 & 0.355 & null \\
 run28-study-4 & \path{pm_fed_hike_dp_pace_innov_over_30d_scale_resid_brent_and_own_rv_i} & +0.897 & +0.017 & 0.41 & null \\
 run28-study-5 & \path{pm_ruua_ceasefire_dp_3d_over_30d_scale_resid_brent_and_own_rv_m} & +0.166 & +0.021 & 0.855 & null \\
-run28-study-6 & \path{—} & — & — & — & 进行中 \\
+run28-study-6 & \path{pm_hurricane_landfall_dp_3d_resid_brent_and_own_rv_pg} & — & — & — & blocked \\
+run28-study-7 & \path{pm_us_inflation_dp_7d_over_90d_scale_resid_brent_and_own_rv_au} & — & — & — & blocked \\
+run28-study-8 & \path{pm_ruua_ceasefire_dp_dispersion_1d_over_30d_resid_brent_and_own_rv_sc} & +0.722 & -0.016 & 0.24 & null \\
+run28-study-9 & \path{pm_ruua_ceasefire_dp_lagged_2d_over_30d_scale_resid_brent_and_own_rv_y} & -0.033 & -0.011 & 0.975 & null \\
+run28-study-10 & \path{pm_fed_decision_dp_3d_over_90d_scale_resid_brent_and_own_rv_zn} & -0.189 & -0.089 & 0.875 & null \\
+run28-study-11 & \path{pm_ruua_ceasefire_dp_closed_minus_open_6h_over_30d_scale_resid_brent_and_own_rv_au} & +1.090 & -0.023 & 0.21 & null \\
+run28-study-12 & \path{pm_fed_hike_dp_3d_over_90d_scale_resid_brent_and_own_rv_panel} & +1.353 & +0.026 & 0.0 & candidate \\
+run28-study-13 & \path{—} & — & — & — & 进行中 \\
+run28-study-14 & \path{pm_ruua_ceasefire_dp_pace_innov_2d_over_90d_scale_resid_brent_and_own_rv_jm} & -0.087 & +0.045 & 0.915 & null \\
+run28-study-15 & \path{pm_fed_hike_dp_2d_over_90d_scale_resid_brent_and_own_rv_l} & +0.248 & +0.009 & 0.835 & null \\
+run28-study-16 & \path{pm_fed_hike_dp_dispersion_per_flow_1d_over_90d_resid_brent_and_own_rv_ni} & -0.299 & +0.141 & 0.735 & null \\
+run28-study-17 & \path{pm_hurricane_landfall_dp_2d_resid_brent_and_own_rv_pp} & — & — & — & blocked \\
+run28-study-18 & \path{pm_fed_hike_dp_3d_over_30d_scale_resid_brent_and_own_rv_ru} & +1.647 & +0.071 & 0.16 & null \\
+run28-study-19 & \path{pm_hurricane_landfall_dp_rate_innov_2d_15d_resid_brent_and_own_rv_v} & — & — & — & blocked \\
 \bottomrule\end{longtable}}
 
 \section{二十四次运行编年（全记录）}\label{sec:chronicle}
@@ -2116,11 +2187,62 @@ run27-study-1 & \path{pm_fed_hike_dp_1d_over_30d_scale_resid_brent_and_own_rv_au
 run27-study-2 & \path{pm_ruua_ceasefire_dp_12h_over_30d_scale_resid_brent_and_own_rv_c}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & — & — & blocked \\
 run27-study-3 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
 \bottomrule\end{longtable}}
+\noindent\includegraphics[width=\textwidth]{figures/run27-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run27-study-0}：\path{pm_fed_hike_dp_closed_6h_over_30d_scale_resid_brent_and_own_rv_ag}。有定义 435/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run27-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run27-study-1}：\path{pm_fed_hike_dp_1d_over_30d_scale_resid_brent_and_own_rv_au}。有定义 676/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run27-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run27-study-2}：\path{pm_ruua_ceasefire_dp_12h_over_30d_scale_resid_brent_and_own_rv_c}。有定义 497/1040 点。\par}\vspace{6pt}
+
+\clearpage
+\subsection{run28 · 机制先验族的第一轮完整检验}
+决定 0011 的新账 sc\_mechanism\_prior\_v1 首次跑满。十九版判决、统计分母十五：十三 null、五 blocked、一 candidate。十九条规格**全部**引用机制族（此前 196 条提案里机制族出现 0 次），十八个互异品种（此前 119/196 条挤在原油一个品种上），五个机制族全部用上。最好 |t|=2.028，低于本族地板 E2(15)=2.0734，更低于按约束三预注册的证否线 E2(20)=2.1895 —— **无一越线**。唯一的 candidate（run28-study-12，加息路径的构成受控分量在 36 品种面板上）闸门全过、置换 exceed 0.000，但 |t|=1.353，自罚奖励 −0.589；封条地板门判定不予开封。candidate 这一档回答的是「检验做得对不对」，不是「效应大不大」。机械失败 0 次解析失败、0 次 provider 修复，对照 run26 的四分之一损耗；唯一一次上下文拦截来自修复提示词回显了模型自己写的 ic\_dominant\_t1，撞上效果字段前缀 ic\_（已修）。
+
+{\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.50\textwidth} r r l@{}}
+\toprule Study & 特征（第二行：target · 控制） & $t$ & IC$_\rho$ & 判决 \\ \midrule
+\endhead
+run28-study-0 & \path{pm_ruua_ceasefire_dp_1d_over_30d_scale_resid_brent_and_own_rv_al}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & +2.028 & +0.047 & blocked \\
+run28-study-1 & \path{pm_fed_hike_dp_per_unit_flow_12h_over_1d_resid_brent_and_own_rv_bc}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & +1.772 & +0.078 & null \\
+run28-study-2 & \path{pm_fed_hike_dp_closed_minus_open_6h_over_30d_scale_resid_brent_and_own_rv_cu}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & -1.092 & -0.049 & null \\
+run28-study-3 & \path{pm_ruua_ceasefire_dp_accel_12h_over_30d_scale_resid_brent_and_own_rv_fu}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & +0.746 & +0.080 & null \\
+run28-study-4 & \path{pm_fed_hike_dp_pace_innov_over_30d_scale_resid_brent_and_own_rv_i}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & +0.897 & +0.017 & null \\
+run28-study-5 & \path{pm_ruua_ceasefire_dp_3d_over_30d_scale_resid_brent_and_own_rv_m}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & +0.166 & +0.021 & null \\
+run28-study-6 & \path{pm_hurricane_landfall_dp_3d_resid_brent_and_own_rv_pg}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & — & — & blocked \\
+run28-study-7 & \path{pm_us_inflation_dp_7d_over_90d_scale_resid_brent_and_own_rv_au}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & — & — & blocked \\
+run28-study-8 & \path{pm_ruua_ceasefire_dp_dispersion_1d_over_30d_resid_brent_and_own_rv_sc}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 brent,own\_realised\_volatility} & +0.722 & -0.016 & null \\
+run28-study-9 & \path{pm_ruua_ceasefire_dp_lagged_2d_over_30d_scale_resid_brent_and_own_rv_y}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & -0.033 & -0.011 & null \\
+run28-study-10 & \path{pm_fed_decision_dp_3d_over_90d_scale_resid_brent_and_own_rv_zn}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & -0.189 & -0.089 & null \\
+run28-study-11 & \path{pm_ruua_ceasefire_dp_closed_minus_open_6h_over_30d_scale_resid_brent_and_own_rv_au}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & +1.090 & -0.023 & null \\
+run28-study-12 & \path{pm_fed_hike_dp_3d_over_90d_scale_resid_brent_and_own_rv_panel}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & +1.353 & +0.026 & candidate \\
+run28-study-13 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
+run28-study-14 & \path{pm_ruua_ceasefire_dp_pace_innov_2d_over_90d_scale_resid_brent_and_own_rv_jm}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & -0.087 & +0.045 & null \\
+run28-study-15 & \path{pm_fed_hike_dp_2d_over_90d_scale_resid_brent_and_own_rv_l}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & +0.248 & +0.009 & null \\
+run28-study-16 & \path{pm_fed_hike_dp_dispersion_per_flow_1d_over_90d_resid_brent_and_own_rv_ni}\newline {\scriptsize\color{gray}rv\_next\_session · 控制 brent,own\_realised\_volatility} & -0.299 & +0.141 & null \\
+run28-study-17 & \path{pm_hurricane_landfall_dp_2d_resid_brent_and_own_rv_pp}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & — & — & blocked \\
+run28-study-18 & \path{pm_fed_hike_dp_3d_over_30d_scale_resid_brent_and_own_rv_ru}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & +1.647 & +0.071 & null \\
+run28-study-19 & \path{pm_hurricane_landfall_dp_rate_innov_2d_15d_resid_brent_and_own_rv_v}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & — & — & blocked \\
+\bottomrule\end{longtable}}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-0.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-0}：\path{pm_ruua_ceasefire_dp_1d_over_30d_scale_resid_brent_and_own_rv_al}。有定义 599/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-1.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-1}：\path{pm_fed_hike_dp_per_unit_flow_12h_over_1d_resid_brent_and_own_rv_bc}。有定义 586/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-2.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-2}：\path{pm_fed_hike_dp_closed_minus_open_6h_over_30d_scale_resid_brent_and_own_rv_cu}。有定义 325/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-3.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-3}：\path{pm_ruua_ceasefire_dp_accel_12h_over_30d_scale_resid_brent_and_own_rv_fu}。有定义 306/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-4.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-4}：\path{pm_fed_hike_dp_pace_innov_over_30d_scale_resid_brent_and_own_rv_i}。有定义 575/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-5.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-5}：\path{pm_ruua_ceasefire_dp_3d_over_30d_scale_resid_brent_and_own_rv_m}。有定义 689/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-6.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-6}：\path{pm_hurricane_landfall_dp_3d_resid_brent_and_own_rv_pg}。有定义 13/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-7.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-7}：\path{pm_us_inflation_dp_7d_over_90d_scale_resid_brent_and_own_rv_au}。有定义 144/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-8.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-8}：\path{pm_ruua_ceasefire_dp_dispersion_1d_over_30d_resid_brent_and_own_rv_sc}。有定义 477/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-9.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-9}：\path{pm_ruua_ceasefire_dp_lagged_2d_over_30d_scale_resid_brent_and_own_rv_y}。有定义 649/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-10.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-10}：\path{pm_fed_decision_dp_3d_over_90d_scale_resid_brent_and_own_rv_zn}。有定义 209/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-11.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-11}：\path{pm_ruua_ceasefire_dp_closed_minus_open_6h_over_30d_scale_resid_brent_and_own_rv_au}。有定义 188/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-12.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-12}：\path{pm_fed_hike_dp_3d_over_90d_scale_resid_brent_and_own_rv_panel}。有定义 644/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-14.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-14}：\path{pm_ruua_ceasefire_dp_pace_innov_2d_over_90d_scale_resid_brent_and_own_rv_jm}。有定义 599/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-15.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-15}：\path{pm_fed_hike_dp_2d_over_90d_scale_resid_brent_and_own_rv_l}。有定义 637/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-16.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-16}：\path{pm_fed_hike_dp_dispersion_per_flow_1d_over_90d_resid_brent_and_own_rv_ni}。有定义 567/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-17.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-17}：\path{pm_hurricane_landfall_dp_2d_resid_brent_and_own_rv_pp}。有定义 17/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-18.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-18}：\path{pm_fed_hike_dp_3d_over_30d_scale_resid_brent_and_own_rv_ru}。有定义 719/1040 点。\par}\vspace{6pt}
+\noindent\includegraphics[width=\textwidth]{figures/run28-study-19.png}\par\vspace{-2pt}{\scriptsize\sloppy \texttt{run28-study-19}：\path{pm_hurricane_landfall_dp_rate_innov_2d_15d_resid_brent_and_own_rv_v}。有定义 15/1040 点。\par}\vspace{6pt}
 
 \clearpage
 
 
 \vfill\noindent\rule{\textwidth}{0.4pt}\\
-{\small 账本冻结点：事件 seq 3131（2026-08-15T07:58:17，run16 当时仍在进行）；事件 3131 条，哈希链完整。
+{\small 账本冻结点：事件 seq 3325（2026-08-15T09:01:10，run16 当时仍在进行）；事件 3325 条，哈希链完整。
 叙述由人撰写且不含数字；数字一律由快照渲染，二者不会不一致。}
 \end{document}

@@ -327,7 +327,7 @@ def mechanism_search_curve() -> None:
     n = 0
     for e in events:
         sid = e.get("study_id") or ""
-        if sid.split("-study-")[0] not in ("run27",):
+        if sid.split("-study-")[0] not in ("run27", "run28"):
             continue
         if e["event_type"] == "outcome_read":
             n += 1

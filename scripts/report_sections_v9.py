@@ -360,6 +360,36 @@ run16-study-3 是\textbf{面板}研究，而同期的 run11-study-3 在单品种
 成本模型缺失与 cluster 两条阻断，即使成本模型建成也翻不成 candidate。
 逐品种买到的是机制证据与排除界，买不到 candidate。
 
+\subsection{第一轮完整检验的结算（run28）}\label{sec:run28}
+新账的第一轮跑满二十回合，产出十九版判决、统计分母十五。
+下表与图~\ref{fig:mechcurve} 成对读：表给构成，图给每一次检验相对两条地板的位置。
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}p{0.30\textwidth} p{0.24\textwidth} p{0.36\textwidth}@{}}\toprule
+读数 & 本轮 & 对照 \\ \midrule
+判决 & 13 null、5 blocked、1 candidate & 分母 15，提案分母 22 \\
+引用机制族的规格 & 19 / 19 & 此前 196 条提案中机制族出现 0 次 \\
+互异品种 & 18 个（面板 1 次） & 此前 196 条提案里 119 条集中于原油单品种 \\
+机制族覆盖 & 五族全部用上 & 停火 7、加息路径 7、飓风 3、通胀 1、议息 1 \\
+最好 $|t|$ & 2.028 & 本族地板 $E_2(15)=2.0734$；预注册证否线 $E_2(20)=2.1895$ \\
+越过证否线者 & 无 & \\
+机械失败 & 解析失败 0、provider 修复 0 & run26 同类损耗约占四分之一回合 \\
+\bottomrule\end{tabular}\end{center}
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.92\textwidth]{figures/mechanism_search_curve.png}
+\caption{机制先验族的搜索曲线。虚线为本族地板（分母从零起），点线为合并地板
+（三族分母相加）。两条线同时画出是决定 0011 约束 4 的要求：分族的正当性
+以未分族的那个数字随时可读为前提。}
+\label{fig:mechcurve}
+\end{figure}
+
+五次 blocked 分两类，都不是缺陷：一次是单品种的品种维退化（本节前述的限定），
+四次是信号事前筛在读取结果之前拦下（有效独立观测分别低至 7.7 与 11.5），
+未读结果、不占统计预算。四次拦截集中在长窗水平类构造上，
+说明方法说明里「构成受控的变化量比长窗电平更能反映重定价」这一条还不够强，
+属于下一版应当补强的机械失败教训。
+
 \subsection{一个词的辨析：candidate 不等于「越过地板」}\label{sec:candmeaning}
 本版出现了本项目历史上第一个 candidate 判决（run28-study-12），因此必须先把这个词
 说清楚，否则它会被读成「找到了」。
