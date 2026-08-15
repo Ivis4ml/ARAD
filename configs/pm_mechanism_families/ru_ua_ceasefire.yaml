@@ -1,0 +1,25 @@
+family_id: RU_UA_CEASEFIRE
+name_cn: 俄乌停火
+driver_channel: 地缘-冲突
+mechanism_cn: 停火或战争终止会使黑海能源与粮食供给正常化预期上升、风险溢价下行；战事升级方向相反。族概率的取值为「停火发生」。
+match_field: slug_base
+scope: (?<![a-z])(russia|russian|ruusia|ukrain|urkaine|kyiv|kursk|crimea|crimean|donbas|donetsk|pokrovsk|toretsk|siversk|kurakhove|sudzha|chasiv|vuhledar|moscow|zelensk|putin|wagner)
+themes:
+- russia_ukraine
+seed_family: RU_UA_CEASEFIRE
+seed_pack: revplm-2026-08
+expected_discovery_markets: 44
+stages:
+- kind: exclude
+  name: noise
+  pattern: (-say-|-mention|be-said|said-\d|earnings-mentions|press-briefing|front-page|truth-social|eurovision|world-cup|grand-prix|olympic|baseball|nba|nhl|nfl|ufc|f1-|wtt|borussia|remain-president|out-as-president|remain-as|-aid-|aid-package|aid-deal|approve-more|election|reelected|ruble|rub-fall|syria|nobel|coup|minister-of-defense|join-nato|joins-nato|leave-nato|attend-presidential|meet-with-trump|f-16|referendum|alaska|azerbaijan|plane|terror|interview|person-of-the-year|visit-israel|declassify)
+  reason: noise
+- kind: member
+  name: escalation
+  pattern: (invade|invasion|capture|recapture|-control-|hold-(russian-territory|kursk)|hits-moscow|strike-on-moscow|bridge-hit|crimean-bridge|sever-the-land-bridge|nuclear-weapon|nuke-in-space|troops-fighting|military-trainers|take-the-kursk|take-moscow|article-5|let-ukraine-strike|military-clash|false-flag|responsible-for-russia-attack|russia-attack)
+  sign: -1
+- kind: member
+  name: ceasefire
+  pattern: (ceasefire|cease-fire|truce|armistice|peace-deal|peace-agreement|peace-plan|ends?-(the-)?(ukraine-)?war|war-ends?|end-of-the-war)
+  sign: 1
+notes: join-nato 归噪声而非升级：入约的机制极性不确定，宁可弃用。发现段 7 个停火市场中 2 个是特朗普条件式，其 p 混合了大选概率。

@@ -99,6 +99,142 @@ def conditions_by_family(
     return out
 
 
+#: 机制族序列的字段。比词汇族多两个：
+#: `dp` 是构成受控的分桶变化（只由同时出现在相邻两桶的成员的重定价构成），
+#: `conditions` 是当桶活跃成员数。实测词汇族日度 Δp 方差的九成来自构成移动
+#: （当日哪些市场在成交），只看 p 电平的构造测的多半是构成而不是信念。
+MECH_FIELDS = ("p", "notional", "trades", "conditions", "dp")
+
+MECH_SERIES_SCHEMA = pa.schema(
+    [
+        ("family_id", pa.string()),
+        ("bucket_end", pa.timestamp("us", tz="UTC")),
+        ("p", pa.float64()),
+        ("notional", pa.float64()),
+        ("trades", pa.int64()),
+        ("conditions", pa.int64()),
+        ("dp", pa.float64()),
+    ]
+)
+
+
+def build_mechanism_series(
+    roots: dict[str, str],
+    membership: dict[str, dict[str, int]],
+    *,
+    bucket_seconds: int = 3600,
+    max_stale_seconds: int = 86_400,
+    date_max: str | None = None,
+) -> pa.Table:
+    """按机制成员与极性折出族序列，并给出构成受控的变化量。
+
+    与 `build_series` 的差别只有两处，其余口径逐字相同（成交额加权、按
+    `outcome_seq == 1` 归一、分桶取右端），以便「成员资格」成为唯一变化的变量：
+
+    1. **极性同号化**：`q = p` 或 `q = 1 − p`，由成员的 polarity 决定。
+       同一机制的否定式提问（「封锁被解除」之于「封锁发生」）不折就会在族内相互抵消。
+    2. **dp**：相邻两个有成交的分桶之间，只对**同时出现在两桶**的成员求加权重定价，
+       权重取前一桶的成交额。新入族或退出的成员不贡献电平跳变。两桶间隔超过
+       `max_stale_seconds` 时 dp 无定义（写 null，不写 0：写 0 等于声称没有移动）。
+
+    `date_max` 只用于按分区文件名裁掉不需要的日期（分区名形如 2024-12-31.parquet），
+    是纯粹的读取优化，不改变任何一个分桶的取值。
+    """
+    wanted: set[str] = set()
+    for members in membership.values():
+        wanted |= set(members)
+    value_set = pa.array(sorted(wanted), pa.large_string())
+
+    # family -> (bucket, condition) -> [Σ q·w, Σ w, 笔数]
+    acc: dict[str, dict[tuple[int, str], list]] = {fid: {} for fid in membership}
+    for path in _partition_files(roots):
+        if date_max is not None and os.path.basename(path)[:10] > date_max:
+            continue
+        table = pq.read_table(
+            path,
+            columns=["condition_id", "outcome_seq", "price", "usdc_amount",
+                     "block_timestamp"],
+        )
+        if table.num_rows == 0:
+            continue
+        table = table.filter(pc.is_in(table.column("condition_id"), value_set=value_set))
+        if table.num_rows == 0:
+            continue
+        p = pc.if_else(
+            pc.equal(table.column("outcome_seq"), 1),
+            table.column("price"),
+            pc.subtract(1.0, table.column("price")),
+        )
+        weight = pc.fill_null(table.column("usdc_amount"), 0.0)
+        bucket = pc.multiply(
+            pc.add(pc.divide(table.column("block_timestamp"), bucket_seconds), 1),
+            bucket_seconds,
+        )
+        table = table.append_column("q_raw", p)
+        table = table.append_column("w", weight)
+        table = table.append_column("bucket", bucket)
+        for family_id, members in membership.items():
+            ids = pa.array(sorted(members), pa.large_string())
+            sub = table.filter(pc.is_in(table.column("condition_id"), value_set=ids))
+            if sub.num_rows == 0:
+                continue
+            cells = acc[family_id]
+            for cid, pv, wv, bv in zip(sub.column("condition_id").to_pylist(),
+                                       sub.column("q_raw").to_pylist(),
+                                       sub.column("w").to_pylist(),
+                                       sub.column("bucket").to_pylist(), strict=True):
+                polarity = members.get(cid)
+                if polarity is None or pv is None:
+                    continue
+                q = pv if polarity == 1 else 1.0 - pv
+                key = (int(bv), cid)
+                cell = cells.get(key)
+                if cell is None:
+                    cell = [0.0, 0.0, 0]
+                    cells[key] = cell
+                cell[0] += q * wv
+                cell[1] += wv
+                cell[2] += 1
+
+    rows: list[dict] = []
+    for family_id in sorted(acc):
+        per_bucket: dict[int, dict[str, tuple[float, float, int]]] = {}
+        for (bucket, cid), (qw, w, n) in acc[family_id].items():
+            per_bucket.setdefault(bucket, {})[cid] = (qw, w, n)
+        prev_bucket: int | None = None
+        prev_members: dict[str, tuple[float, float, int]] = {}
+        for bucket in sorted(per_bucket):
+            members_here = per_bucket[bucket]
+            num = sum(v[0] for v in members_here.values())
+            den = sum(v[1] for v in members_here.values())
+            trades = sum(v[2] for v in members_here.values())
+            dp = None
+            if prev_bucket is not None and bucket - prev_bucket <= max_stale_seconds:
+                shared = [cid for cid in members_here if cid in prev_members]
+                weight_sum = sum(prev_members[cid][1] for cid in shared)
+                if weight_sum > 0:
+                    moved = 0.0
+                    for cid in shared:
+                        prev_qw, prev_w, _ = prev_members[cid]
+                        cur_qw, cur_w, _ = members_here[cid]
+                        if prev_w <= 0 or cur_w <= 0:
+                            continue
+                        moved += prev_w * ((cur_qw / cur_w) - (prev_qw / prev_w))
+                    dp = moved / weight_sum
+            rows.append({
+                "family_id": family_id,
+                "bucket_end": bucket * 1_000_000,
+                "p": (num / den) if den > 0 else None,
+                "notional": den,
+                "trades": trades,
+                "conditions": len(members_here),
+                "dp": dp,
+            })
+            prev_bucket, prev_members = bucket, members_here
+    table = pa.Table.from_pylist(rows, schema=MECH_SERIES_SCHEMA)
+    return table.sort_by([("family_id", "ascending"), ("bucket_end", "ascending")])
+
+
 def _partition_files(roots: dict[str, str]) -> list[str]:
     files: list[str] = []
     for root in roots.values():

@@ -1,0 +1,25 @@
+family_id: FED_HIKE
+name_cn: 美联储利率路径（加息/降息发生）
+driver_channel: 政策-货币
+mechanism_cn: 加息路径收紧会压低股指与国债期货价格并抬升美元；降息路径相反。族概率的取值为「加息发生」。
+match_field: slug_base
+scope: ^(fed-rate-hike-in|fed-rate-hike-by-.*meeting|how-many-fed-rate-hikes-in|will-the-fed-raise-rates-again-in|fed-rate-cut-in|fed-rate-cut-by-|fed-emergency-rate-cut-(in|before)|will-the-fed-cut-rates-in)
+themes:
+- fed_policy
+seed_family: FED_HIKE
+seed_pack: revplm-2026-08
+expected_discovery_markets: 16
+stages:
+- kind: exclude
+  name: noise
+  pattern: (-say-|-says-|-said-|earnings-mentions-|purple-tie|headlines|nyt-front-page|debt-ceiling|boj-|bank-of-england|bank-of-canada|bank-of-japan|ecb-|european-central-bank|peoples-bank-of-china|turkish-central-bank|brazil|canada|starmer|fed-derivative|-odds-\d|favored-on-|flips-|flip-by-|chair|governor|nominee|nomination|confirm|dissent|abolish|audit|out-as-|out-from-|depart|fire-|vote-at-|podcast|south-park|4chan|steve-jobs|black-jobs|fake-jobs|labor-day|secretary-of-labor|joe-rogan|itf-|bls-|next-bls|credit-card|end-qt|nothing-ever-happens|aliens|supreme-leader|ceasefire|operation|be-in-the-headlines|be-said|anyone-say|-mentions-)
+  reason: noise
+- kind: member
+  name: hike
+  pattern: rate-hike|rate-hikes|raise-rates-again
+  sign: 1
+- kind: member
+  name: cut
+  pattern: rate-cut|cut-rates
+  sign: -1
+notes: 入族式本身已是强实体门（^fed-rate-...），噪声段主要挡 debt-ceiling 与外国央行。

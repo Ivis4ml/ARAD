@@ -1,0 +1,33 @@
+family_id: HOUTHI_ATTACKS
+name_cn: 胡塞武装对红海航运的袭击
+driver_channel: 地缘-航运
+mechanism_cn: 袭击迫使船舶绕行好望角，抬升运费与船燃需求；停袭与和平协议相反。族概率的取值为「袭击或冲突升级发生」。
+match_field: slug_raw
+scope: houthi|yemen
+themes:
+- mideast_conflict
+seed_family: HOUTHI_ATTACKS
+seed_pack: revplm-2026-08
+expected_discovery_markets: 12
+stages:
+- kind: route_out
+  name: actor_is_iran
+  pattern: iran-successfully-targets?-shipping
+  route_to: ISR_IRAN
+- kind: exclude
+  name: noise
+  pattern: -say-|out-as-leader|^(nfl|nba|mlb|nhl|ncaa|cfb|wta|atp|itf|ufc)-|ansari
+  reason: noise
+- kind: member
+  name: de_escalation
+  pattern: houthis?-agree-to-(end|stop)-attacks|peace-deal|traffic-recover-to-pre-houthi
+  sign: -1
+- kind: member
+  name: attack_on_shipping
+  pattern: houthis?[a-z-]*-(target|attack)[a-z-]*-shipping|successful-houthis?-attack[a-z-]*shipping|houthis?-seize-another-ship
+  sign: 1
+- kind: member
+  name: conflict_escalation
+  pattern: .
+  sign: 1
+notes: 最后一段是范围内的兜底：SCOPE 内其余全部按冲突升级计正向（同号但强度弱）。停袭段必须先判，否则含 attacks 与 shipping 的停袭市场会被反号收入。

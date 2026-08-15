@@ -1,7 +1,8 @@
 # M16：机制族（Rev-PLM 种子包接入）——核实报告与待决事项
 
 - 日期：2026-08-15
-- 状态：**分析完成，等待人的四项决定**（尚未改动任何生产代码）
+- 状态：**第一阶段已实施并测量完毕**（机制族解析器、族序列、重合度闸门；
+  提案层接线与是否另开统计族仍待人决定，见 §八与 §十一）
 - 缘起：用户判断 ARAD 找不到信号的一等原因是起点设计不好（随机无信息、未做预处理，
   不知道哪些期货与哪些 Polymarket 标的之间存在可解释关联），并交付 Rev-PLM 的
   「价格形成驱动 × Polymarket 可测族」种子包作为提案层起点。
@@ -295,3 +296,78 @@ ISR_IRAN 反向侧只有 1 个市场、423 桶，连 `min_buckets=500` 都过不
 - 不做 tick 级分钟管道（沿用上一次对抗性评审的判断）。
 - 不按种子的 token 清单实例化族（清单是 2026-08 的存活性选择，且 HORMUZ_CLOSE 一例
   95% 的 token 方向与其方向先验相反）。
+
+---
+
+## 十一、第一阶段的实施与测量结果（2026-08-15）
+
+### 11.1 已建成的东西
+
+| 产物 | 说明 |
+|---|---|
+| `src/arad/data_catalog/pm_mechanism_families.py` | 规则语言（scope / require_all / 按序 stages：exclude、route_out、member±1）、编译器、内容寻址 |
+| `configs/pm_mechanism_families/*.yaml` | 八个可实例化机制族的冻结规则 |
+| `scripts/build_mechanism_membership.py` | 成员表 + 排除表 + manifest（含每族的词汇前身，按成员重合算出而非人指定） |
+| `pm_series.build_mechanism_series` | 极性同号化的族序列，外加构成受控的重定价分量 `dp` |
+| `scripts/measure_series_overlap.py` | 序列重合度闸门与其参照分布 |
+| `tests/contracts/test_mechanism_families.py` | 12 条合同测试（极性、盲区、锚点、dp、归一次序） |
+
+编译结果：成员 1,410 行、排除 2,606 行，**八族的 discovery 成员数与分诊锚点逐一相符**，
+discovery 段规则盲区为 0。规则集指纹 `e90addfe4641482a`。
+
+### 11.2 重合度闸门的测量结果（决定二的答案）
+
+判据作用在**决策网格**上（1,816 个 discovery 决策点、21600 秒窗口、offset 0），
+因为那才是特征真正看到的量。阈值取自参照分布而非本次结果：
+无关机制族两两的序数一致比例上界 0.582 即 `distinct_upper`，
+其与 1.0 的中点 0.791 即 `replay_lower`。
+
+| 机制族 | 词汇前身 | 前身在历史检验中被引用 | 决策网格序数一致 | 裁断 |
+|---|---|---|---|---|
+| FED_HIKE | `cand:cut` | 0 次 | 0.135 | 不同（且**反号**） |
+| RU_UA_CEASEFIRE | `cand:ukraine` | 76 次 | 0.442 | 不同 |
+| HURRICANE_LANDFALL | `cand:a` | 32 次 | 0.530 | 不同 |
+| FED_DECISION | `cand:interest` | 0 次 | 0.544 | 不同 |
+| US_INFLATION_MONTHLY | `cand:inflation` | 0 次 | 0.561 | 不同 |
+| HOUTHI_ATTACKS | `cand:military` | 0 次 | 0.703 | 部分重合 |
+| ISR_IRAN | `cand:iran` | **474 次** | 0.816 | **前身的重放** |
+| US_SHUTDOWN | `cand:government` | 0 次 | 0.883 | 前身的重放 |
+
+参照分布（无关机制族两两，24 对）：中位 0.502，区间 [0.463, 0.582]。
+
+### 11.3 这张表推翻了本方案原先最想说的那句话
+
+原先的设想是「机制族能救伊朗轴」。测量说不能：ARAD 的搜索有 474 条规格引用
+`cand:iran`（占历史特征引用之首），而 `mech:ISR_IRAN` 与它在决策网格上的序数一致
+达 0.816，属重放。**在 ARAD 实际搜索过的那条轴上，词汇族本来就已经近似是机制族。**
+run11-study-3 与 run16-study-3 的 null 不会因为换成机制族而变成别的结论。
+
+真正的增量在别处：八族里有五族的词汇前身**从未被任何历史规格引用过**
+（`cand:cut`、`cand:interest`、`cand:inflation`、`cand:government`、`cand:military`），
+即美联储利率路径、议息幅度、月度通胀、政府停摆、红海袭击这五条机制轴，
+ARAD 至今一次都没有测过。种子包的价值因此不是「换个更干净的伊朗族」，
+而是**指出了五条从未被提问过的轴，并给出每条轴上可执行的成员与极性定义**。
+
+另有一条具体缺陷被这次测量抓到：`mech:FED_HIKE` 与 `cand:cut` 的序数一致只有 0.135，
+即两者近乎反号。词汇族把「降息发生」的概率当作族信念，而机制族问的是「加息发生」。
+若当初在 `cand:cut` 上做过检验，方向先验会整体读反。该族历史引用为 0，故无既有结论受影响。
+
+### 11.4 据此更新的决定一
+
+新开统计族的正当性不再是整体判断，而是逐族判断：
+
+- **可作为新问题**（五族）：FED_HIKE、FED_DECISION、US_INFLATION_MONTHLY、
+  RU_UA_CEASEFIRE、HURRICANE_LANDFALL。
+- **并入既有族分母、不另起地板**（一族）：HOUTHI_ATTACKS。
+- **不重测**（两族）：ISR_IRAN、US_SHUTDOWN。它们是既有检验的重放，
+  既不该另开分母，也不构成对 run26 已读目标的新信息。
+
+按五族、每族每轮两个构造槽、预注册 k≤12 计，新族地板起于 E₂(12)=1.980，
+四轮走完一圈后 n=24 时为 2.2606。合并地板（168+k）仍应同时印在每张卡上。
+
+### 11.5 尚未做的
+
+提案层接线（菜单的 `external_prior` 通道、语义审计的缺口与否证闸门、
+盲化白名单投影）尚未实施；`open_gap_absorption` 是否重测取决于上述逐族裁断，
+现在只有五族有资格提出这个问题。序列目前只建到 discovery 段
+（`data/pm_series/mechanism_hourly_discovery.parquet`），全档案版本待接线时再建。

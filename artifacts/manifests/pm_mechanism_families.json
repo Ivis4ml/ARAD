@@ -1,0 +1,708 @@
+{
+  "version": "mech-rules-v1",
+  "content_id": "e90addfe4641482abe3ce254e053ff931ee2bb93ba710c7956c0d8d4da6b3a58",
+  "built_at": "2026-08-15T06:16:09.660036+00:00",
+  "seed_pack": [
+    "revplm-2026-08"
+  ],
+  "segments": {
+    "discovery_end": "2024-12-31",
+    "historical_validation_end": "2025-12-31"
+  },
+  "membership_rows": 1410,
+  "excluded_rows": 2606,
+  "discovery_blind_spots": {},
+  "families": {
+    "FED_DECISION": {
+      "counts": {
+        "member_pos": 16,
+        "member_neg": 8,
+        "excluded": 10,
+        "routed_out": 0,
+        "unmatched": 0
+      },
+      "by_segment": {
+        "discovery": 20,
+        "contaminated_audit": 4
+      },
+      "series_id": "mech:FED_DECISION",
+      "driver_channel": "政策-货币",
+      "stratum": "mechanism",
+      "seed_family": "FED_DECISION",
+      "name_cn": "美联储议息会议的幅度档位",
+      "mechanism_cn": "会议给出加息档意味着鹰派、降息档意味着鸽派。族概率的取值为「加息档发生」。不变档（0 bps / no change）的 Yes 既非加息也非降息，显式排除。",
+      "themes": [
+        "fed_policy"
+      ],
+      "expected_discovery_markets": 20,
+      "notes": "不变档 9 个 discovery 市场被显式排除（reason=neutral_bracket），因此锚点是 14+6=20 而不是 29。",
+      "lexical_predecessor": "cand:interest",
+      "shared_discovery_markets": 20,
+      "mechanism_discovery_markets": 20,
+      "share_of_mechanism_in_predecessor": 1.0,
+      "predecessor_total_markets": 122
+    },
+    "FED_HIKE": {
+      "counts": {
+        "member_pos": 9,
+        "member_neg": 31,
+        "excluded": 0,
+        "routed_out": 0,
+        "unmatched": 0
+      },
+      "by_segment": {
+        "discovery": 16,
+        "contaminated_audit": 9,
+        "historical_validation": 15
+      },
+      "series_id": "mech:FED_HIKE",
+      "driver_channel": "政策-货币",
+      "stratum": "mechanism",
+      "seed_family": "FED_HIKE",
+      "name_cn": "美联储利率路径（加息/降息发生）",
+      "mechanism_cn": "加息路径收紧会压低股指与国债期货价格并抬升美元；降息路径相反。族概率的取值为「加息发生」。",
+      "themes": [
+        "fed_policy"
+      ],
+      "expected_discovery_markets": 16,
+      "notes": "入族式本身已是强实体门（^fed-rate-...），噪声段主要挡 debt-ceiling 与外国央行。",
+      "lexical_predecessor": "cand:cut",
+      "shared_discovery_markets": 13,
+      "mechanism_discovery_markets": 16,
+      "share_of_mechanism_in_predecessor": 0.8125,
+      "predecessor_total_markets": 385
+    },
+    "HOUTHI_ATTACKS": {
+      "counts": {
+        "member_pos": 117,
+        "member_neg": 6,
+        "excluded": 13,
+        "routed_out": 0,
+        "unmatched": 0
+      },
+      "by_segment": {
+        "contaminated_audit": 40,
+        "discovery": 12,
+        "historical_validation": 71
+      },
+      "series_id": "mech:HOUTHI_ATTACKS",
+      "driver_channel": "地缘-航运",
+      "stratum": "mechanism",
+      "seed_family": "HOUTHI_ATTACKS",
+      "name_cn": "胡塞武装对红海航运的袭击",
+      "mechanism_cn": "袭击迫使船舶绕行好望角，抬升运费与船燃需求；停袭与和平协议相反。族概率的取值为「袭击或冲突升级发生」。",
+      "themes": [
+        "mideast_conflict"
+      ],
+      "expected_discovery_markets": 12,
+      "notes": "最后一段是范围内的兜底：SCOPE 内其余全部按冲突升级计正向（同号但强度弱）。停袭段必须先判，否则含 attacks 与 shipping 的停袭市场会被反号收入。",
+      "lexical_predecessor": "cand:military",
+      "shared_discovery_markets": 8,
+      "mechanism_discovery_markets": 12,
+      "share_of_mechanism_in_predecessor": 0.6666666666666666,
+      "predecessor_total_markets": 664
+    },
+    "HURRICANE_LANDFALL": {
+      "counts": {
+        "member_pos": 34,
+        "member_neg": 0,
+        "excluded": 29,
+        "routed_out": 0,
+        "unmatched": 0
+      },
+      "by_segment": {
+        "historical_validation": 19,
+        "discovery": 15
+      },
+      "series_id": "mech:HURRICANE_LANDFALL",
+      "driver_channel": "天气-自然",
+      "stratum": "mechanism",
+      "seed_family": "HURRICANE_LANDFALL",
+      "name_cn": "飓风登陆美国",
+      "mechanism_cn": "飓风登陆或增强会提高能源设施、港口与作物的受损概率，抬升能源与软商品的供给风险。族概率的取值为「登陆或增强发生」。",
+      "themes": [],
+      "expected_discovery_markets": 15,
+      "notes": "反向段在全部成员内实测命中 0：Polymarket 从未上过否定式飓风提问，这是事实而非规则漏洞。require_all 要求提问必须涉及登陆或增强，否则归 excluded。",
+      "lexical_predecessor": "cand:a",
+      "shared_discovery_markets": 13,
+      "mechanism_discovery_markets": 15,
+      "share_of_mechanism_in_predecessor": 0.8666666666666667,
+      "predecessor_total_markets": 3680
+    },
+    "ISR_IRAN": {
+      "counts": {
+        "member_pos": 430,
+        "member_neg": 163,
+        "excluded": 217,
+        "routed_out": 20,
+        "unmatched": 698
+      },
+      "by_segment": {
+        "contaminated_audit": 416,
+        "historical_validation": 106,
+        "discovery": 71
+      },
+      "series_id": "mech:ISR_IRAN",
+      "driver_channel": "地缘-冲突",
+      "stratum": "mechanism",
+      "seed_family": "ISR_IRAN",
+      "name_cn": "以色列与伊朗的动能冲突",
+      "mechanism_cn": "以色列或美国对伊朗的军事行动升级会抬高原油地缘风险溢价；缓和与停火则相反。族概率的取值为「冲突升级发生」。",
+      "themes": [
+        "mideast_conflict",
+        "oil_price"
+      ],
+      "expected_discovery_markets": 71,
+      "notes": "规则在 discovery 段标定，该段 UNMATCHED=0；2025-26 年提问语法分化，全档案仍有约 633 个含 iran/israel 词元的市场落在 member 之外，由 residual 段如实计入 excluded。",
+      "lexical_predecessor": "cand:iran",
+      "shared_discovery_markets": 63,
+      "mechanism_discovery_markets": 71,
+      "share_of_mechanism_in_predecessor": 0.8873239436619719,
+      "predecessor_total_markets": 1444
+    },
+    "RU_UA_CEASEFIRE": {
+      "counts": {
+        "member_pos": 70,
+        "member_neg": 399,
+        "excluded": 596,
+        "routed_out": 0,
+        "unmatched": 1011
+      },
+      "by_segment": {
+        "historical_validation": 215,
+        "contaminated_audit": 210,
+        "discovery": 44
+      },
+      "series_id": "mech:RU_UA_CEASEFIRE",
+      "driver_channel": "地缘-冲突",
+      "stratum": "mechanism",
+      "seed_family": "RU_UA_CEASEFIRE",
+      "name_cn": "俄乌停火",
+      "mechanism_cn": "停火或战争终止会使黑海能源与粮食供给正常化预期上升、风险溢价下行；战事升级方向相反。族概率的取值为「停火发生」。",
+      "themes": [
+        "russia_ukraine"
+      ],
+      "expected_discovery_markets": 44,
+      "notes": "join-nato 归噪声而非升级：入约的机制极性不确定，宁可弃用。发现段 7 个停火市场中 2 个是特朗普条件式，其 p 混合了大选概率。",
+      "lexical_predecessor": "cand:ukraine",
+      "shared_discovery_markets": 24,
+      "mechanism_discovery_markets": 44,
+      "share_of_mechanism_in_predecessor": 0.5454545454545454,
+      "predecessor_total_markets": 516
+    },
+    "US_INFLATION_MONTHLY": {
+      "counts": {
+        "member_pos": 53,
+        "member_neg": 1,
+        "excluded": 10,
+        "routed_out": 0,
+        "unmatched": 0
+      },
+      "by_segment": {
+        "historical_validation": 12,
+        "discovery": 40,
+        "contaminated_audit": 2
+      },
+      "series_id": "mech:US_INFLATION_MONTHLY",
+      "driver_channel": "政策-货币",
+      "stratum": "mechanism",
+      "seed_family": "US_INFLATION_MONTHLY",
+      "name_cn": "美国月度通胀读数",
+      "mechanism_cn": "通胀高于阈值意味着鹰派路径、压低国债与股指期货价格；低于阈值相反。族概率的取值为「通胀高于阈值」。精确点位档的极性取决于档位相对预期的位置，不单调，显式排除。",
+      "themes": [
+        "fed_policy"
+      ],
+      "expected_discovery_markets": 40,
+      "notes": "档位型 10 个 discovery 市场被排除，锚点 39+1=40。",
+      "lexical_predecessor": "cand:inflation",
+      "shared_discovery_markets": 40,
+      "mechanism_discovery_markets": 40,
+      "share_of_mechanism_in_predecessor": 1.0,
+      "predecessor_total_markets": 398
+    },
+    "US_SHUTDOWN": {
+      "counts": {
+        "member_pos": 61,
+        "member_neg": 12,
+        "excluded": 2,
+        "routed_out": 0,
+        "unmatched": 0
+      },
+      "by_segment": {
+        "contaminated_audit": 44,
+        "discovery": 8,
+        "historical_validation": 21
+      },
+      "series_id": "mech:US_SHUTDOWN",
+      "driver_channel": "风险偏好",
+      "stratum": "mechanism",
+      "seed_family": "US_SHUTDOWN",
+      "name_cn": "美国政府停摆",
+      "mechanism_cn": "停摆发生或延长抬升宏观不确定性与避险需求；停摆结束或被避免相反。族概率的取值为「停摆发生或延长」。",
+      "themes": [
+        "us_shutdown"
+      ],
+      "expected_discovery_markets": 8,
+      "notes": "discovery 段 8 个成员全为正向：反向市场（何时结束）全部出现在 2025-10-17 之后，即停摆真正发生之后。",
+      "lexical_predecessor": "cand:government",
+      "shared_discovery_markets": 6,
+      "mechanism_discovery_markets": 8,
+      "share_of_mechanism_in_predecessor": 0.75,
+      "predecessor_total_markets": 385
+    }
+  },
+  "rules": {
+    "FED_DECISION": {
+      "family_id": "FED_DECISION",
+      "name_cn": "美联储议息会议的幅度档位",
+      "driver_channel": "政策-货币",
+      "mechanism_cn": "会议给出加息档意味着鹰派、降息档意味着鸽派。族概率的取值为「加息档发生」。不变档（0 bps / no change）的 Yes 既非加息也非降息，显式排除。",
+      "match_field": "slug_base",
+      "scope": "^(will-the-fed-(increase|raise|decrease|cut|lower)-interest-rates-by-\\d+-bps-after-(its|the)-.*meeting|will-there-be-no-change-in-fed-interest-rates-after-.*meeting|will-the-fed-cut-rates-by-\\d+-basis-points-in-)",
+      "require_all": [],
+      "seed_family": "FED_DECISION",
+      "seed_pack": "revplm-2026-08",
+      "themes": [
+        "fed_policy"
+      ],
+      "stratum": "mechanism",
+      "yes_outcome_seq": 1,
+      "stages": [
+        {
+          "kind": "exclude",
+          "name": "noise",
+          "pattern": "(-say-|-says-|-said-|earnings-mentions-|purple-tie|headlines|nyt-front-page|debt-ceiling|boj-|bank-of-england|bank-of-canada|bank-of-japan|ecb-|european-central-bank|peoples-bank-of-china|turkish-central-bank|brazil|canada|starmer|fed-derivative|-odds-\\d|favored-on-|flips-|flip-by-|chair|governor|nominee|nomination|confirm|dissent|abolish|audit|out-as-|out-from-|depart|fire-|vote-at-|podcast|south-park|4chan|steve-jobs|black-jobs|fake-jobs|labor-day|secretary-of-labor|joe-rogan|itf-|bls-|next-bls|credit-card|end-qt|nothing-ever-happens|aliens|supreme-leader|ceasefire|operation|be-in-the-headlines|be-said|anyone-say|-mentions-)",
+          "unless": null,
+          "sign": null,
+          "reason": "noise",
+          "route_to": null
+        },
+        {
+          "kind": "exclude",
+          "name": "neutral_bracket",
+          "pattern": "-(increase|raise)-interest-rates-by-0-bps-|no-change-in-fed-interest-rates",
+          "unless": null,
+          "sign": null,
+          "reason": "neutral_bracket",
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "hike_bracket",
+          "pattern": "-(increase|raise)-interest-rates-by-\\d+-bps-",
+          "unless": null,
+          "sign": 1,
+          "reason": null,
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "cut_bracket",
+          "pattern": "-(decrease|cut|lower)-interest-rates-by-\\d+-bps-|cut-rates-by-\\d+-basis-points",
+          "unless": null,
+          "sign": -1,
+          "reason": null,
+          "route_to": null
+        }
+      ]
+    },
+    "FED_HIKE": {
+      "family_id": "FED_HIKE",
+      "name_cn": "美联储利率路径（加息/降息发生）",
+      "driver_channel": "政策-货币",
+      "mechanism_cn": "加息路径收紧会压低股指与国债期货价格并抬升美元；降息路径相反。族概率的取值为「加息发生」。",
+      "match_field": "slug_base",
+      "scope": "^(fed-rate-hike-in|fed-rate-hike-by-.*meeting|how-many-fed-rate-hikes-in|will-the-fed-raise-rates-again-in|fed-rate-cut-in|fed-rate-cut-by-|fed-emergency-rate-cut-(in|before)|will-the-fed-cut-rates-in)",
+      "require_all": [],
+      "seed_family": "FED_HIKE",
+      "seed_pack": "revplm-2026-08",
+      "themes": [
+        "fed_policy"
+      ],
+      "stratum": "mechanism",
+      "yes_outcome_seq": 1,
+      "stages": [
+        {
+          "kind": "exclude",
+          "name": "noise",
+          "pattern": "(-say-|-says-|-said-|earnings-mentions-|purple-tie|headlines|nyt-front-page|debt-ceiling|boj-|bank-of-england|bank-of-canada|bank-of-japan|ecb-|european-central-bank|peoples-bank-of-china|turkish-central-bank|brazil|canada|starmer|fed-derivative|-odds-\\d|favored-on-|flips-|flip-by-|chair|governor|nominee|nomination|confirm|dissent|abolish|audit|out-as-|out-from-|depart|fire-|vote-at-|podcast|south-park|4chan|steve-jobs|black-jobs|fake-jobs|labor-day|secretary-of-labor|joe-rogan|itf-|bls-|next-bls|credit-card|end-qt|nothing-ever-happens|aliens|supreme-leader|ceasefire|operation|be-in-the-headlines|be-said|anyone-say|-mentions-)",
+          "unless": null,
+          "sign": null,
+          "reason": "noise",
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "hike",
+          "pattern": "rate-hike|rate-hikes|raise-rates-again",
+          "unless": null,
+          "sign": 1,
+          "reason": null,
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "cut",
+          "pattern": "rate-cut|cut-rates",
+          "unless": null,
+          "sign": -1,
+          "reason": null,
+          "route_to": null
+        }
+      ]
+    },
+    "HOUTHI_ATTACKS": {
+      "family_id": "HOUTHI_ATTACKS",
+      "name_cn": "胡塞武装对红海航运的袭击",
+      "driver_channel": "地缘-航运",
+      "mechanism_cn": "袭击迫使船舶绕行好望角，抬升运费与船燃需求；停袭与和平协议相反。族概率的取值为「袭击或冲突升级发生」。",
+      "match_field": "slug_raw",
+      "scope": "houthi|yemen",
+      "require_all": [],
+      "seed_family": "HOUTHI_ATTACKS",
+      "seed_pack": "revplm-2026-08",
+      "themes": [
+        "mideast_conflict"
+      ],
+      "stratum": "mechanism",
+      "yes_outcome_seq": 1,
+      "stages": [
+        {
+          "kind": "route_out",
+          "name": "actor_is_iran",
+          "pattern": "iran-successfully-targets?-shipping",
+          "unless": null,
+          "sign": null,
+          "reason": null,
+          "route_to": "ISR_IRAN"
+        },
+        {
+          "kind": "exclude",
+          "name": "noise",
+          "pattern": "-say-|out-as-leader|^(nfl|nba|mlb|nhl|ncaa|cfb|wta|atp|itf|ufc)-|ansari",
+          "unless": null,
+          "sign": null,
+          "reason": "noise",
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "de_escalation",
+          "pattern": "houthis?-agree-to-(end|stop)-attacks|peace-deal|traffic-recover-to-pre-houthi",
+          "unless": null,
+          "sign": -1,
+          "reason": null,
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "attack_on_shipping",
+          "pattern": "houthis?[a-z-]*-(target|attack)[a-z-]*-shipping|successful-houthis?-attack[a-z-]*shipping|houthis?-seize-another-ship",
+          "unless": null,
+          "sign": 1,
+          "reason": null,
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "conflict_escalation",
+          "pattern": ".",
+          "unless": null,
+          "sign": 1,
+          "reason": null,
+          "route_to": null
+        }
+      ]
+    },
+    "HURRICANE_LANDFALL": {
+      "family_id": "HURRICANE_LANDFALL",
+      "name_cn": "飓风登陆美国",
+      "driver_channel": "天气-自然",
+      "mechanism_cn": "飓风登陆或增强会提高能源设施、港口与作物的受损概率，抬升能源与软商品的供给风险。族概率的取值为「登陆或增强发生」。",
+      "match_field": "slug_raw",
+      "scope": "(hurricane|tropical-storm|cat-\\d-hurricane|category-\\d-hurricane|typhoon)",
+      "require_all": [
+        "(landfall|hits?-(the-)?(us|u-s|florida|texas|louisiana|miami|hawaii|lower-48)|hit-us|hit-the-us|hit-florida|make-us-landfall|become-a-cat|become-a-category|hurricane-form|form-by|hits-us)"
+      ],
+      "seed_family": "HURRICANE_LANDFALL",
+      "seed_pack": "revplm-2026-08",
+      "themes": [],
+      "stratum": "mechanism",
+      "yes_outcome_seq": 1,
+      "stages": [
+        {
+          "kind": "exclude",
+          "name": "sports_team",
+          "pattern": "(nhl|stanley-cup|playoffs|carolina-hurricanes|hurricanes-win|hurricanes-vs|vs-hurricanes|ovechkin|tkachuk|timberwolves|the-hurricanes-be|make-the-nhl|conference-finals|round-2|iowa-state-cyclones)",
+          "unless": null,
+          "sign": null,
+          "reason": "sports",
+          "route_to": null
+        },
+        {
+          "kind": "exclude",
+          "name": "sports_generic",
+          "pattern": "(^|-)(nba|nfl|nhl|mlb|wnba|ncaab|ncaaf|ncaa|epl|ufc|atp|wta|mls|nascar|f1|pga|uefa)(-|$)|(stanley-cup|playoffs|super-bowl|world-series|champion|-vs-|series-winner|game-\\d|total-games|to-advance|anytime-td|first-td|first-set|set-handicap|points-|rebounds-|assists-|rush-|rec-)",
+          "unless": null,
+          "sign": null,
+          "reason": "sports",
+          "route_to": null
+        },
+        {
+          "kind": "exclude",
+          "name": "speech_noise",
+          "pattern": "(say-|-said-|be-said|earnings-call|earnings-mentions|press-briefing|press-conference|podcast|-debate|rally|town-hall|interview|speech|remarks|keynote|hannity|rogan|state-of-the-union|fomc|colbert|squawk|cnbc|fox-news|summit|luncheon|presser|shareholders-meeting|bilateral|epstein|time-person-of-the-year)",
+          "unless": null,
+          "sign": null,
+          "reason": "noise",
+          "route_to": null
+        },
+        {
+          "kind": "route_out",
+          "name": "season_count",
+          "pattern": "(hurricane-season|named-storm|named-storms|or-more-hurricanes)",
+          "unless": "(landfall|hits?-(the-)?(us|u-s|florida|texas|louisiana|miami|hawaii|lower-48)|hit-us|make-us-landfall)",
+          "sign": null,
+          "reason": null,
+          "route_to": "HURRICANES_SEASON"
+        },
+        {
+          "kind": "member",
+          "name": "no_landfall",
+          "pattern": "(no-hurricane|not-make-landfall|zero-hurricane|miss(es)?-the-us|weaken|downgrad|stay-offshore|fizzle|or-fewer|fewer-than)",
+          "unless": null,
+          "sign": -1,
+          "reason": null,
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "landfall",
+          "pattern": ".",
+          "unless": null,
+          "sign": 1,
+          "reason": null,
+          "route_to": null
+        }
+      ]
+    },
+    "ISR_IRAN": {
+      "family_id": "ISR_IRAN",
+      "name_cn": "以色列与伊朗的动能冲突",
+      "driver_channel": "地缘-冲突",
+      "mechanism_cn": "以色列或美国对伊朗的军事行动升级会抬高原油地缘风险溢价；缓和与停火则相反。族概率的取值为「冲突升级发生」。",
+      "match_field": "slug_base",
+      "scope": "(?<![a-z])(?:us)?iran(?:ian|s)?(?![a-z])|(?<![a-z])tehran(?![a-z])",
+      "require_all": [],
+      "seed_family": "ISR_IRAN",
+      "seed_pack": "revplm-2026-08",
+      "themes": [
+        "mideast_conflict",
+        "oil_price"
+      ],
+      "stratum": "mechanism",
+      "yes_outcome_seq": 1,
+      "stages": [
+        {
+          "kind": "exclude",
+          "name": "noise",
+          "pattern": "(?:-say-|-says-|-said-|-mention|-times-during|-during-the-debate|-at-debate|-dnc-speech|-rnc-|ufc|adesanya|eurovision|rotten|box-office|oscar|grammy|khamenei|supreme-leader|raisi|new-iranian-president|ambassador|confirmed-as|prime-minister|parliament|election-called|normalize-relations|ben-gvir|netanyahu|icc-|icj-|genocide|divest|arms-embargo|aid-package|american-aid|hostage|humanitarian|visit-israel|hack|helicopter-crash|cyber-attack|advanced-knowledge|hospital|responsible-for|definitively-state|publicly-state|fact-check|charrire|miranda|regain-control-of-all-territory|full-control-of-its-territory|suspends-diplomatic-relations)",
+          "unless": null,
+          "sign": null,
+          "reason": "noise",
+          "route_to": null
+        },
+        {
+          "kind": "route_out",
+          "name": "hormuz",
+          "pattern": "hormuz",
+          "unless": null,
+          "sign": null,
+          "reason": null,
+          "route_to": "HORMUZ_CLOSE"
+        },
+        {
+          "kind": "member",
+          "name": "escalation",
+          "pattern": "(?:^|-)(?:us)?iran(?:ian)?-(?:military-)?(?:response|action|strike|attack|declare)|(?:israel|israeli|us|american)-(?:military-)?(?:action|response|strike|strikes|attack)[a-z-]*(?:against|on|to)?-?[a-z-]*iran|iran(?:ian)?-(?:strike|attack)[a-z-]*-(?:israel|us-military|gulf-oil)|iran-strike-on-(?:israel|us-military)|(?:another-)?israeli-military-action-against-iran|israel-military-(?:action|response)-(?:against|on)-iran|israel-declares-war-on-iran|us-military-action-against-iran|will-(?:israel|the-us|us)-attack-iran|will-israel-target-(?:an-iranian|tehran)|israel-strikes?-(?:on-)?iranian-(?:oil|nuclear)|will-israel-target-an-iranian-(?:oil|gas|nuclear)|will-iran-(?:officially-)?join-the-war|usiran-declare-war|will-any-major-iranian-oil-refinery-be-taken-out|will-iran-strike-gulf-oil|will-israel-nuke-iran|will-israel-or-the-us-target-an-iranian|us-response-to-irans-drone-attack|(?:conduct|take|launch)[a-z-]*(?:military-action|ground-operation)[a-z-]*iran|military-action-(?:against|on)-iran(?!-ends)|will-(?:israel|us|the-us|france)-strike-iran|ground-operation-in-iran|israel[a-z-]*(?:rocket-alerts|lions-roar)",
+          "unless": null,
+          "sign": 1,
+          "reason": null,
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "de_escalation",
+          "pattern": "israel-x-iran-(?:ceasefire|peace-deal|peace)|iran-x-israel-(?:ceasefire|peace)|(?:israel|us)[a-z-]*iran[a-z-]*ceasefire|iran[a-z-]*(?:israel|us)[a-z-]*ceasefire|iran-ceasefire-continue|ceasefire[a-z-]*(?:continue|extend)[a-z-]*iran|announces-end-of-military-operations-against-iran|military-action-against-iran-ends|end-of-iranian-blockade",
+          "unless": null,
+          "sign": -1,
+          "reason": null,
+          "route_to": null
+        },
+        {
+          "kind": "exclude",
+          "name": "other_theatre",
+          "pattern": "(?:hamas|hezbollah|gaza|rafah|lebanon|beirut|bint-jbeil|yemen|houthi|syria|iraq|saudi|pakistan|palestin|tunnel)",
+          "unless": null,
+          "sign": null,
+          "reason": "other_theatre",
+          "route_to": null
+        },
+        {
+          "kind": "exclude",
+          "name": "proliferation",
+          "pattern": "iran-nuke-(by|in)|iran-in-possession-of-nuclear-weapons|iran[a-z-]*obtain[a-z-]*nuclear",
+          "unless": null,
+          "sign": null,
+          "reason": "proliferation_not_strike",
+          "route_to": null
+        }
+      ]
+    },
+    "RU_UA_CEASEFIRE": {
+      "family_id": "RU_UA_CEASEFIRE",
+      "name_cn": "俄乌停火",
+      "driver_channel": "地缘-冲突",
+      "mechanism_cn": "停火或战争终止会使黑海能源与粮食供给正常化预期上升、风险溢价下行；战事升级方向相反。族概率的取值为「停火发生」。",
+      "match_field": "slug_base",
+      "scope": "(?<![a-z])(russia|russian|ruusia|ukrain|urkaine|kyiv|kursk|crimea|crimean|donbas|donetsk|pokrovsk|toretsk|siversk|kurakhove|sudzha|chasiv|vuhledar|moscow|zelensk|putin|wagner)",
+      "require_all": [],
+      "seed_family": "RU_UA_CEASEFIRE",
+      "seed_pack": "revplm-2026-08",
+      "themes": [
+        "russia_ukraine"
+      ],
+      "stratum": "mechanism",
+      "yes_outcome_seq": 1,
+      "stages": [
+        {
+          "kind": "exclude",
+          "name": "noise",
+          "pattern": "(-say-|-mention|be-said|said-\\d|earnings-mentions|press-briefing|front-page|truth-social|eurovision|world-cup|grand-prix|olympic|baseball|nba|nhl|nfl|ufc|f1-|wtt|borussia|remain-president|out-as-president|remain-as|-aid-|aid-package|aid-deal|approve-more|election|reelected|ruble|rub-fall|syria|nobel|coup|minister-of-defense|join-nato|joins-nato|leave-nato|attend-presidential|meet-with-trump|f-16|referendum|alaska|azerbaijan|plane|terror|interview|person-of-the-year|visit-israel|declassify)",
+          "unless": null,
+          "sign": null,
+          "reason": "noise",
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "escalation",
+          "pattern": "(invade|invasion|capture|recapture|-control-|hold-(russian-territory|kursk)|hits-moscow|strike-on-moscow|bridge-hit|crimean-bridge|sever-the-land-bridge|nuclear-weapon|nuke-in-space|troops-fighting|military-trainers|take-the-kursk|take-moscow|article-5|let-ukraine-strike|military-clash|false-flag|responsible-for-russia-attack|russia-attack)",
+          "unless": null,
+          "sign": -1,
+          "reason": null,
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "ceasefire",
+          "pattern": "(ceasefire|cease-fire|truce|armistice|peace-deal|peace-agreement|peace-plan|ends?-(the-)?(ukraine-)?war|war-ends?|end-of-the-war)",
+          "unless": null,
+          "sign": 1,
+          "reason": null,
+          "route_to": null
+        }
+      ]
+    },
+    "US_INFLATION_MONTHLY": {
+      "family_id": "US_INFLATION_MONTHLY",
+      "name_cn": "美国月度通胀读数",
+      "driver_channel": "政策-货币",
+      "mechanism_cn": "通胀高于阈值意味着鹰派路径、压低国债与股指期货价格；低于阈值相反。族概率的取值为「通胀高于阈值」。精确点位档的极性取决于档位相对预期的位置，不单调，显式排除。",
+      "match_field": "slug_base",
+      "scope": "^(will-us-inflation-be-(greater|more|less|lower)-than-|us-inflation-(\\d+pt\\d+|\\d+)-from-|annual-inflation-(above|under|below|over)-|will-annual-inflation-be-|will-inflation-reach-more-than-)",
+      "require_all": [],
+      "seed_family": "US_INFLATION_MONTHLY",
+      "seed_pack": "revplm-2026-08",
+      "themes": [
+        "fed_policy"
+      ],
+      "stratum": "mechanism",
+      "yes_outcome_seq": 1,
+      "stages": [
+        {
+          "kind": "exclude",
+          "name": "noise",
+          "pattern": "(-say-|-says-|-said-|earnings-mentions-|purple-tie|headlines|nyt-front-page|debt-ceiling|boj-|bank-of-england|bank-of-canada|bank-of-japan|ecb-|european-central-bank|peoples-bank-of-china|turkish-central-bank|brazil|canada|starmer|fed-derivative|-odds-\\d|favored-on-|flips-|flip-by-|chair|governor|nominee|nomination|confirm|dissent|abolish|audit|out-as-|out-from-|depart|fire-|vote-at-|podcast|south-park|4chan|steve-jobs|black-jobs|fake-jobs|labor-day|secretary-of-labor|joe-rogan|itf-|bls-|next-bls|credit-card|end-qt|nothing-ever-happens|aliens|supreme-leader|ceasefire|operation|be-in-the-headlines|be-said|anyone-say|-mentions-)",
+          "unless": null,
+          "sign": null,
+          "reason": "noise",
+          "route_to": null
+        },
+        {
+          "kind": "exclude",
+          "name": "point_bracket",
+          "pattern": "^us-inflation-(\\d+pt\\d+|\\d+)-from-|^will-annual-inflation-be-",
+          "unless": null,
+          "sign": null,
+          "reason": "bracket_undefined_polarity",
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "above_threshold",
+          "pattern": "be-(greater|more)-than-|inflation-(above|over)-|reach-more-than-",
+          "unless": null,
+          "sign": 1,
+          "reason": null,
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "below_threshold",
+          "pattern": "be-(less|lower)-than-|inflation-(under|below)-",
+          "unless": null,
+          "sign": -1,
+          "reason": null,
+          "route_to": null
+        }
+      ]
+    },
+    "US_SHUTDOWN": {
+      "family_id": "US_SHUTDOWN",
+      "name_cn": "美国政府停摆",
+      "driver_channel": "风险偏好",
+      "mechanism_cn": "停摆发生或延长抬升宏观不确定性与避险需求；停摆结束或被避免相反。族概率的取值为「停摆发生或延长」。",
+      "match_field": "slug_raw",
+      "scope": "government-shutdown|gov-shutdown|shutdownlapse|government-funding-lapse|federal-appropriations-lapse|appropriations-lapse|dhs-shutdown|funding-lapse|government-funding-bill|cr-funding-bill|clean-cr",
+      "require_all": [],
+      "seed_family": "US_SHUTDOWN",
+      "seed_pack": "revplm-2026-08",
+      "themes": [
+        "us_shutdown"
+      ],
+      "stratum": "mechanism",
+      "yes_outcome_seq": 1,
+      "stages": [
+        {
+          "kind": "exclude",
+          "name": "noise",
+          "pattern": "will-[a-z-]*-say-|-say-[a-z-]*-during-|will-anyone-say-|be-said-on-|be-said-during-|earnings-mentions-|joe-rogan|south-park|saturday-night-live|truth-social|press-briefing|publicly-oppose|vote-yea-on-the-department|congress-pay-raise|moltbook|liv-golf|spirit-airlines|gaza-military-center|binanceus|infowars",
+          "unless": null,
+          "sign": null,
+          "reason": "noise",
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "shutdown_ends",
+          "pattern": "shutdown-end-by|when-will-the-government-shutdown-end|without-government-shutdown|clean-cr|receive-back-pay|house-vote-on-a-government-funding-bill|vote-for-government-funding-bill",
+          "unless": null,
+          "sign": -1,
+          "reason": null,
+          "route_to": null
+        },
+        {
+          "kind": "member",
+          "name": "shutdown_happens",
+          "pattern": "will-there-be-a-us-government-shutdown|us-government-shutdown-(?:before|in|by)|another-us-government-shutdown|another-government-shutdown|government-shutdown-by-|shutdown-last-\\d+-days?-or-more|shutdownlapse-on|funding-lapse-on|appropriations-lapse-on|odds-of-gov-shutdown|gov-shutdown-odds|funding-bill-fail|longest-in-us-history|closes-airspace|during-government-shutdown",
+          "unless": null,
+          "sign": 1,
+          "reason": null,
+          "route_to": null
+        }
+      ]
+    }
+  },
+  "note": "成员资格只由 slug 谓词与首笔公开成交定义，不引用任何期货结果，也不枚举 token 清单。规则在 discovery 段的提问语法上标定，该段盲区为零；2025-26 年语法分化，其他段的盲区如实计入 excluded。"
+}

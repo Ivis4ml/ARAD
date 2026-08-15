@@ -1,0 +1,485 @@
+{
+  "rule": {
+    "version": "series-overlap-v1",
+    "pair_samples": 200000,
+    "seed": 0,
+    "min_common_buckets": 100,
+    "quantile_bins": 10,
+    "note": "序数一致比例 = 随机抽取的两个时点上，两条序列给出同向排序的比例，0.5 为无关联、1.0 为完全同序。符号一致比例只在两条序列同时非零处计。全部判据只用 Polymarket 侧序列，不占检验分母。"
+  },
+  "thresholds": {
+    "distinct_upper": 0.582,
+    "replay_lower": 0.791,
+    "derivation": "distinct_upper 取参照分布（无关机制族两两）的序数一致比例上界；replay_lower 取 distinct_upper 与 1.0 的中点。两者都由数据的参照分布决定，不由本次结果决定。判据作用在决策网格上的窗口取值，因为那才是特征真正看到的量。",
+    "consequence": "distinct_object：与前身在决策网格上不可区分于无关序列，可作为新问题对待；partially_overlapping：并入既有族分母，不另起地板；replay_of_predecessor：同一次检验的重放，既不另开分母也不重测已读过的目标。"
+  },
+  "built_at": "2026-08-15T06:21:18.604889+00:00",
+  "series": "mechanism_hourly_discovery.parquet",
+  "segment": "discovery (≤2024-12-31)",
+  "decision_grid": {
+    "points": 1054,
+    "window_seconds": 21600,
+    "offset_seconds": 0,
+    "note": "决策时点为开盘前 60 秒（日盘 08:59、夜盘 20:59）；offset 取 0 时该窗口整体落在停市区间。"
+  },
+  "mechanism_vs_lexical_predecessor": {
+    "FED_DECISION": {
+      "lexical_predecessor": "cand:interest",
+      "shared_discovery_markets": 20,
+      "mechanism_discovery_markets": 20,
+      "predecessor_total_markets": 122,
+      "on_repricing": {
+        "common_buckets": 1045,
+        "rank_agreement_share": 0.7001,
+        "sign_agreement_share": 0.6305,
+        "quantile_overlap_share": 0.533
+      },
+      "on_level": {
+        "common_buckets": 1639,
+        "rank_agreement_share": 0.5281,
+        "sign_agreement_share": 1.0,
+        "quantile_overlap_share": 0.0421
+      },
+      "on_decision_grid": {
+        "grid_points": 1054,
+        "left_defined_points": 263,
+        "right_defined_points": 589,
+        "both_defined_points": 263,
+        "rank_agreement_share": 0.544,
+        "quantile_overlap_share": 0.1597
+      },
+      "verdict": "distinct_object"
+    },
+    "FED_HIKE": {
+      "lexical_predecessor": "cand:cut",
+      "shared_discovery_markets": 13,
+      "mechanism_discovery_markets": 16,
+      "predecessor_total_markets": 385,
+      "on_repricing": {
+        "common_buckets": 4178,
+        "rank_agreement_share": 0.0399,
+        "sign_agreement_share": 0.0395,
+        "quantile_overlap_share": 0.0443
+      },
+      "on_level": {
+        "common_buckets": 5556,
+        "rank_agreement_share": 0.0849,
+        "sign_agreement_share": 1.0,
+        "quantile_overlap_share": 0.0463
+      },
+      "on_decision_grid": {
+        "grid_points": 1054,
+        "left_defined_points": 670,
+        "right_defined_points": 627,
+        "both_defined_points": 626,
+        "rank_agreement_share": 0.1347,
+        "quantile_overlap_share": 0.0671
+      },
+      "verdict": "distinct_object"
+    },
+    "HOUTHI_ATTACKS": {
+      "lexical_predecessor": "cand:military",
+      "shared_discovery_markets": 8,
+      "mechanism_discovery_markets": 12,
+      "predecessor_total_markets": 664,
+      "on_repricing": {
+        "common_buckets": 831,
+        "rank_agreement_share": 0.6831,
+        "sign_agreement_share": 0.7066,
+        "quantile_overlap_share": 0.3273
+      },
+      "on_level": {
+        "common_buckets": 894,
+        "rank_agreement_share": 0.6917,
+        "sign_agreement_share": 1.0,
+        "quantile_overlap_share": 0.3166
+      },
+      "on_decision_grid": {
+        "grid_points": 1054,
+        "left_defined_points": 125,
+        "right_defined_points": 407,
+        "both_defined_points": 82,
+        "rank_agreement_share": 0.7028,
+        "quantile_overlap_share": 0.2561
+      },
+      "verdict": "partially_overlapping"
+    },
+    "HURRICANE_LANDFALL": {
+      "lexical_predecessor": "cand:a",
+      "shared_discovery_markets": 13,
+      "mechanism_discovery_markets": 15,
+      "predecessor_total_markets": 3680,
+      "on_repricing": {
+        "common_buckets": 533,
+        "rank_agreement_share": 0.6813,
+        "sign_agreement_share": 0.6523,
+        "quantile_overlap_share": 0.3114
+      },
+      "on_level": {
+        "common_buckets": 683,
+        "rank_agreement_share": 0.5444,
+        "sign_agreement_share": 1.0,
+        "quantile_overlap_share": 0.1215
+      },
+      "on_decision_grid": {
+        "grid_points": 1054,
+        "left_defined_points": 99,
+        "right_defined_points": 845,
+        "both_defined_points": 99,
+        "rank_agreement_share": 0.5301,
+        "quantile_overlap_share": 0.0909
+      },
+      "verdict": "distinct_object"
+    },
+    "ISR_IRAN": {
+      "lexical_predecessor": "cand:iran",
+      "shared_discovery_markets": 63,
+      "mechanism_discovery_markets": 71,
+      "predecessor_total_markets": 1444,
+      "on_repricing": {
+        "common_buckets": 4002,
+        "rank_agreement_share": 0.9059,
+        "sign_agreement_share": 0.9273,
+        "quantile_overlap_share": 0.7731
+      },
+      "on_level": {
+        "common_buckets": 4453,
+        "rank_agreement_share": 0.8838,
+        "sign_agreement_share": 1.0,
+        "quantile_overlap_share": 0.702
+      },
+      "on_decision_grid": {
+        "grid_points": 1054,
+        "left_defined_points": 361,
+        "right_defined_points": 506,
+        "both_defined_points": 354,
+        "rank_agreement_share": 0.8156,
+        "quantile_overlap_share": 0.5508
+      },
+      "verdict": "replay_of_predecessor"
+    },
+    "RU_UA_CEASEFIRE": {
+      "lexical_predecessor": "cand:ukraine",
+      "shared_discovery_markets": 24,
+      "mechanism_discovery_markets": 44,
+      "predecessor_total_markets": 516,
+      "on_repricing": {
+        "common_buckets": 4229,
+        "rank_agreement_share": 0.4636,
+        "sign_agreement_share": 0.4868,
+        "quantile_overlap_share": 0.2693
+      },
+      "on_level": {
+        "common_buckets": 5173,
+        "rank_agreement_share": 0.4668,
+        "sign_agreement_share": 1.0,
+        "quantile_overlap_share": 0.1148
+      },
+      "on_decision_grid": {
+        "grid_points": 1054,
+        "left_defined_points": 559,
+        "right_defined_points": 619,
+        "both_defined_points": 532,
+        "rank_agreement_share": 0.4423,
+        "quantile_overlap_share": 0.0996
+      },
+      "verdict": "distinct_object"
+    },
+    "US_INFLATION_MONTHLY": {
+      "lexical_predecessor": "cand:inflation",
+      "shared_discovery_markets": 40,
+      "mechanism_discovery_markets": 40,
+      "predecessor_total_markets": 398,
+      "on_repricing": {
+        "common_buckets": 1076,
+        "rank_agreement_share": 0.6963,
+        "sign_agreement_share": 0.6689,
+        "quantile_overlap_share": 0.4191
+      },
+      "on_level": {
+        "common_buckets": 1347,
+        "rank_agreement_share": 0.5022,
+        "sign_agreement_share": 1.0,
+        "quantile_overlap_share": 0.1707
+      },
+      "on_decision_grid": {
+        "grid_points": 1054,
+        "left_defined_points": 169,
+        "right_defined_points": 540,
+        "both_defined_points": 169,
+        "rank_agreement_share": 0.5608,
+        "quantile_overlap_share": 0.1657
+      },
+      "verdict": "distinct_object"
+    },
+    "US_SHUTDOWN": {
+      "lexical_predecessor": "cand:government",
+      "shared_discovery_markets": 6,
+      "mechanism_discovery_markets": 8,
+      "predecessor_total_markets": 385,
+      "on_repricing": {
+        "common_buckets": 1248,
+        "rank_agreement_share": 0.9229,
+        "sign_agreement_share": 0.9381,
+        "quantile_overlap_share": 0.8389
+      },
+      "on_level": {
+        "common_buckets": 1433,
+        "rank_agreement_share": 0.9445,
+        "sign_agreement_share": 1.0,
+        "quantile_overlap_share": 0.7913
+      },
+      "on_decision_grid": {
+        "grid_points": 1054,
+        "left_defined_points": 200,
+        "right_defined_points": 345,
+        "both_defined_points": 193,
+        "rank_agreement_share": 0.8827,
+        "quantile_overlap_share": 0.5544
+      },
+      "verdict": "replay_of_predecessor"
+    }
+  },
+  "reference_unrelated_mechanism_pairs": [
+    {
+      "left": "mech:FED_DECISION",
+      "right": "mech:FED_HIKE",
+      "on_repricing": {
+        "common_buckets": 443,
+        "rank_agreement_share": 0.5244,
+        "sign_agreement_share": 0.5072,
+        "quantile_overlap_share": 0.1512
+      }
+    },
+    {
+      "left": "mech:FED_DECISION",
+      "right": "mech:ISR_IRAN",
+      "on_repricing": {
+        "common_buckets": 276,
+        "rank_agreement_share": 0.5007,
+        "sign_agreement_share": 0.4867,
+        "quantile_overlap_share": 0.1196
+      }
+    },
+    {
+      "left": "mech:FED_DECISION",
+      "right": "mech:RU_UA_CEASEFIRE",
+      "on_repricing": {
+        "common_buckets": 365,
+        "rank_agreement_share": 0.5093,
+        "sign_agreement_share": 0.5101,
+        "quantile_overlap_share": 0.1041
+      }
+    },
+    {
+      "left": "mech:FED_DECISION",
+      "right": "mech:US_INFLATION_MONTHLY",
+      "on_repricing": {
+        "common_buckets": 174,
+        "rank_agreement_share": 0.4626,
+        "sign_agreement_share": 0.4817,
+        "quantile_overlap_share": 0.1264
+      }
+    },
+    {
+      "left": "mech:FED_HIKE",
+      "right": "mech:HOUTHI_ATTACKS",
+      "on_repricing": {
+        "common_buckets": 450,
+        "rank_agreement_share": 0.4784,
+        "sign_agreement_share": 0.4724,
+        "quantile_overlap_share": 0.0911
+      }
+    },
+    {
+      "left": "mech:FED_HIKE",
+      "right": "mech:HURRICANE_LANDFALL",
+      "on_repricing": {
+        "common_buckets": 168,
+        "rank_agreement_share": 0.4849,
+        "sign_agreement_share": 0.4968,
+        "quantile_overlap_share": 0.1071
+      }
+    },
+    {
+      "left": "mech:FED_HIKE",
+      "right": "mech:ISR_IRAN",
+      "on_repricing": {
+        "common_buckets": 2331,
+        "rank_agreement_share": 0.4996,
+        "sign_agreement_share": 0.5027,
+        "quantile_overlap_share": 0.1025
+      }
+    },
+    {
+      "left": "mech:FED_HIKE",
+      "right": "mech:RU_UA_CEASEFIRE",
+      "on_repricing": {
+        "common_buckets": 2351,
+        "rank_agreement_share": 0.4958,
+        "sign_agreement_share": 0.493,
+        "quantile_overlap_share": 0.0987
+      }
+    },
+    {
+      "left": "mech:FED_HIKE",
+      "right": "mech:US_INFLATION_MONTHLY",
+      "on_repricing": {
+        "common_buckets": 632,
+        "rank_agreement_share": 0.537,
+        "sign_agreement_share": 0.5221,
+        "quantile_overlap_share": 0.1297
+      }
+    },
+    {
+      "left": "mech:FED_HIKE",
+      "right": "mech:US_SHUTDOWN",
+      "on_repricing": {
+        "common_buckets": 553,
+        "rank_agreement_share": 0.4927,
+        "sign_agreement_share": 0.5108,
+        "quantile_overlap_share": 0.1031
+      }
+    },
+    {
+      "left": "mech:HOUTHI_ATTACKS",
+      "right": "mech:HURRICANE_LANDFALL",
+      "on_repricing": {
+        "common_buckets": 158,
+        "rank_agreement_share": 0.4982,
+        "sign_agreement_share": 0.5197,
+        "quantile_overlap_share": 0.057
+      }
+    },
+    {
+      "left": "mech:HOUTHI_ATTACKS",
+      "right": "mech:ISR_IRAN",
+      "on_repricing": {
+        "common_buckets": 704,
+        "rank_agreement_share": 0.5383,
+        "sign_agreement_share": 0.5331,
+        "quantile_overlap_share": 0.1023
+      }
+    },
+    {
+      "left": "mech:HOUTHI_ATTACKS",
+      "right": "mech:RU_UA_CEASEFIRE",
+      "on_repricing": {
+        "common_buckets": 722,
+        "rank_agreement_share": 0.5224,
+        "sign_agreement_share": 0.5043,
+        "quantile_overlap_share": 0.1108
+      }
+    },
+    {
+      "left": "mech:HOUTHI_ATTACKS",
+      "right": "mech:US_INFLATION_MONTHLY",
+      "on_repricing": {
+        "common_buckets": 255,
+        "rank_agreement_share": 0.4925,
+        "sign_agreement_share": 0.5101,
+        "quantile_overlap_share": 0.1098
+      }
+    },
+    {
+      "left": "mech:HOUTHI_ATTACKS",
+      "right": "mech:US_SHUTDOWN",
+      "on_repricing": {
+        "common_buckets": 105,
+        "rank_agreement_share": 0.5824,
+        "sign_agreement_share": 0.54,
+        "quantile_overlap_share": 0.1048
+      }
+    },
+    {
+      "left": "mech:HURRICANE_LANDFALL",
+      "right": "mech:ISR_IRAN",
+      "on_repricing": {
+        "common_buckets": 303,
+        "rank_agreement_share": 0.5019,
+        "sign_agreement_share": 0.4966,
+        "quantile_overlap_share": 0.1122
+      }
+    },
+    {
+      "left": "mech:HURRICANE_LANDFALL",
+      "right": "mech:RU_UA_CEASEFIRE",
+      "on_repricing": {
+        "common_buckets": 313,
+        "rank_agreement_share": 0.5081,
+        "sign_agreement_share": 0.5098,
+        "quantile_overlap_share": 0.099
+      }
+    },
+    {
+      "left": "mech:HURRICANE_LANDFALL",
+      "right": "mech:US_INFLATION_MONTHLY",
+      "on_repricing": {
+        "common_buckets": 135,
+        "rank_agreement_share": 0.5114,
+        "sign_agreement_share": 0.5038,
+        "quantile_overlap_share": 0.0963
+      }
+    },
+    {
+      "left": "mech:ISR_IRAN",
+      "right": "mech:RU_UA_CEASEFIRE",
+      "on_repricing": {
+        "common_buckets": 3107,
+        "rank_agreement_share": 0.4964,
+        "sign_agreement_share": 0.5002,
+        "quantile_overlap_share": 0.1094
+      }
+    },
+    {
+      "left": "mech:ISR_IRAN",
+      "right": "mech:US_INFLATION_MONTHLY",
+      "on_repricing": {
+        "common_buckets": 829,
+        "rank_agreement_share": 0.5095,
+        "sign_agreement_share": 0.5151,
+        "quantile_overlap_share": 0.1062
+      }
+    },
+    {
+      "left": "mech:ISR_IRAN",
+      "right": "mech:US_SHUTDOWN",
+      "on_repricing": {
+        "common_buckets": 537,
+        "rank_agreement_share": 0.4873,
+        "sign_agreement_share": 0.4642,
+        "quantile_overlap_share": 0.0875
+      }
+    },
+    {
+      "left": "mech:RU_UA_CEASEFIRE",
+      "right": "mech:US_INFLATION_MONTHLY",
+      "on_repricing": {
+        "common_buckets": 936,
+        "rank_agreement_share": 0.5163,
+        "sign_agreement_share": 0.5273,
+        "quantile_overlap_share": 0.109
+      }
+    },
+    {
+      "left": "mech:RU_UA_CEASEFIRE",
+      "right": "mech:US_SHUTDOWN",
+      "on_repricing": {
+        "common_buckets": 643,
+        "rank_agreement_share": 0.5069,
+        "sign_agreement_share": 0.5008,
+        "quantile_overlap_share": 0.1073
+      }
+    },
+    {
+      "left": "mech:US_INFLATION_MONTHLY",
+      "right": "mech:US_SHUTDOWN",
+      "on_repricing": {
+        "common_buckets": 122,
+        "rank_agreement_share": 0.4681,
+        "sign_agreement_share": 0.4298,
+        "quantile_overlap_share": 0.0902
+      }
+    }
+  ]
+}

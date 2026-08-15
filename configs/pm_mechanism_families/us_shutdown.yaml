@@ -1,0 +1,25 @@
+family_id: US_SHUTDOWN
+name_cn: 美国政府停摆
+driver_channel: 风险偏好
+mechanism_cn: 停摆发生或延长抬升宏观不确定性与避险需求；停摆结束或被避免相反。族概率的取值为「停摆发生或延长」。
+match_field: slug_raw
+scope: government-shutdown|gov-shutdown|shutdownlapse|government-funding-lapse|federal-appropriations-lapse|appropriations-lapse|dhs-shutdown|funding-lapse|government-funding-bill|cr-funding-bill|clean-cr
+themes:
+- us_shutdown
+seed_family: US_SHUTDOWN
+seed_pack: revplm-2026-08
+expected_discovery_markets: 8
+stages:
+- kind: exclude
+  name: noise
+  pattern: will-[a-z-]*-say-|-say-[a-z-]*-during-|will-anyone-say-|be-said-on-|be-said-during-|earnings-mentions-|joe-rogan|south-park|saturday-night-live|truth-social|press-briefing|publicly-oppose|vote-yea-on-the-department|congress-pay-raise|moltbook|liv-golf|spirit-airlines|gaza-military-center|binanceus|infowars
+  reason: noise
+- kind: member
+  name: shutdown_ends
+  pattern: shutdown-end-by|when-will-the-government-shutdown-end|without-government-shutdown|clean-cr|receive-back-pay|house-vote-on-a-government-funding-bill|vote-for-government-funding-bill
+  sign: -1
+- kind: member
+  name: shutdown_happens
+  pattern: will-there-be-a-us-government-shutdown|us-government-shutdown-(?:before|in|by)|another-us-government-shutdown|another-government-shutdown|government-shutdown-by-|shutdown-last-\d+-days?-or-more|shutdownlapse-on|funding-lapse-on|appropriations-lapse-on|odds-of-gov-shutdown|gov-shutdown-odds|funding-bill-fail|longest-in-us-history|closes-airspace|during-government-shutdown
+  sign: 1
+notes: discovery 段 8 个成员全为正向：反向市场（何时结束）全部出现在 2025-10-17 之后，即停摆真正发生之后。

@@ -1,0 +1,29 @@
+family_id: US_INFLATION_MONTHLY
+name_cn: 美国月度通胀读数
+driver_channel: 政策-货币
+mechanism_cn: 通胀高于阈值意味着鹰派路径、压低国债与股指期货价格；低于阈值相反。族概率的取值为「通胀高于阈值」。精确点位档的极性取决于档位相对预期的位置，不单调，显式排除。
+match_field: slug_base
+scope: ^(will-us-inflation-be-(greater|more|less|lower)-than-|us-inflation-(\d+pt\d+|\d+)-from-|annual-inflation-(above|under|below|over)-|will-annual-inflation-be-|will-inflation-reach-more-than-)
+themes:
+- fed_policy
+seed_family: US_INFLATION_MONTHLY
+seed_pack: revplm-2026-08
+expected_discovery_markets: 40
+stages:
+- kind: exclude
+  name: noise
+  pattern: (-say-|-says-|-said-|earnings-mentions-|purple-tie|headlines|nyt-front-page|debt-ceiling|boj-|bank-of-england|bank-of-canada|bank-of-japan|ecb-|european-central-bank|peoples-bank-of-china|turkish-central-bank|brazil|canada|starmer|fed-derivative|-odds-\d|favored-on-|flips-|flip-by-|chair|governor|nominee|nomination|confirm|dissent|abolish|audit|out-as-|out-from-|depart|fire-|vote-at-|podcast|south-park|4chan|steve-jobs|black-jobs|fake-jobs|labor-day|secretary-of-labor|joe-rogan|itf-|bls-|next-bls|credit-card|end-qt|nothing-ever-happens|aliens|supreme-leader|ceasefire|operation|be-in-the-headlines|be-said|anyone-say|-mentions-)
+  reason: noise
+- kind: exclude
+  name: point_bracket
+  pattern: ^us-inflation-(\d+pt\d+|\d+)-from-|^will-annual-inflation-be-
+  reason: bracket_undefined_polarity
+- kind: member
+  name: above_threshold
+  pattern: be-(greater|more)-than-|inflation-(above|over)-|reach-more-than-
+  sign: 1
+- kind: member
+  name: below_threshold
+  pattern: be-(less|lower)-than-|inflation-(under|below)-
+  sign: -1
+notes: 档位型 10 个 discovery 市场被排除，锚点 39+1=40。

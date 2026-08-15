@@ -1,0 +1,39 @@
+family_id: ISR_IRAN
+name_cn: 以色列与伊朗的动能冲突
+driver_channel: 地缘-冲突
+mechanism_cn: 以色列或美国对伊朗的军事行动升级会抬高原油地缘风险溢价；缓和与停火则相反。族概率的取值为「冲突升级发生」。
+match_field: slug_base
+scope: (?<![a-z])(?:us)?iran(?:ian|s)?(?![a-z])|(?<![a-z])tehran(?![a-z])
+themes:
+- mideast_conflict
+- oil_price
+seed_family: ISR_IRAN
+seed_pack: revplm-2026-08
+expected_discovery_markets: 71
+stages:
+- kind: exclude
+  name: noise
+  pattern: (?:-say-|-says-|-said-|-mention|-times-during|-during-the-debate|-at-debate|-dnc-speech|-rnc-|ufc|adesanya|eurovision|rotten|box-office|oscar|grammy|khamenei|supreme-leader|raisi|new-iranian-president|ambassador|confirmed-as|prime-minister|parliament|election-called|normalize-relations|ben-gvir|netanyahu|icc-|icj-|genocide|divest|arms-embargo|aid-package|american-aid|hostage|humanitarian|visit-israel|hack|helicopter-crash|cyber-attack|advanced-knowledge|hospital|responsible-for|definitively-state|publicly-state|fact-check|charrire|miranda|regain-control-of-all-territory|full-control-of-its-territory|suspends-diplomatic-relations)
+  reason: noise
+- kind: route_out
+  name: hormuz
+  pattern: hormuz
+  route_to: HORMUZ_CLOSE
+- kind: member
+  name: escalation
+  pattern: (?:^|-)(?:us)?iran(?:ian)?-(?:military-)?(?:response|action|strike|attack|declare)|(?:israel|israeli|us|american)-(?:military-)?(?:action|response|strike|strikes|attack)[a-z-]*(?:against|on|to)?-?[a-z-]*iran|iran(?:ian)?-(?:strike|attack)[a-z-]*-(?:israel|us-military|gulf-oil)|iran-strike-on-(?:israel|us-military)|(?:another-)?israeli-military-action-against-iran|israel-military-(?:action|response)-(?:against|on)-iran|israel-declares-war-on-iran|us-military-action-against-iran|will-(?:israel|the-us|us)-attack-iran|will-israel-target-(?:an-iranian|tehran)|israel-strikes?-(?:on-)?iranian-(?:oil|nuclear)|will-israel-target-an-iranian-(?:oil|gas|nuclear)|will-iran-(?:officially-)?join-the-war|usiran-declare-war|will-any-major-iranian-oil-refinery-be-taken-out|will-iran-strike-gulf-oil|will-israel-nuke-iran|will-israel-or-the-us-target-an-iranian|us-response-to-irans-drone-attack|(?:conduct|take|launch)[a-z-]*(?:military-action|ground-operation)[a-z-]*iran|military-action-(?:against|on)-iran(?!-ends)|will-(?:israel|us|the-us|france)-strike-iran|ground-operation-in-iran|israel[a-z-]*(?:rocket-alerts|lions-roar)
+  sign: 1
+- kind: member
+  name: de_escalation
+  pattern: israel-x-iran-(?:ceasefire|peace-deal|peace)|iran-x-israel-(?:ceasefire|peace)|(?:israel|us)[a-z-]*iran[a-z-]*ceasefire|iran[a-z-]*(?:israel|us)[a-z-]*ceasefire|iran-ceasefire-continue|ceasefire[a-z-]*(?:continue|extend)[a-z-]*iran|announces-end-of-military-operations-against-iran|military-action-against-iran-ends|end-of-iranian-blockade
+  sign: -1
+- kind: exclude
+  name: other_theatre
+  pattern: (?:hamas|hezbollah|gaza|rafah|lebanon|beirut|bint-jbeil|yemen|houthi|syria|iraq|saudi|pakistan|palestin|tunnel)
+  reason: other_theatre
+- kind: exclude
+  name: proliferation
+  pattern: iran-nuke-(by|in)|iran-in-possession-of-nuclear-weapons|iran[a-z-]*obtain[a-z-]*nuclear
+  reason: proliferation_not_strike
+notes: 规则在 discovery 段标定，该段 UNMATCHED=0；2025-26 年提问语法分化，全档案仍有约 633 个含 iran/israel 词元的市场落在 member 之外，由
+  residual 段如实计入 excluded。

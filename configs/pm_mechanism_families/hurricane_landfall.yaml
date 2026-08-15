@@ -1,0 +1,39 @@
+family_id: HURRICANE_LANDFALL
+name_cn: 飓风登陆美国
+driver_channel: 天气-自然
+mechanism_cn: 飓风登陆或增强会提高能源设施、港口与作物的受损概率，抬升能源与软商品的供给风险。族概率的取值为「登陆或增强发生」。
+match_field: slug_raw
+scope: (hurricane|tropical-storm|cat-\d-hurricane|category-\d-hurricane|typhoon)
+require_all:
+- (landfall|hits?-(the-)?(us|u-s|florida|texas|louisiana|miami|hawaii|lower-48)|hit-us|hit-the-us|hit-florida|make-us-landfall|become-a-cat|become-a-category|hurricane-form|form-by|hits-us)
+themes: []
+seed_family: HURRICANE_LANDFALL
+seed_pack: revplm-2026-08
+expected_discovery_markets: 15
+stages:
+- kind: exclude
+  name: sports_team
+  pattern: (nhl|stanley-cup|playoffs|carolina-hurricanes|hurricanes-win|hurricanes-vs|vs-hurricanes|ovechkin|tkachuk|timberwolves|the-hurricanes-be|make-the-nhl|conference-finals|round-2|iowa-state-cyclones)
+  reason: sports
+- kind: exclude
+  name: sports_generic
+  pattern: (^|-)(nba|nfl|nhl|mlb|wnba|ncaab|ncaaf|ncaa|epl|ufc|atp|wta|mls|nascar|f1|pga|uefa)(-|$)|(stanley-cup|playoffs|super-bowl|world-series|champion|-vs-|series-winner|game-\d|total-games|to-advance|anytime-td|first-td|first-set|set-handicap|points-|rebounds-|assists-|rush-|rec-)
+  reason: sports
+- kind: exclude
+  name: speech_noise
+  pattern: (say-|-said-|be-said|earnings-call|earnings-mentions|press-briefing|press-conference|podcast|-debate|rally|town-hall|interview|speech|remarks|keynote|hannity|rogan|state-of-the-union|fomc|colbert|squawk|cnbc|fox-news|summit|luncheon|presser|shareholders-meeting|bilateral|epstein|time-person-of-the-year)
+  reason: noise
+- kind: route_out
+  name: season_count
+  pattern: (hurricane-season|named-storm|named-storms|or-more-hurricanes)
+  unless: (landfall|hits?-(the-)?(us|u-s|florida|texas|louisiana|miami|hawaii|lower-48)|hit-us|make-us-landfall)
+  route_to: HURRICANES_SEASON
+- kind: member
+  name: no_landfall
+  pattern: (no-hurricane|not-make-landfall|zero-hurricane|miss(es)?-the-us|weaken|downgrad|stay-offshore|fizzle|or-fewer|fewer-than)
+  sign: -1
+- kind: member
+  name: landfall
+  pattern: .
+  sign: 1
+notes: 反向段在全部成员内实测命中 0：Polymarket 从未上过否定式飓风提问，这是事实而非规则漏洞。require_all 要求提问必须涉及登陆或增强，否则归 excluded。
