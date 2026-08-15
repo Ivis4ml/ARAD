@@ -23,6 +23,9 @@ import pyarrow.parquet as pq
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from arad.features.interpreter import evaluate_series
+from arad.features.spec import FeatureSpec, Op, Source, Step, StepKind
+from arad.harness.demo import _load_sc
 from arad.harness.pm_menu import unresolvedness
 from arad.temporal.episode import DISCOVERY_END
 
@@ -46,6 +49,8 @@ def main() -> None:
     ap.add_argument("--series", default="data/pm_series/mechanism_hourly_discovery.parquet")
     ap.add_argument("--out", default="artifacts/manifests/pm_mechanism_qualification.json")
     ap.add_argument("--prefix", default="mech:")
+    ap.add_argument("--target", default="data/spine/sc/target_sc_rv_next_session.parquet")
+    ap.add_argument("--coverage-window", type=int, default=21_600)
     args = ap.parse_args()
 
     table = pq.read_table(args.series)
@@ -105,6 +110,25 @@ def main() -> None:
             )
         sensitivity[key] = curve
 
+    # 决策网格覆盖：模型此前要到提案之后才从 visible_data_range 得知某条轴的数据
+    # 撑不撑得起检验（实测飓风族只有 9.5%）。覆盖率与功效属盲化角色允许看到的类别，
+    # 提前给出可以省下整轮预算。
+    rows_sc, sc_pack, _vis = _load_sc(args.target)
+    grid = [r["decision_time"] for r in rows_sc]
+    for fid, stat in stats.items():
+        for field_name in ("p", "dp"):
+            step = Step(name="w", kind=StepKind.WINDOW, source=Source.PM_MARKET,
+                        field=f"{fid}:{field_name}", op=Op.MEAN,
+                        window_seconds=args.coverage_window, offset_seconds=0)
+            spec = FeatureSpec(feature_id="coverage_probe", mechanism="覆盖探针",
+                               failure_condition="覆盖探针", authored_by="proposer",
+                               steps=[step], output_step="w")
+            values, _cov = evaluate_series(spec, grid, sc_pack["series"])
+            defined = sum(1 for v in values if v is not None)
+            stat[f"defined_share_{field_name}"] = round(defined / len(grid), 4)
+        stat["decision_points"] = len(grid)
+        stat["coverage_window_seconds"] = args.coverage_window
+
     doc = {
         "rule": rule,
         "built_at": datetime.now(tz=UTC).isoformat(),
@@ -116,10 +140,10 @@ def main() -> None:
     Path(args.out).write_text(
         json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    print(f"{'family':26s} {'桶':>7s} {'跨度天':>7s} {'未决性':>7s} {'名义额':>14s}  资格")
+    print(f"{'family':26s} {'桶':>7s} {'未决性':>7s} {'p覆盖':>7s} {'dp覆盖':>7s}  资格")
     for fid, s in sorted(stats.items()):
-        print(f"{fid:26s} {s['buckets']:7d} {s['span_days']:7d} "
-              f"{s['mean_unresolved']:7.3f} {s['notional']:14,.0f}  "
+        print(f"{fid:26s} {s['buckets']:7d} {s['mean_unresolved']:7.3f} "
+              f"{s['defined_share_p']:7.1%} {s['defined_share_dp']:7.1%}  "
               f"{'通过' if fid in qualified else '不通过'}")
     print(f"\n合格 {len(qualified)}/{len(stats)} → {args.out}")
 

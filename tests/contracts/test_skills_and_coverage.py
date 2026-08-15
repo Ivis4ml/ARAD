@@ -157,11 +157,12 @@ def test_a_mechanism_family_that_replays_its_predecessor_is_kept_out_of_the_menu
     assert [r["family_id"] for r in rows] == ["mech:NEW"]
 
 
-def test_a_replay_of_an_untested_predecessor_is_still_admitted():
+def test_a_replay_of_an_untested_predecessor_is_not_permanently_excluded():
     """重放判定回答「是不是同一个东西」，不回答「问过没有」。
 
-    前身零引用时，那条轴仍是没问过的问题；按重放排除等于因为
-    「像一条同样没被检验过的序列」而永久放弃它。
+    前身零引用时，那条轴仍是没问过的问题；按重放永久排除等于因为
+    「像一条同样没被检验过的序列」而放弃它。它仍进旧族账户的菜单
+    （账户路由是另一条规则，见 test_family_routing_and_permanent_exclusion_are_separate_rules）。
     """
     from arad.harness.pm_menu import mechanism_rows
 
@@ -171,11 +172,12 @@ def test_a_replay_of_an_untested_predecessor_is_still_admitted():
         overlap_manifest={"mechanism_vs_lexical_predecessor": {
             "OLD": {"verdict": "replay_of_predecessor", "lexical_predecessor": "cand:y"},
         }},
+        admit=frozenset({"distinct_object", "replay_of_predecessor"}),
         tested_predecessors=frozenset(),
     )
     assert [r["family_id"] for r in rows] == ["mech:OLD"]
     assert rows[0]["vs_lexical_predecessor"]["predecessor_was_tested"] is False
-    assert rows[0]["vs_lexical_predecessor"]["admitted_despite_verdict"]
+    assert "旧族账户" in rows[0]["vs_lexical_predecessor"]["account_note"]
 
 
 def test_mechanism_rows_claim_slots_before_the_volume_ranked_strata():
@@ -260,3 +262,57 @@ def test_qualified_set_covers_both_family_layers(monkeypatch, tmp_path):
     monkeypatch.setattr(demo, "PM_QUALIFICATION_PATH", str(lex))
     monkeypatch.setattr(demo, "PM_MECH_QUALIFICATION_PATH", str(mech))
     assert demo._qualified_families() == {"cand:iran", "mech:FED_HIKE"}
+
+
+def test_family_routing_and_permanent_exclusion_are_separate_rules():
+    """两条规则不可揉成一条（M18.3 曾揉成一条，部分重合与重放的族漏进新族）。
+
+    永久排除：与前身重放**且**前身被检验过 —— 重复消耗预算。
+    账户路由：只有 distinct_object 进新族的账，其余属旧族账户。
+    """
+    from arad.harness.pm_menu import MECHANISM_ADMITS, mechanism_rows
+
+    manifest = _families_manifest("NEW", "PARTIAL", "REPLAY_TESTED", "REPLAY_UNTESTED")
+    overlaps = {"mechanism_vs_lexical_predecessor": {
+        "NEW": {"verdict": "distinct_object", "lexical_predecessor": "cand:a"},
+        "PARTIAL": {"verdict": "partially_overlapping", "lexical_predecessor": "cand:b"},
+        "REPLAY_TESTED": {"verdict": "replay_of_predecessor",
+                          "lexical_predecessor": "cand:tested"},
+        "REPLAY_UNTESTED": {"verdict": "replay_of_predecessor",
+                            "lexical_predecessor": "cand:fresh"},
+    }}
+    qual = _qualification("mech:NEW", "mech:PARTIAL",
+                          "mech:REPLAY_TESTED", "mech:REPLAY_UNTESTED")
+    tested = frozenset({"cand:tested"})
+
+    new_family = mechanism_rows(
+        qualification=qual, families_manifest=manifest, overlap_manifest=overlaps,
+        admit=frozenset({"distinct_object"}), tested_predecessors=tested)
+    assert [r["family_id"] for r in new_family] == ["mech:NEW"]
+
+    old_family = mechanism_rows(
+        qualification=qual, families_manifest=manifest, overlap_manifest=overlaps,
+        admit=MECHANISM_ADMITS, tested_predecessors=tested)
+    got = {r["family_id"] for r in old_family}
+    assert "mech:PARTIAL" in got            # 部分重合属旧族账户
+    assert "mech:REPLAY_TESTED" not in got  # 前身测过，永久排除
+    assert "mech:NEW" in got
+
+
+def test_universe_menu_states_the_consequence_not_only_the_mechanism():
+    """只说「品种维退化」不够：要说清它使 candidate 失效这个后果。"""
+    from arad.harness.demo import universe_menu
+
+    menu = universe_menu()
+    single = next(u for u in menu if u["universe"].endswith("_dominant_t1"))
+    panel = next(u for u in menu if u["universe"] == "full_coverage_panel")
+    assert "candidate" in single["note"]
+    assert "candidate" in panel["note"]
+
+
+def test_shipped_skill_carries_the_prescreen_lesson_and_stays_gated():
+    """事前功效筛属机械失败，可以入方法说明；入了仍须过闸门。"""
+    skill = load_skill("arad-proposer")
+    assert skill.version >= 2
+    assert "事前功效筛" in skill.body
+    assert "defined_share_on_decision_grid" in skill.body

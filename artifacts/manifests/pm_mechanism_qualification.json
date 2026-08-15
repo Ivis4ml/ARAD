@@ -8,7 +8,7 @@
     "min_notional_usdc": 50000.0,
     "note": "与 qualify-v1 同样的四道阈值，统计窗口限定在 discovery 段。限定窗口是必要的：族在 2025-26 年的活跃度不能替它在 discovery 段的可求值性作保。"
   },
-  "built_at": "2026-08-15T06:40:34.857479+00:00",
+  "built_at": "2026-08-15T14:56:12.408564+00:00",
   "families": {
     "mech:FED_DECISION": {
       "buckets": 1639,
@@ -16,7 +16,11 @@
       "from": "2022-12-27T19:00:00+00:00",
       "to": "2024-09-18T21:00:00+00:00",
       "notional": 756339.988547,
-      "mean_unresolved": 0.10320052133245382
+      "mean_unresolved": 0.10320052133245382,
+      "defined_share_p": 0.2481,
+      "defined_share_dp": 0.2058,
+      "decision_points": 1040,
+      "coverage_window_seconds": 21600
     },
     "mech:FED_HIKE": {
       "buckets": 6322,
@@ -24,7 +28,11 @@
       "from": "2023-02-22T16:00:00+00:00",
       "to": "2024-12-31T19:00:00+00:00",
       "notional": 19546130.665128,
-      "mean_unresolved": 0.1150707818603999
+      "mean_unresolved": 0.1150707818603999,
+      "defined_share_p": 0.6365,
+      "defined_share_dp": 0.5317,
+      "decision_points": 1040,
+      "coverage_window_seconds": 21600
     },
     "mech:HOUTHI_ATTACKS": {
       "buckets": 1244,
@@ -32,7 +40,11 @@
       "from": "2023-11-28T23:00:00+00:00",
       "to": "2024-11-10T09:00:00+00:00",
       "notional": 281993.60402800003,
-      "mean_unresolved": 0.14612114295567505
+      "mean_unresolved": 0.14612114295567505,
+      "defined_share_p": 0.1173,
+      "defined_share_dp": 0.1125,
+      "decision_points": 1040,
+      "coverage_window_seconds": 21600
     },
     "mech:HURRICANE_LANDFALL": {
       "buckets": 685,
@@ -40,7 +52,11 @@
       "from": "2023-07-14T15:00:00+00:00",
       "to": "2024-11-05T07:00:00+00:00",
       "notional": 119566.959462,
-      "mean_unresolved": 0.0858897606522526
+      "mean_unresolved": 0.0858897606522526,
+      "defined_share_p": 0.0952,
+      "defined_share_dp": 0.0779,
+      "decision_points": 1040,
+      "coverage_window_seconds": 21600
     },
     "mech:ISR_IRAN": {
       "buckets": 4488,
@@ -48,7 +64,11 @@
       "from": "2023-10-12T21:00:00+00:00",
       "to": "2024-12-31T23:00:00+00:00",
       "notional": 18992256.857854,
-      "mean_unresolved": 0.12662604110584652
+      "mean_unresolved": 0.12662604110584652,
+      "defined_share_p": 0.3394,
+      "defined_share_dp": 0.3115,
+      "decision_points": 1040,
+      "coverage_window_seconds": 21600
     },
     "mech:RU_UA_CEASEFIRE": {
       "buckets": 5426,
@@ -56,7 +76,11 @@
       "from": "2023-02-20T08:00:00+00:00",
       "to": "2024-12-31T23:00:00+00:00",
       "notional": 16639908.499213,
-      "mean_unresolved": 0.15191642575928604
+      "mean_unresolved": 0.15191642575928604,
+      "defined_share_p": 0.5308,
+      "defined_share_dp": 0.4433,
+      "decision_points": 1040,
+      "coverage_window_seconds": 21600
     },
     "mech:US_INFLATION_MONTHLY": {
       "buckets": 1347,
@@ -64,7 +88,11 @@
       "from": "2022-12-12T20:00:00+00:00",
       "to": "2024-11-13T15:00:00+00:00",
       "notional": 335088.22824100003,
-      "mean_unresolved": 0.16894660670002798
+      "mean_unresolved": 0.16894660670002798,
+      "defined_share_p": 0.1567,
+      "defined_share_dp": 0.1231,
+      "decision_points": 1040,
+      "coverage_window_seconds": 21600
     },
     "mech:US_SHUTDOWN": {
       "buckets": 1468,
@@ -72,7 +100,11 @@
       "from": "2023-09-12T22:00:00+00:00",
       "to": "2024-12-25T01:00:00+00:00",
       "notional": 32635151.143405996,
-      "mean_unresolved": 0.12791265332737087
+      "mean_unresolved": 0.12791265332737087,
+      "defined_share_p": 0.1894,
+      "defined_share_dp": 0.1779,
+      "decision_points": 1040,
+      "coverage_window_seconds": 21600
     }
   },
   "qualified": [

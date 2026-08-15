@@ -628,7 +628,9 @@ def universe_menu() -> list[dict]:
         ),
         "note": (
             "唯一能做截面推断的形态：截面统计量要求同一时点上有多个可排序标的。"
-            "双向 cluster 的品种维在这里才有内容 —— 单品种下它恒为一组并退化"
+            "双向 cluster 的品种维在这里才有内容 —— 单品种下它恒为一组并退化。"
+            "**也是唯一能取到 candidate 的形态**：品种维退化会发出"
+            "cluster_structure_insufficient，按失效表该理由使 candidate 失效"
         ),
     }]
     out += [{
@@ -636,7 +638,14 @@ def universe_menu() -> list[dict]:
         "products": 1,
         "members": [p],
         "membership_rule": "单品种主力视图",
-        "note": "截面统计量无定义；双向 cluster 的品种维退化为一组",
+        "note": (
+            "截面统计量无定义；双向 cluster 的品种维退化为一组。"
+            "**后果**：该退化使 candidate 失效（不使 null 失效），"
+            "因此单品种检验的最好结局是 null 或 blocked，取不到 candidate。"
+            "全史实测 122 条单品种 Study 中 118 条带此阻断。"
+            "要检验一条机制是否值得成为候选，须用面板；"
+            "单品种适合的是机制对某个具体品种是否成立这类问题，产出为带排除界的否定"
+        ),
     } for p in built]
     return out
 

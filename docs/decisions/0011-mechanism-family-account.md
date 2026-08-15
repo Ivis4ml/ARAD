@@ -185,3 +185,50 @@ universe 菜单已经说明「双向 cluster 的品种维退化为一组」，�
 run28 已按更正前的规则启动，因此本轮菜单仍不含 US_SHUTDOWN。
 不中途改菜单是为了避免两次运行都自称 menu-v3 而内容不同；
 该轴的检验推到下一轮，在旧族账户下进行。
+
+## 七、四项改进的实施（2026-08-15，run28 之后）
+
+run28 暴露的四件事已实施，全部有合同测试钉住，自下一轮生效。
+
+**（一）账户路由与永久排除是两条独立规则。**
+§六的更正把它们揉成了一条，后果是路由出错：实测部分重合的 `mech:HOUTHI_ATTACKS`
+与前身未测过的 `mech:US_SHUTDOWN` 都漏进了**新族**菜单，而按 §一它们属旧族账户。
+现分开写：
+
+- **永久排除**（对所有菜单生效）：重放 **且** 前身确曾被检验过。理由是重复消耗预算。
+- **账户路由**（按本次运行的族）：只有 `distinct_object` 满足「回归对象的宇宙构造
+  真的换了」，才有资格进新族的账；其余进旧族账户的菜单。
+
+实测结果：新族菜单五族（FED_HIKE、RU_UA_CEASEFIRE、FED_DECISION、
+US_INFLATION_MONTHLY、HURRICANE_LANDFALL），旧族菜单六族（多 HOUTHI_ATTACKS），
+`mech:ISR_IRAN` 两处都不出现。菜单行新增 `account_note` 写明该族的检验计入哪本账。
+
+**（二）机制族菜单补决策网格覆盖率。**
+`defined_share_on_decision_grid` 给出该族字段在多大比例的决策时点上有定义
+（六小时窗口）。覆盖率与功效属盲化角色允许看到的类别，提前给出可以省下整轮预算 ——
+此前模型要到提案之后才从 `visible_data_range` 得知这条轴撑不撑得起检验。
+
+| 机制族 | p 覆盖 | dp 覆盖 |
+|---|---|---|
+| FED_HIKE | 63.6\% | 53.2\% |
+| RU_UA_CEASEFIRE | 53.1\% | 44.3\% |
+| ISR_IRAN | 33.9\% | 31.1\% |
+| FED_DECISION | 24.8\% | 20.6\% |
+| US_SHUTDOWN | 18.9\% | 17.8\% |
+| US_INFLATION_MONTHLY | 15.7\% | 12.3\% |
+| HOUTHI_ATTACKS | 11.7\% | 11.2\% |
+| HURRICANE_LANDFALL | 9.5\% | 7.8\% |
+
+**（三）universe 菜单补后果说明。**
+此前只写「双向 cluster 的品种维退化为一组」，没写它的后果。现补：该退化使
+candidate 失效（不使 null 失效），因此单品种检验的最好结局是 null 或 blocked；
+面板是唯一能取到 candidate 的形态。这是评价机理，与 `evaluation_mechanics` 同类，
+进盲化上下文合规。
+
+**（四）方法说明升到 v2。**
+新增两条机械失败教训，均发生在读取结果之前，符合 `mechanical_failures_only`：
+其一，事前功效筛是当前最常见的机械失败（run28 二十回合里四次），全部是长窗**电平**
+类构造，一阶自相关实测高至 0.85；说明改用 `dp`、`innovation`、短长窗比值或相邻
+时段差分，长窗水平不得单独作为 `output_step`。其二，选族先看
+`defined_share_on_decision_grid`，低于两成的族多半会因样本不足而无结论。
+内容指纹随之变更，与提案一同冻结。

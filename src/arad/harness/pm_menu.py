@@ -225,17 +225,20 @@ def mechanism_rows(
         row_overlap = overlaps.get(name) or {}
         verdict = row_overlap.get("verdict")
         predecessor = row_overlap.get("lexical_predecessor")
-        # 排除规则原本把「与前身高度重合」直接当成「已经测过」，这两件事不是一回事。
-        # 实测反例：mech:US_SHUTDOWN 与 cand:government 重合 0.883 判重放，
-        # 而 cand:government 在全部历史规格中被引用 0 次 —— 按原规则，
-        # 一条从未被检验过的轴会因为「像一条同样没被检验过的序列」而被永久放弃。
-        # 重放的代价在于重复消耗预算，因此只有当**前身确实被检验过**时才排除。
-        if (verdict is not None and verdict not in admit
-                and predecessor in tested_predecessors):
+
+        # 两条独立的规则，此前被揉成一条，路由因此出错（实测：部分重合与重放的族
+        # 都漏进了新族菜单）。分开写：
+        #
+        # 一、**永久排除**：与前身重放，且前身确曾被检验过。理由是重复消耗预算。
+        #    前身零引用时不适用 —— 那条轴仍是没问过的问题，不该因为「像一条同样
+        #    没被检验过的序列」而放弃。
+        if verdict == "replay_of_predecessor" and predecessor in tested_predecessors:
             continue
+        # 二、**账户路由**：只有 distinct_object 满足「回归对象的宇宙构造真的换了」，
+        #    因而才有资格进新族的账；其余（部分重合、前身未测过的重放）属旧族账户，
+        #    在旧族运行的菜单里出现。`admit` 由调用方按本次运行的族传入。
         if verdict is not None and verdict not in admit:
-            row_overlap = {**row_overlap, "admitted_despite_verdict": (
-                "前身从未被检验过，重放不构成重复消耗；该轴仍是未问过的问题")}
+            continue
         stat = stats.get(series_id, {})
         counts = info.get("counts", {})
         rows.append({
@@ -252,6 +255,17 @@ def mechanism_rows(
             "notional_usdc": round(stat.get("notional") or 0.0),
             "buckets": stat.get("buckets"),
             "series_from": (stat.get("from") or "")[:10],
+            # 决策网格覆盖：该族的字段在多大比例的决策时点上有定义。
+            # 覆盖率与功效属盲化角色允许看到的类别；不给出的话，模型要到提案
+            # 之后才从 visible_data_range 得知这条轴的数据撑不撑得起检验。
+            "defined_share_on_decision_grid": {
+                "p": stat.get("defined_share_p"),
+                "dp": stat.get("defined_share_dp"),
+                "window_seconds": stat.get("coverage_window_seconds"),
+                "decision_points": stat.get("decision_points"),
+                "note": ("六小时窗口在 SC 决策网格上的有定义比例。"
+                         "比例低的族即使入选也多半被事前功效筛拦下"),
+            },
             "fields": [f"{series_id}:{k}"
                        for k in ("p", "notional", "trades", "conditions", "dp")],
             "series_note": (
@@ -263,7 +277,9 @@ def mechanism_rows(
                 "predecessor": predecessor,
                 "verdict": verdict,
                 "predecessor_was_tested": predecessor in tested_predecessors,
-                "admitted_despite_verdict": row_overlap.get("admitted_despite_verdict"),
+                "account_note": (
+                    "本族的检验计入机制先验族的账" if verdict == "distinct_object"
+                    else "与词汇前身部分或近似等价，检验计入旧族账户"),
                 "note": "重合度只由 Polymarket 侧序列算出，不含任何期货侧结果",
             },
             "themes": info.get("themes") or [],
