@@ -210,8 +210,8 @@ def arad_search_curve() -> None:
             if not isinstance(t, (int, float)) or math.isnan(t):
                 continue
             # 族归属按运行前缀：B9 时代评价载荷的族标签写死为旧族，不可靠
-            if sid.split("-study-")[0] in ("run23", "run24"):
-                continue          # 事件族另有一张图，n 计数也各自独立
+            if sid.split("-study-")[0] in ("run23", "run24", "run27"):
+                continue          # 事件族与机制族各有自己的账与图，n 计数独立
             sp = specs.get(sid, {})
             if "commodity_bar" in sp.get("srcs", set()) and "pm_market" not in sp.get("srcs", set()):
                 grp = "baseline"
@@ -306,9 +306,64 @@ def event_search_curve() -> None:
     plt.close(fig)
     print("event_search_curve.png 完成")
 
+def mechanism_search_curve() -> None:
+    """机制先验族（决定 0011）的搜索曲线：第三本独立的账。
+
+    与另两条曲线的差别只有一处、但是承重的：这条图上同时画**本族地板**与
+    **合并地板**。分族的统计理由是「地板应当对着实际取过极大值的那个集合」，
+    而它站得住的前提是未分族的那个数字随时可读 —— 只画族地板，
+    分族与「地板不舒服就另开一本账」在图上不可分辨。
+    """
+    import sys as _sys
+
+    _sys.path.insert(0, "src")
+    from arad.evaluation.selection import expected_max_abs_z
+    from arad.memory.ledger import EvidenceLedger, Role
+
+    with EvidenceLedger("data/ledger/service.db") as ledger:
+        events = list(ledger.read_events(role=Role.HUMAN))
+        merged_before = ledger.denominators(None)["statistical_denominator"]
+    pts = []
+    n = 0
+    for e in events:
+        sid = e.get("study_id") or ""
+        if sid.split("-study-")[0] not in ("run27",):
+            continue
+        if e["event_type"] == "outcome_read":
+            n += 1
+        elif e["event_type"] == "evaluation_result":
+            t = (e["payload"].get("effects") or {}).get("t_stat")
+            if isinstance(t, (int, float)) and not math.isnan(t):
+                pts.append((n, abs(t), sid))
+    if not pts:
+        return
+    n_max = max(x for x, *_ in pts)
+    xs = list(range(1, n_max + 1))
+    # 合并账在本族第 k 次检验时的规模：全账当前值减去本族尚未做的部分。
+    base = merged_before - n_max
+    fig, ax = plt.subplots(figsize=(6.4, 2.8), dpi=200)
+    ax.plot(xs, [expected_max_abs_z(k) for k in xs], color=PRICE, lw=1.5, ls="--",
+            label="本族地板（分母从零起）")
+    ax.plot(xs, [expected_max_abs_z(base + k) for k in xs], color="#888888", lw=1.2,
+            ls=":", label="合并地板（三族分母相加）")
+    ax.scatter([x for x, *_ in pts], [t for _, t, _ in pts], s=22, color=SIGNAL,
+               zorder=3, label="机制族构造（每点一条 Study）")
+    ax.set_xlabel("本族已读 outcome 次数 n", fontsize=8)
+    ax.set_ylabel("|t|", fontsize=8)
+    ax.tick_params(labelsize=7)
+    ax.legend(fontsize=6.6, frameon=False, loc="upper left")
+    for spx in ("top", "right"):
+        ax.spines[spx].set_visible(False)
+    fig.tight_layout(pad=0.4)
+    fig.savefig(OUT / "mechanism_search_curve.png")
+    plt.close(fig)
+    print("mechanism_search_curve.png 完成")
+
+
 
 if __name__ == "__main__":
     main()
     hillclimb_baseline()
     arad_search_curve()
     event_search_curve()
+    mechanism_search_curve()

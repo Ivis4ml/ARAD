@@ -505,11 +505,21 @@ class LazyPMSeries(dict):
 
 
 def _qualified_families() -> set[str]:
-    try:
-        doc = json.loads(Path(PM_QUALIFICATION_PATH).read_text(encoding="utf-8"))
-    except OSError:
-        return set()
-    return set(doc.get("qualified", []))
+    """惰性装载的准入名单：**词汇族与机制族的并集**。
+
+    只读词汇族那一份是 M17.1 的实测缺陷：菜单已经把 `mech:` 族列出来了，
+    解释器却因为它们不在准入名单里而拒绝装载序列，规格一律判 blocked
+    （run27 前三版即如此，理由都是「没有为 (pm_market, 'mech:X:dp') 提供数据序列」）。
+    菜单与准入必须同源，否则模型看得见、系统求不出。
+    """
+    out: set[str] = set()
+    for path in (PM_QUALIFICATION_PATH, PM_MECH_QUALIFICATION_PATH):
+        try:
+            doc = json.loads(Path(path).read_text(encoding="utf-8"))
+        except OSError:
+            continue
+        out |= set(doc.get("qualified", []))
+    return out
 
 
 def _load_pm_series(path: str) -> dict:

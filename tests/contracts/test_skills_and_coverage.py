@@ -219,3 +219,21 @@ def test_family_floors_report_both_accounts(tmp_path):
     assert floors["all_families_tests"] == 4
     # 合并地板必须高于族地板：它对着更大的极大值集合
     assert floors["merged_floor"] > floors["family_floor"]
+
+
+def test_qualified_set_covers_both_family_layers(monkeypatch, tmp_path):
+    """菜单与准入必须同源：菜单列出 mech: 族而准入名单没有，规格会一律判 blocked。
+
+    run27 前三版实测即此形态，理由都是「没有为 (pm_market, 'mech:X:dp') 提供数据序列」。
+    """
+    import json
+
+    from arad.harness import demo
+
+    lex = tmp_path / "lex.json"
+    mech = tmp_path / "mech.json"
+    lex.write_text(json.dumps({"qualified": ["cand:iran"]}), encoding="utf-8")
+    mech.write_text(json.dumps({"qualified": ["mech:FED_HIKE"]}), encoding="utf-8")
+    monkeypatch.setattr(demo, "PM_QUALIFICATION_PATH", str(lex))
+    monkeypatch.setattr(demo, "PM_MECH_QUALIFICATION_PATH", str(mech))
+    assert demo._qualified_families() == {"cand:iran", "mech:FED_HIKE"}

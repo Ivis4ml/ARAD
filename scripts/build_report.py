@@ -33,12 +33,18 @@ FAMILY = "demo_sc_price_volume"
 RUN_ORDER = ["auto", "run3", "run4", "run5", "run6", "run7", "run8", "run9",
              "run10", "run11", "run12", "run13", "run14", "run15", "run16", "run17",
              "run18", "run19", "run20", "run21", "run22", "run23", "run24",
-             "run25", "run26"]
+             "run25", "run26", "run27"]
 
 #: 事件条件族（决定 0008）的运行。族归属按运行前缀判定 —— B9 时代的评价载荷
 #: 曾把族标签写错，运行前缀才是可靠索引。
 EVENT_RUNS = frozenset({"run23", "run24"})
 EVENT_FAMILY = "sc_event_conditional_v1"
+
+#: 机制先验族（决定 0011）的运行。第三本账：成员按机制与极性定义，
+#: 分母从零起，正当性由五条约束买下（重合度已证、花名册闭合、预算预注册、
+#: 双地板并印、跨族双计）。族归属同样按运行前缀判定。
+MECH_RUNS = frozenset({"run27"})
+MECH_FAMILY = "sc_mechanism_prior_v1"
 
 #: 每次运行的叙述。这些是**只有人才知道的因果**（为什么停、修了什么），
 #: 账本里只有事件，没有故事。数字一律不写在这里，全部由快照渲染。
@@ -295,12 +301,22 @@ def collect() -> dict:
 
     with EvidenceLedger("data/ledger/service.db") as ledger2:
         event_denominators = ledger2.denominators(EVENT_FAMILY)
+        mech_denominators = ledger2.denominators(MECH_FAMILY)
+        merged_denominators = ledger2.denominators(None)
     n = denominators["statistical_denominator"]
     ne = event_denominators["statistical_denominator"]
+    nm = mech_denominators["statistical_denominator"]
+    nall = merged_denominators["statistical_denominator"]
     last = events[-1] if events else {}
     return {
         "denominators": denominators,
         "event_denominators": event_denominators,
+        # 第三本账与合并账（决定 0011 的约束四）：分族的正当性以合并数字
+        # 随时可读为前提，因此报告与卡片一样并列印出。
+        "mech_denominators": mech_denominators,
+        "mech_floor": expected_max_abs_z(nm) if nm else None,
+        "merged_denominators": merged_denominators,
+        "merged_floor": expected_max_abs_z(nall) if nall else None,
         "event_floor": expected_max_abs_z(ne) if ne else None,
         "event_floor_curve": [(k, expected_max_abs_z(k))
                               for k in (1, 5, 10, 20, ne) if ne and k <= ne],
