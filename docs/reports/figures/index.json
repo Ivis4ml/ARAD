@@ -1078,5 +1078,95 @@
   "feature_id": "pm_and_macro_arrival_concentration_max_hour_share_evt_resid_own_rv_1d_90d_sc",
   "defined_points": 675,
   "total_points": 1040
+ },
+ "run26-study-0": {
+  "file": "run26-study-0.png",
+  "feature_id": "pm_iran_arrival_innov_resid_brent_and_own_rv_12h_30d_90d_sc_absorb",
+  "defined_points": 469,
+  "total_points": 1040
+ },
+ "run26-study-1": {
+  "file": "run26-study-1.png",
+  "feature_id": "pm_iran_closed_arrival_share_of_day_resid_brent_and_own_rv_6h_over_1d_90d_sc_absorb",
+  "defined_points": 434,
+  "total_points": 1040
+ },
+ "run26-study-2": {
+  "file": "run26-study-2.png",
+  "feature_id": "pm_iran_closed_arrival_concentration_max_hour_share_resid_brent_and_own_rv_6h_off6h_90d_sc_absorb",
+  "defined_points": 434,
+  "total_points": 1040
+ },
+ "run26-study-3": {
+  "file": "run26-study-3.png",
+  "feature_id": "pm_iran_closed_ticket_premium_over_30d_resid_brent_and_own_rv_6h_off6h_90d_sc_absorb_evt",
+  "defined_points": 434,
+  "total_points": 1040
+ },
+ "run26-study-4": {
+  "file": "run26-study-4.png",
+  "feature_id": "pm_announce_credit_hazard_dev_12h_vs_prior_7d_resid_brent_and_own_rv_90d_sc",
+  "defined_points": 500,
+  "total_points": 1040
+ },
+ "run26-study-5": {
+  "file": "run26-study-5.png",
+  "feature_id": "pm_another_seizure_disp_evt_resid_brent_and_own_rv_6h_halves_90d_sc",
+  "defined_points": 177,
+  "total_points": 1040
+ },
+ "run26-study-6": {
+  "file": "run26-study-6.png",
+  "feature_id": "pm_iran_belief_revision_persistence_prod_dod_resid_brent_1d_30d_90d_sc",
+  "defined_points": 386,
+  "total_points": 1040
+ },
+ "run26-study-7": {
+  "file": "run26-study-7.png",
+  "feature_id": "pm_iran_closed_belief_motion_per_arrival_resid_brent_and_own_rv_6h_off6h_30d_90d_sc_absorb_evt",
+  "defined_points": 434,
+  "total_points": 1040
+ },
+ "run26-study-8": {
+  "file": "run26-study-8.png",
+  "feature_id": "pm_iran_terminal_belief_increment_across_decisions_resid_brent_and_own_rv_12h_90d_sc",
+  "defined_points": 440,
+  "total_points": 1040
+ },
+ "run26-study-10": {
+  "file": "run26-study-10.png",
+  "feature_id": "pm_iran_revision_resolution_sq_monotonicity_resid_brent_and_own_rv_12h_90d_sc_evt",
+  "defined_points": 368,
+  "total_points": 1040
+ },
+ "run26-study-11": {
+  "file": "run26-study-11.png",
+  "feature_id": "pm_russia_closed_window_belief_range_over_churn_resid_brent_and_own_rv_6h_off6h_30d_90d_sc_absorb",
+  "defined_points": 557,
+  "total_points": 1040
+ },
+ "run26-study-12": {
+  "file": "run26-study-12.png",
+  "feature_id": "pm_iran_closed_arrival_growth_dow_matched_resid_brent_and_own_rv_6h_off6h_90d_sc_absorb",
+  "defined_points": 332,
+  "total_points": 1040
+ },
+ "run26-study-13": {
+  "file": "run26-study-13.png",
+  "feature_id": "pm_iran_over_a_terminal_arrival_multiplier_resid_brent_and_own_rv_6h_30d_90d_sc_absorb",
+  "defined_points": 363,
+  "total_points": 1040
+ },
+ "run26-study-14": {
+  "file": "run26-study-14.png",
+  "feature_id": "pm_iran_terminal_arrival_share_3h_over_6h_resid_brent_and_own_rv_90d_sc_absorb",
+  "defined_points": 319,
+  "total_points": 1040
+ },
+ "run26-study-16": {
+  "file": "run26-study-16.png",
+  "feature_id": "pm_iran_belief_churn_recency_12h_over_1d_resid_brent_and_own_rv_90d_sc_absorb",
+  "defined_points": 432,
+  "total_points": 1040
  }
 }
