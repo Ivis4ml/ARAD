@@ -33,8 +33,10 @@
 
 **买下正当性的五条约束**（Fable 裁断：缺一即拒；逐条落实状态）：
 
-1. 序列重合度先证族确实不同 —— 已做（`pm_family_series_overlap.json`，
-   判据在构成受控量与决策网格上，阈值取自参照分布而非本次结果）。
+1. 序列重合度先证族确实不同 —— 已做（`pm_family_series_overlap.json`）。
+   **裁断所依据的量**是决策网格上的窗口取值（21600 秒窗口、offset 0 的族概率水平），
+   因为那才是特征真正看到的量；同一份 manifest 并列报告小时级的构成受控分量 `dp`
+   与小时级水平 `p` 两个口径，但裁断不取它们。阈值取自参照分布而非本次结果。
 2. 花名册在读任何 outcome 之前以内容哈希闭合 —— 本决定即闭合：
    入册族为重合度判 distinct_object 的五族（FED_HIKE、FED_DECISION、
    US_INFLATION_MONTHLY、RU_UA_CEASEFIRE、HURRICANE_LANDFALL），

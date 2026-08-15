@@ -23,6 +23,7 @@ from build_report import (
     cn,
     collect,
 )
+from report_sections_v9 import all_sections as _v9_sections
 
 from arad.evaluation.selection import expected_max_abs_z
 
@@ -136,6 +137,8 @@ def appendix_figures(D: dict, figs: dict) -> str:
 
 
 def render(D: dict, figs: dict) -> str:
+    # 第九版新增的三节（M16 至 M18），正文在 report_sections_v9.py。
+    V9_SECTIONS = _v9_sections()
     v = D["verdicts"]
     n = D["denominators"]["statistical_denominator"]
     pn = D["denominators"]["proposal_denominator"]
@@ -651,6 +654,7 @@ B6--B9 & 束位先后被基线假象、十行样本、异族成员、错误族�
 \bottomrule\end{tabular}\end{center}
 这张表本身是一条结论的证据：\textbf{对这类系统，最有效的除错器是真实运行}。
 
+""" + V9_SECTIONS + r"""
 \section{一条特征的完整算术：从原始数据到 $t$ 值}\label{sec:worked}
 前一节给出的是定义。本节把\textbf{一个具体的数}算给读者看：取 run16-study-3
 （回溯投影下唯一的完整候选形态，\S\ref{sec:retro}），在一个真实决策时点上把
@@ -1034,7 +1038,7 @@ $0.86$ 休市吸收相关，在七倍规模的样本上没有再现。评审列�
 重锤无果：1{,}646 项检验的最大 $|t|$ 为 3.99、未过当时门槛，且成本后净收益
 为正的组合 0/114。
 
-\section{复现}
+\section{复现}\label{sec:repro}
 \begin{enumerate}\small
 \item 环境：\path{uv venv && uv pip install -e ".[dev]"}；校验
 \path{.venv/bin/python -m pytest tests/ -q}（684 项合同测试）。
@@ -1077,6 +1081,15 @@ $0.86$ 休市吸收相关，在七倍规模的样本上没有再现。评审列�
     tex = tex.replace("{N_NULL}", str(v.get("null", 0)))
     tex = tex.replace("{EVENT_N}", str(ne))
     tex = tex.replace("{EVENT_FLOOR}", f"{ef:.3f}" if ef else "—")
+    # 第三本账与合并账（决定 0011 约束 4：合并口径必须随时可读）
+    nm = D.get("mech_denominators", {}).get("statistical_denominator", 0)
+    mf = D.get("mech_floor")
+    nall = D.get("merged_denominators", {}).get("statistical_denominator", 0)
+    mgf = D.get("merged_floor")
+    tex = tex.replace("{MECH_N}", str(nm))
+    tex = tex.replace("{MECH_FLOOR}", f"{mf:.3f}" if mf else "尚无（分母为零）")
+    tex = tex.replace("{MERGED_N}", str(nall))
+    tex = tex.replace("{MERGED_FLOOR}", f"{mgf:.3f}" if mgf else "—")
     return tex
 
 
