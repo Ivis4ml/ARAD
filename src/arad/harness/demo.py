@@ -423,6 +423,11 @@ def _load_sc(target_path: str, segment: str = SEGMENT) -> tuple[list[dict], dict
 
 
 PM_ALL_SERIES_PATH = "data/pm_series/family_hourly_all.parquet"
+#: 机制族序列（M16）。与词汇族分表：口径相同，只有成员资格与极性不同。
+PM_MECH_SERIES_PATH = "data/pm_series/mechanism_hourly.parquet"
+PM_MECH_QUALIFICATION_PATH = "artifacts/manifests/pm_mechanism_qualification.json"
+PM_MECH_FAMILIES_PATH = "artifacts/manifests/pm_mechanism_families.json"
+PM_SERIES_OVERLAP_PATH = "artifacts/manifests/pm_family_series_overlap.json"
 PM_QUALIFICATION_PATH = "artifacts/manifests/pm_family_qualification.json"
 PM_PRIORS_PATH = "artifacts/manifests/pm_theme_priors.json"
 
@@ -450,24 +455,32 @@ class LazyPMSeries(dict):
         if family in self._attempted or family not in self._qualified:
             return
         self._attempted.add(family)
-        if not os.path.exists(PM_ALL_SERIES_PATH):
+        # 机制族（M16）与词汇族分两张表，按前缀路由。字段也不同：
+        # 机制族多 conditions（当桶活跃成员数）与 dp（构成受控的分桶变化）。
+        mech = family.startswith("mech:")
+        path = PM_MECH_SERIES_PATH if mech else PM_ALL_SERIES_PATH
+        fields = ("p", "notional", "trades", "conditions", "dp") if mech else (
+            "p", "notional", "trades")
+        if not os.path.exists(path):
             return
         table = pq.read_table(
-            PM_ALL_SERIES_PATH,
-            columns=["family_id", "bucket_end", "p", "notional", "trades"],
+            path,
+            columns=["family_id", "bucket_end", *fields],
             filters=[("family_id", "=", family)],
         )
         rows = sorted(table.to_pylist(), key=lambda r: r["bucket_end"])
         if not rows:
             return
-        start = rows[0]["bucket_end"]
-        for f in ("p", "notional", "trades"):
+        for f in fields:
             keep = [(r["bucket_end"], float(r[f])) for r in rows if r[f] is not None]
             if len(keep) < 2:
                 continue
+            # 覆盖起点逐字段取**该字段自己**的首个非空分桶：dp 的首个非空桶必然
+            # 晚于 p（首桶无前一桶），沿用全族起点会让准入检查放行参考窗口
+            # 被截断的决策点。
             dict.__setitem__(self, (Source.PM_MARKET, f"{family}:{f}"), BarSeries(
                 field=f"{family}:{f}", times=[k[0] for k in keep],
-                values=[k[1] for k in keep], coverage_start=start,
+                values=[k[1] for k in keep], coverage_start=keep[0][0],
             ))
 
     def __missing__(self, key):
@@ -829,6 +842,22 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dic
     except OSError:
         qualification, priors, tokens_meta = None, {}, {}
 
+    # 机制族层（M17）。三份产物齐备才上：资格（discovery 段统计）、族定义、
+    # 重合度裁断。缺任何一份就退回只有词汇族的菜单，而不是拿半份数据凑。
+    mechanism_rows_cached: list[dict] = []
+    try:
+        from .pm_menu import mechanism_rows
+        mechanism_rows_cached = mechanism_rows(
+            qualification=json.loads(
+                Path(PM_MECH_QUALIFICATION_PATH).read_text(encoding="utf-8")),
+            families_manifest=json.loads(
+                Path(PM_MECH_FAMILIES_PATH).read_text(encoding="utf-8")),
+            overlap_manifest=json.loads(
+                Path(PM_SERIES_OVERLAP_PATH).read_text(encoding="utf-8")),
+        )
+    except OSError:
+        mechanism_rows_cached = []
+
     def menu_for(task: dict) -> list[dict]:
         if not qualification:
             return legacy_menu
@@ -839,7 +868,8 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dic
         from .pm_menu import build_menu
 
         return build_menu(round_index=round_index, qualification=qualification,
-                          priors=priors, tokens_meta=tokens_meta)
+                          priors=priors, tokens_meta=tokens_meta,
+                          mechanism=mechanism_rows_cached)
 
     def assemble(task: dict):
         menu = menu_for(task)

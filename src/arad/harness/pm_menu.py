@@ -23,7 +23,17 @@ from __future__ import annotations
 import math
 from typing import Any
 
-MENU_RULE_VERSION = "menu-v2"
+MENU_RULE_VERSION = "menu-v3"
+
+#: 机制族层的配额（M17）。机制族（`mech:`，见 data_catalog/pm_mechanism_families）
+#: 按机制与极性定义成员，与词汇族并列而不是取代它 —— 两者是不同的研究对象，
+#: 实测其中两族与各自的词汇前身在决策网格上高度重合（属重放），其余不重合。
+#: 重放的族不进本层：把同一次检验换个名字再问一遍，既浪费预算也污染分母。
+QUOTA_MECHANISM = 6
+
+#: 重合度裁断到菜单资格的映射。判据取自 Polymarket 一侧的序列比较，
+#: 与期货结果无关（见 scripts/measure_series_overlap.py）。
+MECHANISM_ADMITS = frozenset({"distinct_object", "partially_overlapping"})
 
 QUALIFICATION_RULE = {
     "version": "qualify-v1",
@@ -101,12 +111,20 @@ def build_menu(
     quota_top: int = 8,
     quota_prior: int = 4,
     quota_placebo: int = 3,
+    mechanism: list[dict[str, Any]] | None = None,
+    quota_mechanism: int = QUOTA_MECHANISM,
 ) -> list[dict[str, Any]]:
-    """组装一轮的候选族菜单。确定性：同 (round_index, 输入) 得同菜单。"""
+    """组装一轮的候选族菜单。确定性：同 (round_index, 输入) 得同菜单。
+
+    机制族层（M17）先认领名额：它们是本轮唯一带机制叙述的选项，
+    若让成交量排序的头部层先挑，机制族会被词汇族挤掉（先验层与安慰剂层
+    此前正是这样落空的，那次实测形态记在下面）。
+    """
     stats = qualification["families"]
     qualified = [f for f in qualification["qualified"] if f in stats]
+    mech_rows = list(mechanism or [])[:quota_mechanism]
     if not qualified:
-        return []
+        return mech_rows
 
     def entry(fid: str, stratum: str) -> dict:
         meta = tokens_meta.get(fid, {})
@@ -169,7 +187,7 @@ def build_menu(
 
     # 轮换层：对合格名单按 family_id 排序后取确定性切片。步长取剩余名额，
     # 偏移随轮次前进 —— 长期运行中每个合格族都会轮到。
-    remaining = width - len(picked)
+    remaining = width - len(picked) - len(mech_rows)
     if remaining > 0:
         pool = [f for f in sorted(qualified) if f not in seen]
         if pool:
@@ -179,8 +197,64 @@ def build_menu(
                 seen.add(fid)
                 picked.append((fid, "rotation"))
 
-    menu = [entry(fid, stratum) for fid, stratum in picked]
-    return menu
+    return mech_rows + [entry(fid, stratum) for fid, stratum in picked]
+
+
+def mechanism_rows(
+    *,
+    qualification: dict,
+    families_manifest: dict,
+    overlap_manifest: dict | None = None,
+) -> list[dict[str, Any]]:
+    """机制族的菜单行。
+
+    每行带机制叙述与驱动通道（这是它相对词汇族的全部意义：模型能据此形成经济假设
+    而不是从一个词猜内容），带成员构成（正向/反向各几个市场），
+    也带重合度裁断 —— 后者只由 Polymarket 侧序列算出，与期货结果无关。
+    """
+    stats = qualification.get("families", {})
+    qualified = set(qualification.get("qualified", []))
+    overlaps = (overlap_manifest or {}).get("mechanism_vs_lexical_predecessor", {})
+    rows: list[dict[str, Any]] = []
+    for name, info in (families_manifest.get("families") or {}).items():
+        series_id = info.get("series_id") or f"mech:{name}"
+        if series_id not in qualified:
+            continue
+        verdict = (overlaps.get(name) or {}).get("verdict")
+        if verdict is not None and verdict not in MECHANISM_ADMITS:
+            continue
+        stat = stats.get(series_id, {})
+        counts = info.get("counts", {})
+        rows.append({
+            "family_id": series_id,
+            "stratum": "mechanism",
+            "name_cn": info.get("name_cn"),
+            "driver_channel": info.get("driver_channel"),
+            "mechanism_cn": info.get("mechanism_cn"),
+            "members": {
+                "positive": counts.get("member_pos"),
+                "reverse": counts.get("member_neg"),
+                "discovery": (info.get("by_segment") or {}).get("discovery"),
+            },
+            "notional_usdc": round(stat.get("notional") or 0.0),
+            "buckets": stat.get("buckets"),
+            "series_from": (stat.get("from") or "")[:10],
+            "fields": [f"{series_id}:{k}"
+                       for k in ("p", "notional", "trades", "conditions", "dp")],
+            "series_note": (
+                "p 已按机制极性同号化，是「该机制发生」的概率而不是某个具体问题的"
+                "Yes 价；dp 是构成受控的分桶变化（新入族成员不贡献电平跳变）；"
+                "conditions 是当桶活跃成员市场数。p 的电平不可跨时期比较"
+            ),
+            "vs_lexical_predecessor": {
+                "predecessor": (overlaps.get(name) or {}).get("lexical_predecessor"),
+                "verdict": verdict,
+                "note": "重合度只由 Polymarket 侧序列算出，不含任何期货侧结果",
+            },
+            "themes": info.get("themes") or [],
+        })
+    rows.sort(key=lambda r: (-(r["notional_usdc"] or 0), r["family_id"]))
+    return rows
 
 
 def unresolvedness(p_values: list[float]) -> float:

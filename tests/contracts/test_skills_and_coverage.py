@@ -118,3 +118,71 @@ def test_coverage_counts_proposals_and_never_verdicts(tmp_path):
     blob = str(coverage)
     for word in ("null", "verdict", "candidate", "blocked"):
         assert word not in blob
+
+
+# ---------------------------------------------------------------- 机制族进菜单
+
+
+def _qualification(*family_ids):
+    return {
+        "families": {f: {"notional": 1e6, "buckets": 900, "span_days": 400,
+                         "mean_unresolved": 0.1, "from": "2023-01-01T00:00:00"}
+                     for f in family_ids},
+        "qualified": list(family_ids),
+    }
+
+
+def _families_manifest(*names):
+    return {"families": {
+        n: {"series_id": f"mech:{n}", "name_cn": n, "driver_channel": "地缘-冲突",
+            "mechanism_cn": "说明", "counts": {"member_pos": 5, "member_neg": 2},
+            "by_segment": {"discovery": 9}, "themes": []}
+        for n in names
+    }}
+
+
+def test_a_mechanism_family_that_replays_its_predecessor_is_kept_out_of_the_menu():
+    """重合度高的族是同一次检验的重放，不该换个名字再问一遍。"""
+    from arad.harness.pm_menu import mechanism_rows
+
+    rows = mechanism_rows(
+        qualification=_qualification("mech:NEW", "mech:OLD"),
+        families_manifest=_families_manifest("NEW", "OLD"),
+        overlap_manifest={"mechanism_vs_lexical_predecessor": {
+            "NEW": {"verdict": "distinct_object", "lexical_predecessor": "cand:x"},
+            "OLD": {"verdict": "replay_of_predecessor", "lexical_predecessor": "cand:y"},
+        }},
+    )
+    assert [r["family_id"] for r in rows] == ["mech:NEW"]
+
+
+def test_mechanism_rows_claim_slots_before_the_volume_ranked_strata():
+    """先验层与安慰剂层曾因让头部层先挑而配额落空；机制族不重蹈。"""
+    from arad.harness.pm_menu import build_menu
+
+    lexical = _qualification(*[f"cand:{i}" for i in range(20)])
+    mech = mechanism_rows_fixture()
+    menu = build_menu(round_index=0, qualification=lexical, priors=None,
+                      tokens_meta={}, mechanism=mech, width=10)
+    assert [r["family_id"] for r in menu[:2]] == ["mech:A", "mech:B"]
+    assert len(menu) <= 10
+
+
+def mechanism_rows_fixture():
+    from arad.harness.pm_menu import mechanism_rows
+
+    return mechanism_rows(
+        qualification=_qualification("mech:A", "mech:B"),
+        families_manifest=_families_manifest("A", "B"),
+        overlap_manifest={"mechanism_vs_lexical_predecessor": {
+            "A": {"verdict": "distinct_object"},
+            "B": {"verdict": "distinct_object"},
+        }},
+    )
+
+
+def test_mechanism_series_fields_include_the_composition_controlled_change():
+    rows = mechanism_rows_fixture()
+    fields = rows[0]["fields"]
+    assert any(f.endswith(":dp") for f in fields)
+    assert any(f.endswith(":conditions") for f in fields)
