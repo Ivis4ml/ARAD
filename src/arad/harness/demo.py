@@ -859,6 +859,8 @@ def _build_evaluation(sc: dict, rows: list[dict], visible: dict,
             cost_model=_cost_model_for(members),
             interpreter_version=INTERPRETER_VERSION,
             label_is_return=bool(record and record.get("label_is_return")),
+            # 决定 0012：预注册方向必须到达评价机才可能被核对。
+            declared_direction=int(getattr(proposal, "direction", 0) or 0),
             target_name=target_name,
             label_rule=(record or {}).get("label_rule", ""),
             periods_per_year=sc.get("periods_per_year") or 485.3,

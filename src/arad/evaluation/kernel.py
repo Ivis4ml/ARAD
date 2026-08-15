@@ -63,6 +63,11 @@ REASON_INVALIDATES: dict[str, frozenset[str]] = {
     # 「统计上有关系但不足以支付交易成本」仍是一条合法的否定/对照结论。
     "uneconomic_target": frozenset({"candidate"}),
     "cluster_structure_insufficient": frozenset({"candidate"}),
+    # 预注册的方向与实得符号相反：所主张的机制**未被支持**，因此不可为 candidate。
+    # 不使 null 失效：小幅度的反号读数本来就是一条否定。大幅度的反号读数则是
+    # 「有关系，但不是你说的那条」—— 它不能被记成候选，也不能被改写成一条
+    # 事后编出来的相反假设（那是 HARKing），因此归 blocked 并写明缘由。
+    "direction_mismatch": frozenset({"candidate"}),
     # 单点影响是方向感知的：一个点能制造效应，也能遮蔽效应，但两者的判据不同
     "single_point_influence_candidate_only": frozenset({"candidate"}),
     "single_point_influence_both": frozenset({"candidate", "null"}),
@@ -207,6 +212,13 @@ class EvaluationRequest:
     #: 后者问「符号是否指对方向」。
     top_quantile: float = 0.05
     bottom_quantile: float = 0.05
+    #: 提案预注册的方向（+1 / -1；0 或 None 表示未声明）。**它必须到达评价机**：
+    #: 在此之前它在提案锁定之后就再没被任何东西核对过，而每条提案的证否条件里
+    #: 都写着「符号与所述方向相反即本机制不成立」—— 那条判据由模型写下，
+    #: 却从未被执行。实测全史 188 条有方向的 Study 里 103 条符号相反（54.8%），
+    #: 与掷硬币无异，正说明该字段此前不起作用。进 digest：同一批预测配不同的
+    #: 声明方向不是同一次检验。
+    declared_direction: int = 0
     preregistered_exclusions: dict[str, str] = field(default_factory=dict)
     cost_model_declared: bool = False
     #: M5 成本模型（决定 0007）。形态：{"version": str, "round_trip_cost_ret": float}
@@ -250,6 +262,8 @@ class EvaluationRequest:
                 ],
                 "interpreter_version": self.interpreter_version,
                 "label_is_return": self.label_is_return,
+                # 声明方向进 digest：同一批预测配不同的预注册方向不是同一次检验。
+                "declared_direction": self.declared_direction,
                 "target_name": self.target_name,
                 "label_rule": self.label_rule,
                 "position_rule": self.position_rule,
@@ -442,6 +456,18 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
             # 否则每条判决都像在责备提案 —— 实测引起过误读。
             "成本模型未建（系统级，M5）：候选封顶，不影响否定结论",
         ))
+    # 方向核对（决定 0012）。提案预注册了方向，实得符号与之相反时，
+    # 所主张的机制未被支持 —— 这条判据本就写在每份提案自己的证否条件里，
+    # 此前只是没有任何东西执行它。斜率恰为零或方向未声明时不判。
+    if request.declared_direction in (1, -1) and not math.isnan(slope) and slope != 0:
+        realised = 1 if slope > 0 else -1
+        if realised != request.declared_direction:
+            blocked.append((
+                "direction_mismatch",
+                (f"预注册方向为 {request.declared_direction:+d}，实得斜率符号为 "
+                 f"{realised:+d}：所主张的机制未被本次读数支持。"
+                 "反号的读数不得改写为一条事后的相反假设"),
+            ))
     if placebo["placebo_exceed_rate"] > 0.1:
         blocked.append((
             "placebo_failed",
