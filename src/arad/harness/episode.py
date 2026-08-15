@@ -262,7 +262,8 @@ def run_round(
     record_context(ledger, bundle, study_id)
 
     request = ProviderRequest(
-        role=Role.PROPOSER, prompt=bundle.prompt, schema_name="ProposalOutput"
+        role=Role.PROPOSER, prompt=bundle.prompt, schema_name="ProposalOutput",
+        system_prompt=bundle.system_prompt,
     )
     try:
         parsed, failure, responses = invoke_structured(

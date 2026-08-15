@@ -16,13 +16,41 @@ from dataclasses import dataclass, field
 
 from .base import ProviderError, ProviderRequest, ProviderResponse
 
+#: 研究员进程必须被拒绝的工具。**这是 M17 修的那个洞**：实测 2026-08-15，
+#: 本机默认的 `claude -p` 给研究员 Bash、Read、Write、Edit、Task、WebSearch
+#: 与全部 MCP 服务器（Gmail、Notion、Slack…），工作目录就是仓库根。
+#: 也就是说，盲化角色在原理上可以自己去读 `data/ledger/service.db` 把全部判决
+#: 与 t 值取回来 —— 盲化断言扫的是 prompt 文本，管不到模型自己取的东西。
+#: 过去的调用是否真的用过工具无法追认（provider 当时不记 num_turns 与 tool_use），
+#: 只能如实说：能力一直在，且未被记录。
+DENIED_TOOLS: tuple[str, ...] = (
+    "Bash", "BashOutput", "KillShell", "Read", "Write", "Edit", "NotebookEdit",
+    "Glob", "Grep", "Task", "WebFetch", "WebSearch", "Workflow", "ToolSearch",
+    "Skill", "SlashCommand", "SendMessage", "Monitor", "ListAgents",
+    "CronCreate", "CronDelete", "CronList", "DesignSync",
+    "EnterWorktree", "ExitWorktree", "PushNotification", "RemoteTrigger",
+    "ReportFindings", "ScheduleWakeup", "ListMcpResourcesTool",
+    "ReadMcpResourceTool", "ReadMcpResourceDirTool",
+    "TaskCreate", "TaskGet", "TaskList", "TaskOutput", "TaskStop", "TaskUpdate",
+)
+
 #: 默认命令模板。`{model}` 由 `model_id` 填充；prompt 走 stdin，不进命令行，
 #: 避免超长 prompt 触发参数长度限制，也避免 prompt 出现在进程列表里。
 #: stream-json 让输出**逐段到达**：单次调用 3 至 8 分钟，等待期间一个字都看不到
 #: 是实测里最难受的一段 —— 现在把在途文本落到 INFLIGHT_PATH，app 实时展示。
+#:
+#: 四个封闭参数（实测逐一核对过 init 事件的回报）：
+#:   --disallowed-tools     工具一个不给（清单见 DENIED_TOOLS）
+#:   --strict-mcp-config    不加载任何 MCP 服务器
+#:   --disable-slash-commands  不加载任何 skill（方法说明走 system_prompt，经闸门）
+#:   --setting-sources ""   不读用户级或项目级设置与 CLAUDE.md
+#: 最后一条同样要紧：在此之前，用户级 CLAUDE.md 会被读进研究员上下文，
+#: 那是一条从未进过账本、也从未过盲化闸门的通道。
 DEFAULT_ARGS: tuple[str, ...] = (
     "-p", "--model", "{model}",
     "--output-format", "stream-json", "--include-partial-messages", "--verbose",
+    "--strict-mcp-config", "--disable-slash-commands", "--setting-sources", "",
+    "--disallowed-tools", *DENIED_TOOLS,
 )
 
 #: 在途输出文件。**给人看的观察窗**，不是数据通道：最终解析仍以进程完整输出为准，
@@ -40,10 +68,16 @@ class ClaudeCliProvider:
     timeout_seconds: int = 900
     env: dict[str, str] | None = None
     dry_run: bool = False
+    #: 封闭模式：CLI 回报任何工具、MCP 服务器或 skill 即中止。
+    #: 关掉它需要写明理由 —— 关掉之后 prompt 层的盲化闸门就不再是完整的边界。
+    require_hermetic: bool = True
     calls: list[ProviderRequest] = field(default_factory=list)
 
-    def command(self) -> list[str]:
-        return [self.executable, *(a.format(model=self.model_id) for a in self.extra_args)]
+    def command(self, system_prompt: str = "") -> list[str]:
+        args = [a.format(model=self.model_id) for a in self.extra_args]
+        if system_prompt:
+            args += ["--append-system-prompt", system_prompt]
+        return [self.executable, *args]
 
     def available(self) -> bool:
         return shutil.which(self.executable) is not None
@@ -61,18 +95,18 @@ class ClaudeCliProvider:
             )
         if not self.available():
             raise ProviderError(f"找不到可执行文件 {self.executable!r}")
-        raw_text, meta = self._run_streaming(request.prompt)
+        raw_text, meta = self._run_streaming(request.prompt, request.system_prompt)
         return ProviderResponse(
             request_id=request.request_id,
             role=request.role,
             raw_text=raw_text,
             model_id=self.model_id,
             output_tokens=len(raw_text) // 4,
-            meta={"command": self.command(), **meta},
+            meta={"command": self.command(request.system_prompt), **meta},
         )
 
 
-    def _run_streaming(self, prompt: str) -> tuple[str, dict]:
+    def _run_streaming(self, prompt: str, system_prompt: str = "") -> tuple[str, dict]:
         """跑子进程并把文本增量落到 INFLIGHT_PATH。
 
         stream-json 每行一个事件；文本增量在 content_block_delta 的 text_delta 里，
@@ -93,13 +127,16 @@ class ClaudeCliProvider:
         # 下一次 195 秒零字节。pty 让它以为在跟终端说话，恢复行刷新。
         master, slave = _pty.openpty()
         proc = subprocess.Popen(
-            self.command(), stdin=subprocess.PIPE, stdout=slave,
+            self.command(system_prompt), stdin=subprocess.PIPE, stdout=slave,
             stderr=subprocess.PIPE, text=False, env=self.env,
         )
         _os.close(slave)
         deadline = time.monotonic() + self.timeout_seconds
         pieces: list[str] = []
         result_text: str | None = None
+        init_report: dict = {}
+        tool_uses: list[str] = []
+        num_turns: int | None = None
 
         def _lines():
             import select as _select
@@ -150,7 +187,34 @@ class ClaudeCliProvider:
                         event = _json.loads(line)
                     except ValueError:
                         continue
-                    if event.get("type") == "stream_event":
+                    if event.get("type") == "system" and event.get("subtype") == "init":
+                        # CLI 自己回报这次会话拿到了什么。用它的回报做断言，
+                        # 比维护一张拒绝清单可靠：将来 CLI 新增工具时，
+                        # 清单会过期（实测 Glob/Grep 就是在拒了别的之后才冒出来的），
+                        # 而这条断言不会。
+                        offered = list(event.get("tools") or [])
+                        servers = list(event.get("mcp_servers") or [])
+                        skills = list(event.get("skills") or [])
+                        commands = list(event.get("slash_commands") or [])
+                        init_report = {
+                            "tools_offered": offered, "mcp_servers": servers,
+                            "skills": skills, "slash_commands": commands,
+                            "cli_version": event.get("claude_code_version"),
+                        }
+                        if self.require_hermetic and (
+                                offered or servers or skills or commands):
+                            proc.kill()
+                            raise ProviderError(
+                                "研究员进程不是封闭的：CLI 回报 "
+                                f"tools={offered[:6]} mcp={servers[:3]} "
+                                f"skills={skills[:3]} commands={commands[:3]}。"
+                                "盲化角色若能自己取数，prompt 层的闸门就没有意义，"
+                                "调用已中止"
+                            )
+                    elif event.get("type") == "stream_event":
+                        block = (event.get("event") or {}).get("content_block") or {}
+                        if block.get("type") == "tool_use":
+                            tool_uses.append(block.get("name") or "?")
                         delta = (event.get("event") or {}).get("delta") or {}
                         # 思考与正文都进观察窗：推理主体在 thinking_delta 里，
                         # 只捕 text_delta 会在扩展思考阶段显示 0 字
@@ -167,6 +231,7 @@ class ClaudeCliProvider:
                             sink.flush()
                     elif event.get("type") == "result":
                         result_text = event.get("result")
+                        num_turns = event.get("num_turns")
             proc.wait(timeout=30)
         finally:
             with contextlib_suppress():
@@ -179,7 +244,21 @@ class ClaudeCliProvider:
         text = result_text if result_text is not None else "".join(pieces)
         if not text.strip():
             raise ProviderError(f"{self.executable} 返回空输出")
-        return text, {"streamed_chars": sum(len(x) for x in pieces)}
+        # num_turns 与 tool_uses 进证据：一次调用若不止一轮，说明模型自己取过东西，
+        # 那是盲化事件而不是实现细节。此前 provider 两者都不记，
+        # 因此历史调用是否用过工具已经无法追认。
+        meta = {
+            "streamed_chars": sum(len(x) for x in pieces),
+            "num_turns": num_turns,
+            "tool_uses": tool_uses,
+            **init_report,
+        }
+        if self.require_hermetic and tool_uses:
+            raise ProviderError(
+                f"研究员进程调用了工具 {sorted(set(tool_uses))}；"
+                "封闭模式下不应发生，本次响应不作数"
+            )
+        return text, meta
 
 
 from contextlib import suppress as _suppress

@@ -45,7 +45,11 @@ def ok_json() -> str:
 def test_request_cannot_carry_a_session_or_history():
     """上下文不可跨角色携带：请求对象里根本没有会话与历史字段。"""
     fields = set(ProviderRequest.__dataclass_fields__)
-    assert fields == {"role", "prompt", "schema_name", "max_output_tokens"}
+    # system_prompt 是模型能看到的第二段文本。它必须是**本对象的字段**，
+    # 才会同时进盲化闸门与 request_id 的内容寻址；走命令行参数或工作目录里的
+    # 某个文件都等于绕过这两者（M17）。
+    assert fields == {"role", "prompt", "schema_name", "max_output_tokens",
+                      "system_prompt"}
     for forbidden in ("session_id", "conversation_id", "history", "messages", "thread"):
         assert forbidden not in fields
 

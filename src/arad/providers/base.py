@@ -110,12 +110,19 @@ class EpisodeBudget:
 
 @dataclass(frozen=True)
 class ProviderRequest:
-    """一次调用。**没有会话 id、没有历史消息** —— 上下文不可跨角色携带。"""
+    """一次调用。**没有会话 id、没有历史消息** —— 上下文不可跨角色携带。
+
+    `system_prompt` 是模型能看到的第二段文本（方法说明与输出契约）。它必须是本对象的
+    字段，而不是 provider 的命令行参数或工作目录里的某个文件：盲化检查扫的是本对象，
+    `request_id` 内容寻址的也是本对象。凡是绕过这两者进入模型上下文的通道，
+    审计上等于不存在 —— 这正是 M16 记下的那类缺陷，只是更彻底（内容根本到不了闸门）。
+    """
 
     role: Role
     prompt: str
     schema_name: str
     max_output_tokens: int = 8000
+    system_prompt: str = ""
 
     @property
     def request_id(self) -> str:
@@ -123,6 +130,7 @@ class ProviderRequest:
             {
                 "role": self.role.value,
                 "prompt": self.prompt,
+                "system_prompt": self.system_prompt,
                 "schema_name": self.schema_name,
                 "provider_version": PROVIDER_VERSION,
             }
@@ -226,8 +234,12 @@ def invoke_structured(
             prompt=prompt,
             schema_name=request.schema_name,
             max_output_tokens=request.max_output_tokens,
+            system_prompt=request.system_prompt,
         )
+        # 两段文本都要过闸门。修复重试只改 prompt，system_prompt 逐次不变，
+        # 但仍每次检查：漏检一次的代价是一次不可撤回的泄漏。
         assert_blinded(attempt_request.prompt, attempt_request.role)
+        assert_blinded(attempt_request.system_prompt, attempt_request.role)
         budget.spend()
         response = provider.invoke(attempt_request)
         responses.append(response)

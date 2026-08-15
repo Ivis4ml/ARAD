@@ -55,6 +55,16 @@ from ..registry.specs import TaxonomyContamination
 from ..temporal.targets import TARGET_SPECS, specs_for
 
 
+def _proposer_skill():
+    """装载提案器的方法说明。文件缺失或不合规时返回 None 而不是崩掉一整轮 ——
+    但缺失会体现在账本里（context_assembled 的 skill 字段为空）。"""
+    from .skills import SkillError, load_skill
+    try:
+        return load_skill("arad-proposer")
+    except SkillError:
+        return None
+
+
 class UnknownTarget(RuntimeError):
     """提案声明的 target 没有已物化的目标表。"""
 
@@ -770,8 +780,15 @@ def _build_evaluation(sc: dict, rows: list[dict], visible: dict,
             eval_rows, trig_excluded = _apply_event_trigger(
                 eval_rows, sc["series"], trigger)
             exclusions = {**exclusions, **trig_excluded}
+        # 目标按**后缀**解析，因此在非 sc 的 universe 上，声明的
+        # `sc_ret_next_session` 实际用的是该品种自己的那张表。只记声明名会让账本
+        # 说一句假话（实测 27 条非 sc 的 Study 全部记着 sc 的目标名），
+        # 因此声明名与逐品种实解名并列记录。
+        resolved_targets = sorted({f"{p}_{suffix}" for p in members})
         detail = {**visible, "feature_coverage": coverage,
-                  "evaluated_target": target_name}
+                  "evaluated_target": target_name,
+                  "declared_target": target_name,
+                  "resolved_targets": resolved_targets}
         if len(eval_rows) < 3:
             return None, {}, detail
         request = EvaluationRequest(
@@ -864,6 +881,9 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dic
             # 累积的语义错配码。任务载荷是唯一对所有 provider 都成立的通路：
             # provider 属性那条路只有确定性变异器走得通
             learned_mismatches=tuple(task["payload"].get("learned_mismatches") or ()),
+            # 方法说明（M17）。显式装载、过闸门、内容指纹进账本 ——
+            # 不用 CLI 的 skill 自动发现：那条通道账本看不见，闸门也扫不到。
+            skill=_proposer_skill(),
         )
 
     return assemble

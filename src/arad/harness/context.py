@@ -28,6 +28,7 @@ from ..memory.ledger import Role as LedgerRole
 from ..providers.base import Role, assert_blinded
 from ..registry.specs import content_id
 from .audit import SEMANTIC_MISMATCH_TAXONOMY
+from .coverage import coverage_menu, search_coverage
 
 CONTEXT_VERSION = "0.1.0"
 
@@ -52,6 +53,10 @@ class ContextBundle:
     facts: dict[str, Any]
     prompt: str
     declared_biases: list[DeclaredBias] = field(default_factory=list)
+    #: 方法说明（skill）的渲染文本与它的身份。它与 prompt 一样进模型上下文，
+    #: 因此一样进内容寻址：同一段 prompt 配不同版本的方法说明不是同一次调用。
+    system_prompt: str = ""
+    skill: dict[str, Any] | None = None
 
     @property
     def context_id(self) -> str:
@@ -59,6 +64,7 @@ class ContextBundle:
             {
                 "role": self.role.value,
                 "facts": self.facts,
+                "skill": self.skill,
                 "context_version": CONTEXT_VERSION,
             }
         )
@@ -72,6 +78,8 @@ class ContextBundle:
             "facts": self.facts,
             "declared_biases": [b.__dict__ for b in self.declared_biases],
             "prompt_chars": len(self.prompt),
+            "skill": self.skill,
+            "system_prompt_chars": len(self.system_prompt),
         }
 
 
@@ -220,6 +228,7 @@ def assemble_proposer_context(
     universes: list[dict] | None = None,
     learned_mismatches: tuple[str, ...] = (),
     research_direction: str | None = None,
+    skill: Any = None,
 ) -> ContextBundle:
     """组装提案器上下文。渲染后再过一次盲化检查。
 
@@ -275,6 +284,15 @@ def assemble_proposer_context(
             "candidate_families": menu,
             "known_biases": [b.__dict__ for b in menu_biases],
         },
+        # 搜索覆盖（M17）：模型此前反复回到同一条轴上，不是偏好问题，
+        # 是它看不见自己走过哪里（实测 cand:iran × sc × rv 一个组合就 34 条提案）。
+        # 本节只数提案，不含任何判决 —— 与决定 0006 关闭的那条通道不是一回事。
+        "search_coverage": coverage_menu(
+            search_coverage(ledger, family=family),
+            families=[row.get("family_id") for row in menu if row.get("family_id")],
+            universes=[u.get("universe") for u in (universes or []) if u.get("universe")],
+            targets=[t.get("name") for t in targets if t.get("name")],
+        ),
         # **判决分类不再进提案器上下文（决定 0006）。**
         # M7 把它定价为安全，前提是它指向一个**匿名总体**：提案器每轮由独立子进程
         # 承载，跨轮不带上下文，因此「9 个 null」指的是哪 9 条它无从知道。
@@ -308,8 +326,18 @@ def assemble_proposer_context(
     }
     prompt = render_proposer_prompt(facts, menu_biases)
     assert_blinded(prompt, Role.PROPOSER)
+    system_prompt = ""
+    skill_record = None
+    if skill is not None:
+        from .skills import render_system_prompt
+        system_prompt = render_system_prompt(skill)
+        # 方法说明在装载时已过一次闸门；这里再过一次，因为渲染可能拼进别的东西。
+        assert_blinded(system_prompt, Role.PROPOSER)
+        skill_record = skill.describe()
     return ContextBundle(
-        role=Role.PROPOSER, facts=facts, prompt=prompt, declared_biases=list(menu_biases)
+        role=Role.PROPOSER, facts=facts, prompt=prompt,
+        declared_biases=list(menu_biases),
+        system_prompt=system_prompt, skill=skill_record,
     )
 
 
