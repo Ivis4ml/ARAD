@@ -186,3 +186,36 @@ def test_mechanism_series_fields_include_the_composition_controlled_change():
     fields = rows[0]["fields"]
     assert any(f.endswith(":dp") for f in fields)
     assert any(f.endswith(":conditions") for f in fields)
+
+
+def test_partially_overlapping_family_is_kept_out_when_admit_narrows():
+    """决定 0011：新族运行只见 distinct_object，部分重合的族属旧族账户。"""
+    from arad.harness.pm_menu import mechanism_rows
+
+    rows = mechanism_rows(
+        qualification=_qualification("mech:A", "mech:B"),
+        families_manifest=_families_manifest("A", "B"),
+        overlap_manifest={"mechanism_vs_lexical_predecessor": {
+            "A": {"verdict": "distinct_object"},
+            "B": {"verdict": "partially_overlapping"},
+        }},
+        admit=frozenset({"distinct_object"}),
+    )
+    assert [r["family_id"] for r in rows] == ["mech:A"]
+
+
+def test_family_floors_report_both_accounts(tmp_path):
+    """决定 0011：族地板与合并地板并列 —— 分族的正当性以合并账可读为前提。"""
+    from arad.harness.episode import family_floors
+    from arad.memory.ledger import EvidenceLedger
+
+    with EvidenceLedger(str(tmp_path / "t.db")) as ledger:
+        for i in range(3):
+            ledger.record_outcome_read(f"old-{i}:main", "old_family", f"old-{i}")
+        ledger.record_outcome_read("new-0:main", "new_family", "new-0")
+        floors = family_floors(ledger, "new_family")
+
+    assert floors["family_tests"] == 1
+    assert floors["all_families_tests"] == 4
+    # 合并地板必须高于族地板：它对着更大的极大值集合
+    assert floors["merged_floor"] > floors["family_floor"]

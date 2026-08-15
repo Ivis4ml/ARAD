@@ -425,6 +425,9 @@ def _load_sc(target_path: str, segment: str = SEGMENT) -> tuple[list[dict], dict
 PM_ALL_SERIES_PATH = "data/pm_series/family_hourly_all.parquet"
 #: 机制族序列（M16）。与词汇族分表：口径相同，只有成员资格与极性不同。
 PM_MECH_SERIES_PATH = "data/pm_series/mechanism_hourly.parquet"
+#: 机制先验族（决定 0011）：由外部机制先验（Rev-PLM 种子包）驱动的提案的统计账。
+#: 分母从零起的正当性以五条约束买下，全部写在决定文档里。
+MECH_FAMILY = "sc_mechanism_prior_v1"
 PM_MECH_QUALIFICATION_PATH = "artifacts/manifests/pm_mechanism_qualification.json"
 PM_MECH_FAMILIES_PATH = "artifacts/manifests/pm_mechanism_families.json"
 PM_SERIES_OVERLAP_PATH = "artifacts/manifests/pm_family_series_overlap.json"
@@ -846,7 +849,11 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dic
     # 重合度裁断。缺任何一份就退回只有词汇族的菜单，而不是拿半份数据凑。
     mechanism_rows_cached: list[dict] = []
     try:
-        from .pm_menu import mechanism_rows
+        from .pm_menu import MECHANISM_ADMITS, mechanism_rows
+        # 决定 0011：新族运行只见 distinct_object —— HOUTHI_ATTACKS
+        # （partially_overlapping）的检验按裁断属旧族账户，不得在新族的地板下提出。
+        admit = (frozenset({"distinct_object"})
+                 if family == MECH_FAMILY else MECHANISM_ADMITS)
         mechanism_rows_cached = mechanism_rows(
             qualification=json.loads(
                 Path(PM_MECH_QUALIFICATION_PATH).read_text(encoding="utf-8")),
@@ -854,6 +861,7 @@ def _assembler(ledger: EvidenceLedger, manifest_dir: str, visible: dict, sc: dic
                 Path(PM_MECH_FAMILIES_PATH).read_text(encoding="utf-8")),
             overlap_manifest=json.loads(
                 Path(PM_SERIES_OVERLAP_PATH).read_text(encoding="utf-8")),
+            admit=admit,
         )
     except OSError:
         mechanism_rows_cached = []
@@ -1103,7 +1111,7 @@ def signal_correlations(ledger, sc: dict, rows: list[dict]) -> dict:
 
 
 def _alpha_cards(ledger, beam_members: list[dict], sealed: list[dict],
-                 projection) -> list[dict]:
+                 projection, family: str = FAMILY) -> list[dict]:
     """把束里的候选做成因子卡。代码由规格生成，因此说明与代码不可能各说各话。"""
     from ..features.spec import FeatureSpec
     from ..registry.alpha_card import AlphaCard
@@ -1139,9 +1147,15 @@ def _alpha_cards(ledger, beam_members: list[dict], sealed: list[dict],
             sealed=({"t_stat": seal["t_stat"], "ic_spearman": seal["ic_spearman"],
                      "rows": seal["rows"], "segment": seal["segment"]} if seal else None),
             taxonomy_clean=bool(seal and seal.get("taxonomy_clean")),
-            family=FAMILY,
+            # 族标签由调用方传入 —— 写死 FAMILY 与 B9 是同一个缺陷形状，
+            # 事件族与机制族的卡会被贴上旧族的标签。
+            family=family,
         )
-        cards.append(card.payload())
+        payload = card.payload()
+        # 双地板（决定 0011）：卡上同时印族地板与合并地板。
+        from .episode import family_floors
+        payload["floors"] = family_floors(ledger, family)
+        cards.append(payload)
     return cards
 
 
@@ -1391,12 +1405,27 @@ def run_service_demo(
                 ))
             ledger.append("beam_state", beam.summary())
 
+            # 封条只给越过**本族当前地板**的成员（决定 0011）。束按 reward 收人，
+            # 而新族早期 E_2(1)=0.80，|t|=1.5 的弱构造会带正 reward 进束 ——
+            # 不加这道门，run 结束时会把一次性封条烧在远低于任何可信线的特征上，
+            # 与 B7（run22 把封条烧在 10 行假象上）同一形状，只是通过低分母而非低行数。
+            from ..evaluation.selection import expected_max_abs_z
+            fam_tests = ledger.denominators(fam)["statistical_denominator"]
+            seal_floor = expected_max_abs_z(fam_tests) if fam_tests else float("inf")
+            eligible = [m["feature_id"] for m in beam.summary()["members"]
+                        if (m.get("value") or 0.0) >= seal_floor]
             sealed = sealed_pass(
                 ledger, target_path=target_path, families_manifest=FAMILIES_MANIFEST,
-                top_features=[m["feature_id"] for m in beam.summary()["members"]],
+                top_features=eligible,
                 family=fam,
             )
-            ledger.append("sealed_pass", {"entries": sealed})
+            ledger.append("sealed_pass", {
+                "entries": sealed, "seal_floor": round(seal_floor, 4),
+                "family_tests": fam_tests,
+                "below_floor_not_opened": [
+                    m["feature_id"] for m in beam.summary()["members"]
+                    if (m.get("value") or 0.0) < seal_floor],
+            })
 
             members = [m["feature_id"] for m in beam.summary()["members"]]
             signals = {
@@ -1408,7 +1437,8 @@ def run_service_demo(
             ) if len(signals) >= 2 else {"constituents": [], "note": "可求值特征少于两个"}
             ledger.append("ensemble_selected", ensemble)
 
-            cards = _alpha_cards(ledger, beam.summary()["members"], sealed, proj)
+            cards = _alpha_cards(ledger, beam.summary()["members"], sealed, proj,
+                                 family=fam)
             ledger.append("alpha_cards", {"cards": [c["feature_id"] for c in cards]})
             _write_cards(cards, atlas_dir)
             extras = {

@@ -205,6 +205,7 @@ def mechanism_rows(
     qualification: dict,
     families_manifest: dict,
     overlap_manifest: dict | None = None,
+    admit: frozenset[str] = MECHANISM_ADMITS,
 ) -> list[dict[str, Any]]:
     """机制族的菜单行。
 
@@ -221,7 +222,7 @@ def mechanism_rows(
         if series_id not in qualified:
             continue
         verdict = (overlaps.get(name) or {}).get("verdict")
-        if verdict is not None and verdict not in MECHANISM_ADMITS:
+        if verdict is not None and verdict not in admit:
             continue
         stat = stats.get(series_id, {})
         counts = info.get("counts", {})

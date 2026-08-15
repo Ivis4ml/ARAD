@@ -190,6 +190,27 @@ class EpisodeResult:
         }
 
 
+def family_floors(ledger: EvidenceLedger, family: str) -> dict:
+    """族地板与合并地板并列（决定 0011）。
+
+    分族的统计理由是「地板应当对着实际取过极大值的那个集合」；它站得住的前提是
+    未分族的数字**同时可读** —— 否则分族与「地板不舒服就另开一本账」在外观上
+    不可分辨。合并分母取全部族的统计分母之和（denominators(None)）。
+    """
+    from ..evaluation.selection import expected_max_abs_z
+
+    fam_n = ledger.denominators(family)["statistical_denominator"]
+    all_n = ledger.denominators(None)["statistical_denominator"]
+    return {
+        "family": family,
+        "family_tests": fam_n,
+        "family_floor": round(expected_max_abs_z(fam_n), 4) if fam_n else None,
+        "all_families_tests": all_n,
+        "merged_floor": round(expected_max_abs_z(all_n), 4) if all_n else None,
+        "note": "族地板对着本族实际取过极大值的集合；合并地板是未分族时的那个数字",
+    }
+
+
 def _record_gap(ledger: EvidenceLedger, family: str, output: ProposalOutput) -> str:
     gap = output.unsupported_mechanism
     proposal = ProposalSpec(
@@ -457,6 +478,9 @@ def run_round(
     for test_id in [f"{study_id}:main"]:
         ledger.record_outcome_read(test_id, family, study_id)
     result = evaluate(request_obj, labels, role="evaluator")
+    # 双地板（决定 0011）：族地板与全族合并地板并列入账。分族的正当性建立在
+    # 「合并的那本账任何人随时可读」之上 —— 只印族地板，分族与洗白在外观上不可分辨。
+    result["floors"] = family_floors(ledger, family)
     ledger.append("evaluation_result", result, study_id=study_id)
 
     suggested = result["suggested_verdict"]
