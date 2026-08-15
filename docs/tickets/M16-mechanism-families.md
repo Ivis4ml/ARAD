@@ -17,12 +17,17 @@
 族成员规则在 `src/arad/data_catalog/pm_series.py:83`：市场 slug 分词后与族词表有交集
 即入族。实测后果：
 
-| 族 | 成员市场 | 混入内容（实测举例） |
-|---|---|---|
-| `cand:iran` | 1,444 | 「土耳其空袭伊朗」「美伊核谈重启」「特朗普会晤时会不会提到伊朗」同池 |
-| `cand:hormuz` | 237 | 词表为 {hormuz, send, ships, strait, transit, warships}，`send` 拉进「特朗普是否向底特律派国民警卫队」与电竞市场，`transit` 拉进「乌克兰是否恢复俄气过境」与纽约地铁 |
-| `cand:blockade` | 78 | 词表为 {been, blockade, has, that}，三个是虚词；discovery 段的 4,272 个小时桶完全由「外星人是否存在」与「OpenAI 是否达成 AGI」的概率构成，零封锁内容 |
-| `cand:oil` | 390 | 含电影《Sarah's Oil》烂番茄评分 |
+成员计数口径：下表取**族词表扫描**（slug_base 分词与族的 head_tokens 有交集），
+与 `artifacts/manifests/pm_candidate_families.json` 的 `markets` 字段逐族相等，
+已复算核对。若只按族名那一个词扫描，得到的是更小的数（iran 1,399、hormuz 188、
+blockade 43、oil 390），那不是族的实际成员集合。
+
+| 族 | 成员市场 | 词表 | 混入内容（实测举例） |
+|---|---|---|---|
+| `cand:iran` | 1,444 | attack, iran, response, shipping, successfully, targets | 「土耳其空袭伊朗」「美伊核谈重启」「特朗普会晤时会不会提到伊朗」同池 |
+| `cand:hormuz` | 237 | hormuz, send, ships, strait, transit, warships | `send` 拉进「特朗普是否向底特律派国民警卫队」与电竞市场，`transit` 拉进「乌克兰是否恢复俄气过境」与纽约地铁 |
+| `cand:blockade` | 78 | been, blockade, has, that | 三个是虚词；discovery 段的 4,272 个小时桶完全由「外星人是否存在」与「OpenAI 是否达成 AGI」的概率构成，零封锁内容 |
+| `cand:oil` | 829 | cl, crude, oil, per, production | `per` 是通用介词，把大量无关市场拉进族；另含电影《Sarah's Oil》烂番茄评分 |
 
 ### 1.2 但「正反抵消」不是既有 null 的原因（Fable 裁断：refuted）
 
@@ -211,7 +216,19 @@ C3 是假设空间对已实现统计量的直接条件化。减轻情节：Rev-P
 
 ---
 
-## 八、待人决定的四件事
+## 七之二、诚实的预期产出
+
+本层的直接产出**很可能是更干净的空，而不是 candidate**。理由：八个可实例化族里
+HOUTHI_ATTACKS 在 discovery 段只有 12 个市场、265 个 asset-day，HURRICANE_LANDFALL 226，
+US_SHUTDOWN 408；多数机制族仍会被既有功效前筛（有效独立观测 <30 或互异取值 <10）拦下。
+被拦不花检验预算，但也不产生结论。因此这两张多的票买到的是
+「测的对象终于是它自称的那个东西」，不是「更可能找到信号」。
+决定是否值得，应按这个预期而不是按乐观情形来做。
+
+## 八、待人决定的四件事（有依赖次序，不是四个独立选项）
+
+依赖次序：决定二（重合度在哪个量上算）在先，它决定决定一（分不分族）是否有正当性；
+决定四（是否重测吸收目标）在两者之下游。决定三（油品轴）独立。
 
 ### 决定一：机制族提案进哪个统计族
 
