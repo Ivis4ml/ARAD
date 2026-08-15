@@ -61,7 +61,9 @@ def test_target_specs_declare_decision_time_execution_lag_and_claim():
     # 已实现波动是一个正的量级，不是可捕获的收益，且本数据集没有波动率工具
     assert RV_NEXT_SESSION.tradable_claim is False
     assert RV_NEXT_SESSION.label_is_return is False
-    assert OPEN_GAP_ABSORPTION.kind == "diagnostic_only"
+    # 决定 0009：吸收目标升为 primary —— 前身研究唯一强阳性的形态不再被
+    # kind 字段劝退。primary 不意味着可交易（tradable_claim 仍为 False）。
+    assert OPEN_GAP_ABSORPTION.kind == "primary"
     assert OPEN_GAP_ABSORPTION.tradable_claim is False
     assert "不作可交易" in OPEN_GAP_ABSORPTION.description
     assert RV_NEXT_SESSION.execution_lag_seconds > 0

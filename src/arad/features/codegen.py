@@ -240,6 +240,63 @@ def to_python(spec: FeatureSpec) -> str:
             body.append(
                 f"        {name} = (below + 0.5 * tied) / len(samples_{step.name})"
             )
+        elif step.kind is StepKind.RESIDUALISE and len(step.controls) > 1:
+            # 多控制（K=2..3）：正规方程 + 高斯消元，与解释器逐位同式
+            src = step.inputs[0]
+            k = (step.window_seconds or 0) // (step.sample_every_seconds or 1)
+            keys = [CONTROL_SERIES[c] for c in step.controls]
+            body.append("    # residualise（多控制）：拟合样本严格取自决策时点之前")
+            for j, ck in enumerate(keys):
+                body.append(
+                    f'    tc{j}_{step.name}, xc{j}_{step.name} = '
+                    f'series["{ck[0].value}.{ck[1]}"]'
+                )
+            body.append(f"    xs_{step.name} = []")
+            body.append(
+                f"    css_{step.name} = [[] for _ in range({len(keys)})]"
+            )
+            body.append(f"    for k in range(1, {k} + 1):")
+            body.append(
+                f"        past = decision_time - timedelta("
+                f"seconds=k * {step.sample_every_seconds})"
+            )
+            body.append(f"        xv = _at_{src}(past, series)")
+            body.append("        cvs = []")
+            for j in range(len(keys)):
+                body.append(
+                    f"        cw = _window(tc{j}_{step.name}, xc{j}_{step.name},"
+                    f" past, {step.window_seconds})"
+                )
+                body.append("        cvs.append(cw[-1] if cw else None)")
+            body.append("        if _ok(xv) and all(_ok(cv) for cv in cvs):")
+            body.append(f"            xs_{step.name}.append(xv)")
+            body.append("            for _j, _cv in enumerate(cvs):")
+            body.append(f"                css_{step.name}[_j].append(_cv)")
+            body.append("    c0s = []")
+            for j in range(len(keys)):
+                body.append(
+                    f"    cw0 = _window(tc{j}_{step.name}, xc{j}_{step.name},"
+                    f" decision_time, {step.window_seconds})"
+                )
+                body.append("    c0s.append(cw0[-1] if cw0 else None)")
+            body.append(
+                f"    if (not _ok(v_{src}) or not all(_ok(c) for c in c0s)"
+                f" or len(xs_{step.name}) < {step.min_samples}"
+                f" or any(len(set(c)) < 2 for c in css_{step.name})):"
+            )
+            body.append(f"        {name} = None")
+            body.append("    else:")
+            body.append(
+                f"        coefs = _solve_normal(css_{step.name}, xs_{step.name})"
+            )
+            body.append("        if coefs is None:")
+            body.append(f"            {name} = None")
+            body.append("        else:")
+            body.append(
+                "            pred = coefs[0] + math.fsum("
+                "b * cv for b, cv in zip(coefs[1:], c0s, strict=True))"
+            )
+            body.append(f"            {name} = v_{src} - pred")
         elif step.kind is StepKind.RESIDUALISE:
             src = step.inputs[0]
             k = (step.window_seconds or 0) // (step.sample_every_seconds or 1)
@@ -294,7 +351,7 @@ def to_python(spec: FeatureSpec) -> str:
         body.append(f"        {name} = None")
     body.append(f"    return v_{spec.output_step}")
 
-    helpers = _zscore_helpers(spec)
+    helpers = _zscore_helpers(spec) + _solver_helper(spec)
     header = _HEADER.format(
         feature_id=spec.feature_id,
         mechanism=spec.mechanism,
@@ -305,6 +362,39 @@ def to_python(spec: FeatureSpec) -> str:
         lookback_seconds=spec.required_lookback_seconds,
     )
     return header + helpers + "\n".join(body) + "\n"
+
+
+def _solver_helper(spec: FeatureSpec) -> str:
+    """多控制残差化的正规方程求解器。与解释器 _solve_normal_equations 逐位同式。"""
+    if not any(s.kind is StepKind.RESIDUALISE and len(s.controls) > 1
+               for s in spec.steps):
+        return ""
+    return (
+        "\n\n"
+        "def _solve_normal(css, ys):\n"
+        '    """正规方程 + 部分主元高斯消元；主元 < 1e-10 判奇异返回 None。"""\n'
+        "    n = len(ys)\n"
+        "    k = len(css)\n"
+        "    dim = k + 1\n"
+        "    rows = [[1.0, *(c[i] for c in css)] for i in range(n)]\n"
+        "    mat = [[math.fsum(r[a] * r[b] for r in rows) for b in range(dim)]\n"
+        "           for a in range(dim)]\n"
+        "    vec = [math.fsum(r[a] * y for r, y in zip(rows, ys, strict=True))\n"
+        "           for a in range(dim)]\n"
+        "    aug = [[*mat[a], vec[a]] for a in range(dim)]\n"
+        "    for col in range(dim):\n"
+        "        pivot = max(range(col, dim), key=lambda r: abs(aug[r][col]))\n"
+        "        if abs(aug[pivot][col]) < 1e-10:\n"
+        "            return None\n"
+        "        aug[col], aug[pivot] = aug[pivot], aug[col]\n"
+        "        for r in range(dim):\n"
+        "            if r == col:\n"
+        "                continue\n"
+        "            f = aug[r][col] / aug[col][col]\n"
+        "            for c2 in range(col, dim + 1):\n"
+        "                aug[r][c2] -= f * aug[col][c2]\n"
+        "    return [aug[a][dim] / aug[a][a] for a in range(dim)]\n"
+    )
 
 
 def _zscore_helpers(spec: FeatureSpec) -> str:

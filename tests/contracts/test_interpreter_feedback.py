@@ -296,10 +296,18 @@ def test_residualise_refuses_when_the_control_series_is_missing():
         evaluate_spec(spec, T, series())
 
 
-def test_an_unregistered_control_is_refused_not_guessed():
+def test_residualise_accepts_up_to_three_distinct_controls():
+    """决定 0009 方向（评审第一梯队）：单控制限制解除。1 至 3 个互异控制合法；
+    超限与重复被拒 —— 声明的东西与实际算的东西必须一致。"""
+    Step(name="r", kind=StepKind.RESIDUALISE, inputs=["w"],
+         controls=["brent", "own_realised_volatility"],
+         window_seconds=86400 * 40, sample_every_seconds=86400, min_samples=10)
     with pytest.raises(ValidationError):
         Step(name="r", kind=StepKind.RESIDUALISE, inputs=["w"],
-             controls=["brent", "own_realised_volatility"],
+             controls=["brent", "brent"],
+             window_seconds=86400 * 40, sample_every_seconds=86400, min_samples=10)
+    with pytest.raises(ValidationError):
+        Step(name="r", kind=StepKind.RESIDUALISE, inputs=["w"], controls=[],
              window_seconds=86400 * 40, sample_every_seconds=86400, min_samples=10)
 
 def test_describe_is_lossless_so_the_spec_can_be_rebuilt_from_the_ledger():
@@ -544,3 +552,86 @@ def test_rank_pct_and_zscore_cannot_be_nested_in_each_other():
                         window_seconds=86400 * 40, sample_every_seconds=86400,
                         min_samples=10)],
         )
+
+
+def test_multi_control_residualise_matches_hand_computed_ols():
+    """双控制残差化的数值契约：与手算正规方程逐位一致；共线控制判 None。"""
+    import datetime as dt
+    import math
+
+    from arad.features.interpreter import (
+        BarSeries,
+        Source,
+        evaluate_spec,
+    )
+    from arad.features.spec import FeatureSpec, Op, Step, StepKind
+
+    t0 = dt.datetime(2024, 1, 1, tzinfo=dt.UTC)
+    day = 86400
+    n = 60
+    times = [t0 + dt.timedelta(days=i) for i in range(n)]
+    # x = 2 + 1.5*c1 - 0.7*c2 + 扰动；扰动确定性（不依赖随机源）
+    c1 = [math.sin(i / 5.0) for i in range(n)]
+    c2 = [((i * 7) % 11) / 11.0 for i in range(n)]
+    noise = [((i * 13) % 17 - 8) / 100.0 for i in range(n)]
+    x = [2 + 1.5 * a - 0.7 * b + e for a, b, e in zip(c1, c2, noise)]
+    series = {
+        (Source.COMMODITY_BAR, "sig"): BarSeries(
+            field="sig", times=times, values=x, coverage_start=times[0]),
+        (Source.INTL, "brent"): BarSeries(
+            field="brent", times=times, values=c1, coverage_start=times[0]),
+        (Source.COMMODITY_BAR, "realised_volatility"): BarSeries(
+            field="realised_volatility", times=times, values=c2,
+            coverage_start=times[0]),
+    }
+    spec = FeatureSpec(
+        feature_id="f", mechanism="m", output_step="r",
+        failure_condition="奇异", authored_by="t",
+        steps=[
+            Step(name="w", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                 field="sig", op=Op.LAST, window_seconds=2 * day),
+            Step(name="r", kind=StepKind.RESIDUALISE, inputs=["w"],
+                 controls=["brent", "own_realised_volatility"],
+                 window_seconds=40 * day, sample_every_seconds=day,
+                 min_samples=10),
+        ],
+    )
+    at = times[-1] + dt.timedelta(hours=1)
+    got = evaluate_spec(spec, at, series)
+    assert got is not None
+    # 手算：同一窗口、同一采样网格重建成对样本并解正规方程
+    def last_before(vals, t):
+        idx = [i for i, tt in enumerate(times) if tt < t]
+        return vals[idx[-1]] if idx else None
+    xs, a1, a2 = [], [], []
+    for k in range(1, 41):
+        past = at - dt.timedelta(days=k)
+        xv = last_before(x, past)
+        c1v = last_before(c1, past)
+        c2v = last_before(c2, past)
+        if None not in (xv, c1v, c2v):
+            xs.append(xv); a1.append(c1v); a2.append(c2v)
+    # 正规方程 3x3 直接解
+    def dot(u, v): return math.fsum(p * q for p, q in zip(u, v))
+    ones = [1.0] * len(xs)
+    M = [[dot(ones, ones), dot(ones, a1), dot(ones, a2)],
+         [dot(a1, ones), dot(a1, a1), dot(a1, a2)],
+         [dot(a2, ones), dot(a2, a1), dot(a2, a2)]]
+    V = [dot(ones, xs), dot(a1, xs), dot(a2, xs)]
+    aug = [[*M[i], V[i]] for i in range(3)]
+    for col in range(3):
+        piv = max(range(col, 3), key=lambda r: abs(aug[r][col]))
+        aug[col], aug[piv] = aug[piv], aug[col]
+        for r in range(3):
+            if r == col: continue
+            f = aug[r][col] / aug[col][col]
+            for c in range(col, 4): aug[r][c] -= f * aug[col][c]
+    coefs = [aug[i][3] / aug[i][i] for i in range(3)]
+    pred = coefs[0] + coefs[1] * last_before(c1, at) + coefs[2] * last_before(c2, at)
+    assert abs(got - (last_before(x, at) - pred)) < 1e-9
+
+    # 共线：c2 := 2*c1 → 奇异 → None
+    series[(Source.COMMODITY_BAR, "realised_volatility")] = BarSeries(
+        field="realised_volatility", times=times, values=[2 * v for v in c1],
+        coverage_start=times[0])
+    assert evaluate_spec(spec, at, series) is None

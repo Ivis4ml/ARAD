@@ -28,7 +28,7 @@ from ..registry.specs import content_id
 #: 0.3.0：新增 rank_pct。实测动机：一条真实特征的最大杠杆是 0.607，即单个观测占了
 #: 回归元全部变异的六成，而当时的语言里没有任何稳健变换可用。分位排名有界于 [0,1]，
 #: 单点无法主导它。
-FEATURE_SPEC_VERSION = "0.4.0"
+FEATURE_SPEC_VERSION = "0.5.0"
 
 #: 参考样本的硬约束。写死在语言层而不是解释器里：它们决定规格是否可能有定义。
 MIN_SAMPLE_STEP_SECONDS = 60
@@ -169,12 +169,17 @@ class Step(BaseModel):
             raise ValueError(f"{self.kind.value} 需要恰好两个输入步骤")
         if self.kind is StepKind.RESIDUALISE and (len(self.inputs) != 1 or not self.controls):
             raise ValueError("residualise 需要一个输入步骤与至少一个控制项")
-        if self.kind is StepKind.RESIDUALISE and len(self.controls) != 1:
-            # 多元残差化要解正规方程，第一版只做一元。多写一个控制项就被拒，
-            # 而不是静默只用第一个 —— 后者会让规格声明的东西与实际算的东西不一致。
+        if self.kind is StepKind.RESIDUALISE and not 1 <= len(self.controls) <= 3:
+            # 多元残差化解正规方程（对抗性评审第一梯队：先验的「中东增量 t=4.94」
+            # 是在控制 12 个基准后得出的，单控制残差可能残留共同因子，使发现段
+            # 虚高、封存段塌陷 —— 与四次封存否决的形态一致）。上限三个：再多，
+            # 90 个回看样本上的过拟合风险盖过增量的解释力。重复控制项被拒 ——
+            # 声明的东西与实际算的东西必须一致。
             raise ValueError(
-                f"residualise 第一版只支持**一个**控制项，收到 {len(self.controls)} 个"
+                f"residualise 支持 1 至 3 个控制项，收到 {len(self.controls)} 个"
             )
+        if self.kind is StepKind.RESIDUALISE and len(set(self.controls)) != len(self.controls):
+            raise ValueError(f"residualise 控制项重复：{self.controls}")
         if self.kind not in SAMPLED_KINDS and (
             self.sample_every_seconds is not None or self.min_samples is not None
         ):

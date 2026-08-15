@@ -265,3 +265,43 @@ def test_the_meaning_text_carries_no_markdown_markers():
         text = a_card(d_t, s_t, clean=clean).meaning()
         assert "**" not in text, text
         assert "`" not in text
+
+
+def test_multi_control_residualise_codegen_matches_interpreter():
+    """决定 0009 方向：双控制残差化的生成码与解释器逐位一致。"""
+
+    t0 = datetime(2024, 1, 1, tzinfo=UTC)
+    day = 86400
+    n = 60
+    times = [t0 + timedelta(days=i) for i in range(n)]
+    c1 = [math.sin(i / 5.0) for i in range(n)]
+    c2 = [((i * 7) % 11) / 11.0 for i in range(n)]
+    x = [2 + 1.5 * a - 0.7 * b + ((i * 13) % 17 - 8) / 100.0
+         for i, (a, b) in enumerate(zip(c1, c2))]
+    series = {
+        (Source.COMMODITY_BAR, "sig"): BarSeries(
+            field="sig", times=times, values=x, coverage_start=times[0]),
+        (Source.INTL, "brent"): BarSeries(
+            field="brent", times=times, values=c1, coverage_start=times[0]),
+        (Source.COMMODITY_BAR, "realised_volatility"): BarSeries(
+            field="realised_volatility", times=times, values=c2,
+            coverage_start=times[0]),
+    }
+    spec = FeatureSpec(
+        feature_id="f2c", mechanism="m", output_step="r",
+        failure_condition="奇异", authored_by="t",
+        steps=[
+            Step(name="w", kind=StepKind.WINDOW, source=Source.COMMODITY_BAR,
+                 field="sig", op=Op.LAST, window_seconds=2 * day),
+            Step(name="r", kind=StepKind.RESIDUALISE, inputs=["w"],
+                 controls=["brent", "own_realised_volatility"],
+                 window_seconds=40 * day, sample_every_seconds=day,
+                 min_samples=10),
+        ],
+    )
+    at = times[-1] + timedelta(hours=1)
+    want = evaluate_spec(spec, at, series)
+    namespace: dict = {}
+    exec(compile(to_python(spec), "<f2c>", "exec"), namespace)  # noqa: S102
+    got = namespace["compute"](at, as_plain(series))
+    assert want is not None and got == want

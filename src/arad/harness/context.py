@@ -109,11 +109,14 @@ STEP_SCHEMA: dict[str, dict] = {
     "residualise": {"required": ["name", "kind", "inputs", "controls",
                                  "window_seconds", "sample_every_seconds", "min_samples"],
                     "note": (
-                        "inputs 恰好一个；controls 恰好**一个**已登记的 Baseline Control"
-                        "（brent 或 own_realised_volatility）。与 zscore 同一张采样网格："
-                        "拟合样本取自 t - k*sample_every_seconds，**严格在决策时点之前** —— "
+                        "inputs 恰好一个；controls 为 1 至 3 个**互异**的已登记"
+                        " Baseline Control（brent、own_realised_volatility 可组合使用："
+                        "同时减掉国际油价与自身波动持续性，增量主张更强）。"
+                        "与 zscore 同一张采样网格：拟合样本取自"
+                        " t - k*sample_every_seconds，**严格在决策时点之前** —— "
                         "在全样本上拟合再取残差等于用未来数据定义残差。"
-                        "min_samples 计**控制变量的互异取值**：控制恒定时斜率不可识别。"
+                        "单控制时 min_samples 计控制变量的互异取值；多控制时计成对样本数，"
+                        "且任一控制恒定或共线即判无定义。"
                         "把 Baseline Control 减掉之后剩下的，才是另类数据的增量"
                     )},
 }

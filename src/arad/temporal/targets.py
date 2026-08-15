@@ -1,8 +1,9 @@
 """目标（label）定义与物化。
 
 primary：`sc_rv_next_session` —— 决策 cutoff 后下一个 SC session 的已实现波动。
-diagnostic-only：`sc_open_gap_absorption` —— 同期开盘跳空在开盘后 K 分钟内被
-吸收的比例，只用于验证信息是否到达，明确不作可交易 alpha 主张。
+`sc_open_gap_absorption` —— 同期开盘跳空在开盘后 K 分钟内被吸收的比例。
+不作可交易主张（吸收比例不是收益），但作为 primary 目标参与检验：
+停市吸收是前身研究中先验证据最强的形态（决定 0009）。
 
 已记录的可逆假设：
 1. RV 的收益序列只取**同一连续竞价 segment 内**相邻 1 分钟 bar 的对数收益。
@@ -161,11 +162,17 @@ RV_NEXT_SESSION = TargetSpec(
 
 OPEN_GAP_ABSORPTION = TargetSpec(
     name="sc_open_gap_absorption",
-    kind="diagnostic_only",
+    # 决定 0009：由 diagnostic_only 升为 primary。对抗性评审核实：前身研究唯一的
+    # 强阳性正是闭市吸收形态（油价主题×SC 相关 0.86，n=37；合并缺口 0.743，n=74），
+    # 而本系统 200 个提案只有 2 个用它 —— kind 字段进菜单，"diagnostic" 实质性
+    # 劝退了先验证据最强的问法。primary 从不意味着可交易（rv 目标同样
+    # tradable_claim=False）：它意味着"值得花检验预算的问题"。
+    kind="primary",
     description=(
         "同期开盘跳空吸收：开盘跳空在开盘后 K 分钟内被反向抹去的比例。"
-        "开盘价对决策时点而言不可执行，本目标只验证信息是否在开盘处到达，"
-        "不作可交易 alpha 主张，也不得用于 Production 升级。"
+        "开盘价对决策时点而言不可执行，故不作可交易 alpha 主张（tradable_claim=False）；"
+        "但『停市期间到达的信息如何在开盘处被吸收』是前身研究中先验证据最强的形态，"
+        "作为 primary 目标参与检验。"
     ),
     execution_lag_seconds=60,
     tradable_claim=False,

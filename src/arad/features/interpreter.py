@@ -32,7 +32,7 @@ from .spec import FeatureSpec, Op, Source, Step, StepKind
 
 #: 解释器语义版本。进入 `EvaluationRequest.digest()`：同一规格换一个解释器版本
 #: 可能算出另一个数，证据必须能区分。
-INTERPRETER_VERSION = "0.4.0"
+INTERPRETER_VERSION = "0.5.0"
 
 #: 已接入的数据源。`pm_market` 的序列由 `arad pm-index series` 物化，字段名形如
 #: `cand:iran:p` —— 族的选择是各 Study 冻结的经济假设，不是这里固化的映射表。
@@ -228,6 +228,37 @@ def _evaluate(
     raise ValueError(f"未实现的步骤类型 {step.kind}")
 
 
+def _solve_normal_equations(
+    css: list[list[float]], ys: list[float]
+) -> list[float] | None:
+    """最小二乘 y ~ 1 + c1 + … + cK：正规方程 + 部分主元高斯消元。
+
+    纯 Python（本仓不引 numpy）。主元绝对值低于 1e-10 判奇异（含共线控制），
+    返回 None —— 不可识别时宁可无定义，与单控制路径同一条纪律。
+    """
+    n = len(ys)
+    k = len(css)
+    dim = k + 1
+    rows = [[1.0, *(c[i] for c in css)] for i in range(n)]
+    mat = [[math.fsum(r[a] * r[b] for r in rows) for b in range(dim)]
+           for a in range(dim)]
+    vec = [math.fsum(r[a] * y for r, y in zip(rows, ys, strict=True))
+           for a in range(dim)]
+    aug = [[*mat[a], vec[a]] for a in range(dim)]
+    for col in range(dim):
+        pivot = max(range(col, dim), key=lambda r: abs(aug[r][col]))
+        if abs(aug[pivot][col]) < 1e-10:
+            return None
+        aug[col], aug[pivot] = aug[pivot], aug[col]
+        for r in range(dim):
+            if r == col:
+                continue
+            f = aug[r][col] / aug[col][col]
+            for c2 in range(col, dim + 1):
+                aug[r][c2] -= f * aug[col][c2]
+    return [aug[a][dim] / aug[a][a] for a in range(dim)]
+
+
 def _residualise(
     spec: FeatureSpec, index: dict[str, Step], step: Step, at: datetime, ctx: EvalContext
 ) -> float | None:
@@ -246,53 +277,72 @@ def _residualise(
     `available_time`，PIT 由序列构造保证。
     """
     source_name = step.inputs[0]
-    control_key = CONTROL_SERIES.get(step.controls[0])
-    if control_key is None:
-        raise SourceNotImplemented(
-            f"未登记的控制项 {step.controls[0]!r}；已登记 {sorted(CONTROL_SERIES)}"
-        )
-    if control_key not in ctx.series:
-        raise SourceNotImplemented(
-            f"没有为控制项 {step.controls[0]!r} 提供序列；"
-            "残差化不能在缺控制序列时退化为原样返回 —— 那等于把未残差化的值"
-            "当成已残差化的证据"
-        )
-    control = ctx.series[control_key]
+    controls = []
+    for cname in step.controls:
+        control_key = CONTROL_SERIES.get(cname)
+        if control_key is None:
+            raise SourceNotImplemented(
+                f"未登记的控制项 {cname!r}；已登记 {sorted(CONTROL_SERIES)}"
+            )
+        if control_key not in ctx.series:
+            raise SourceNotImplemented(
+                f"没有为控制项 {cname!r} 提供序列；"
+                "残差化不能在缺控制序列时退化为原样返回 —— 那等于把未残差化的值"
+                "当成已残差化的证据"
+            )
+        controls.append(ctx.series[control_key])
 
-    def control_at(t: datetime) -> float | None:
+    def control_at(control, t: datetime) -> float | None:
         # 取严格早于 t 的最后一个观测。窗口右端点一律不含，与其余原语同一条纪律。
         window = control.window(t, step.window_seconds or 0)
         return window[-1] if window else None
 
     current_x = _value_of(spec, index, source_name, at, ctx)
-    current_c = control_at(at)
+    current_cs = [control_at(c, at) for c in controls]
     expected = (step.window_seconds or 0) // (step.sample_every_seconds or 1)
     xs: list[float] = []
-    cs: list[float] = []
+    css: list[list[float]] = [[] for _ in controls]
     for k in range(1, expected + 1):
         past = at - timedelta(seconds=k * (step.sample_every_seconds or 0))
         xv = _value_of(spec, index, source_name, past, ctx)
-        cv = control_at(past)
-        if _defined(xv) and _defined(cv):
+        cvs = [control_at(c, past) for c in controls]
+        if _defined(xv) and all(_defined(cv) for cv in cvs):
             xs.append(xv)
-            cs.append(cv)
+            for j, cv in enumerate(cvs):
+                css[j].append(cv)
     ctx.reference_sample_coverage.append(
         ReferenceSampleCoverage(step=step.name, expected=expected, defined=len(xs),
-                               distinct=len(set(cs)))
+                               distinct=min((len(set(c)) for c in css), default=0))
     )
-    if not _defined(current_x) or not _defined(current_c):
+    if not _defined(current_x) or not all(_defined(cv) for cv in current_cs):
         return None
-    # 门槛计**控制变量的互异取值**：控制恒定时斜率不可识别，此时残差就是去均值，
-    # 那不是残差化。宁可判无定义。
-    if len(set(cs)) < (step.min_samples or 0):
+    if len(controls) == 1:
+        # 单控制路径**逐位保持第一版算式**：账本里的冻结规格必须可复现。
+        cs = css[0]
+        # 门槛计**控制变量的互异取值**：控制恒定时斜率不可识别，此时残差就是
+        # 去均值，那不是残差化。宁可判无定义。
+        if len(set(cs)) < (step.min_samples or 0):
+            return None
+        cbar = math.fsum(cs) / len(cs)
+        xbar = math.fsum(xs) / len(xs)
+        scc = math.fsum((c - cbar) ** 2 for c in cs)
+        if scc <= 0:
+            return None
+        slope = math.fsum(
+            (c - cbar) * (x - xbar) for c, x in zip(cs, xs, strict=True)) / scc
+        out = current_x - (xbar + slope * (current_cs[0] - cbar))
+        return out if _defined(out) else None
+    # 多控制（决定 0009 方向，评审第一梯队）：正规方程 + 高斯消元。
+    # 门槛：成对样本数 ≥ min_samples，且每个控制各自非恒定；奇异（含共线）判 None。
+    if len(xs) < (step.min_samples or 0):
         return None
-    cbar = math.fsum(cs) / len(cs)
-    xbar = math.fsum(xs) / len(xs)
-    scc = math.fsum((c - cbar) ** 2 for c in cs)
-    if scc <= 0:
+    if any(len(set(c)) < 2 for c in css):
         return None
-    slope = math.fsum((c - cbar) * (x - xbar) for c, x in zip(cs, xs, strict=True)) / scc
-    out = current_x - (xbar + slope * (current_c - cbar))
+    coefs = _solve_normal_equations(css, xs)
+    if coefs is None:
+        return None
+    pred = coefs[0] + math.fsum(b * cv for b, cv in zip(coefs[1:], current_cs, strict=True))
+    out = current_x - pred
     return out if _defined(out) else None
 
 
