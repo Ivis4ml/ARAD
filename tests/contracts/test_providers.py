@@ -265,3 +265,23 @@ def test_a_prompt_leaking_a_prefixed_effect_field_is_refused():
 def test_prefix_rule_does_not_fire_on_ordinary_words():
     """sc_rv_next_session 里没有独立的 se_ 前缀词，不能误伤正常上下文。"""
     assert_blinded("目标是 sc_rv_next_session，样本段 discovery", Role.PROPOSER)
+
+
+def test_repair_prompt_does_not_echo_the_models_own_text():
+    """校验错误里的 input_value 回显既无用又会误拦。
+
+    实测 run28 有一轮死于此：模型提了 `ic_dominant_t1`（中证 500 股指的品种视图），
+    校验失败后原文被回显进修复提示词，`ic_` 命中效果字段前缀规则，整轮作废。
+    模型自己的上一版输出不是结果，回显它对盲化没有意义。
+    """
+    from arad.providers.base import ContextLeak, assert_blinded, strip_input_echo
+
+    error = ("1 validation error for ProposalOutput\nuniverse\n"
+             "  Value error [type=value_error, "
+             "input_value={'universe': 'ic_dominant_t1'}, input_type=dict]")
+    with pytest.raises(ContextLeak):
+        assert_blinded(error, Role.PROPOSER)
+    cleaned = strip_input_echo(error)
+    assert "ic_dominant_t1" not in cleaned
+    assert "universe" in cleaned and "value_error" in cleaned
+    assert_blinded(cleaned, Role.PROPOSER)

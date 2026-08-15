@@ -209,6 +209,19 @@ REPAIR_INSTRUCTION = (
     "请只输出符合 schema 的 JSON，不要有任何其他文字。"
 )
 
+#: pydantic 的校验错误会把**模型自己写的原文**回显在 `input_value=...` 里。
+#: 把它原样拼进修复提示词有两处代价：一是提示词凭空变长，二是那段原文要过盲化闸门，
+#: 而模型可能写下与效果字段前缀撞名的合法标识 —— 实测 run28 有一轮就死于此：
+#: 模型提了 `ic_dominant_t1`（中证 500 股指的品种视图），校验失败后原文被回显，
+#: `ic_` 命中效果字段前缀规则，整轮作废。模型自己的上一版输出不是结果，
+#: 回显它对盲化没有意义；去掉回显既消除误拦，也让修复提示更短。
+_INPUT_ECHO = re.compile(r",?\s*input_value=.*?(?=,\s*input_type=|\]|$)", re.DOTALL)
+
+
+def strip_input_echo(error: str) -> str:
+    """去掉校验错误里对模型原文的回显，只留字段名与错误类型。"""
+    return _INPUT_ECHO.sub("", error)
+
 
 def invoke_structured(
     provider: Provider,
@@ -249,7 +262,8 @@ def invoke_structured(
         except (ValueError, ValidationError) as exc:
             last_error = str(exc)[:400]
             attempt_errors.append(last_error)
-            prompt = request.prompt + REPAIR_INSTRUCTION.format(error=last_error)
+            prompt = request.prompt + REPAIR_INSTRUCTION.format(
+                error=strip_input_echo(last_error))
     return (
         None,
         ParseFailure(
