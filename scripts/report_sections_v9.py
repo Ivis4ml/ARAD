@@ -15,6 +15,66 @@
 from __future__ import annotations
 
 
+def _cluster_blocker_paragraph() -> str:
+    """由账本渲染「单品种 vs 面板带 cluster 阻断的比例」。
+
+    此处原本写死了一组数（122/118 与 47/1）并称「全史实测」。那组数是决定 0011
+    记录时点的实测，此后运行继续，数已过时。写死的「全史」会随时间自己变成假话，
+    因此改为随报告重算。
+
+    顺带更正决定 0011 的一处误述：单品种里不带该阻断的四条例外，其阻断理由表
+    **为空**（早期评价机版本还没有这条判据），并非原文所写的「样本不足未走到该判据」。
+    """
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent / "src"))
+    from arad.memory.ledger import EvidenceLedger, Role
+
+    with EvidenceLedger("data/ledger/service.db") as ledger:
+        events = list(ledger.read_events(role=Role.HUMAN))
+
+    universe: dict[str, str] = {}
+    kinds: dict[str, list[str]] = {}
+    for event in events:
+        study = event.get("study_id") or ""
+        if not study:
+            continue
+        if event["event_type"] == "proposal_locked":
+            spec = event["payload"].get("proposal") or event["payload"]
+            if spec.get("universe"):
+                universe[study] = spec["universe"]
+        elif event["event_type"] == "evaluation_result":
+            kinds[study] = list(event["payload"].get("blocked_reason_kinds") or [])
+
+    def form(name: str) -> str:
+        if name.endswith("_dominant_t1"):
+            return "single"
+        return "panel"
+
+    totals = {"single": 0, "panel": 0}
+    hits = {"single": 0, "panel": 0}
+    empty_reason = 0
+    for study, reasons in kinds.items():
+        name = universe.get(study)
+        if not name:
+            continue
+        bucket = form(name)
+        totals[bucket] += 1
+        if "cluster_structure_insufficient" in reasons:
+            hits[bucket] += 1
+        elif bucket == "single" and not reasons:
+            empty_reason += 1
+
+    return (
+        f"全史实测（随报告重算）：{totals['single']} 条单品种 Study 中 "
+        f"{hits['single']} 条带该阻断，{totals['panel']} 条面板 Study 中只有 "
+        f"{hits['panel']} 条。单品种的 {totals['single'] - hits['single']} 条例外中有 "
+        f"{empty_reason} 条阻断理由表为空 —— 它们出自早期评价机版本，"
+        f"当时还没有这条判据，不是「样本不足未走到该判据」。"
+    )
+
+
 def mechanism_families_section() -> str:
     return r"""
 \section{检验的单位：从词汇聚类到机制聚类}\label{sec:mechfam}
@@ -354,11 +414,14 @@ p{0.09\textwidth} >{\raggedright\arraybackslash}p{0.38\textwidth}@{}}\toprule
 只有一组，评价机因此发出 \path{cluster_structure_insufficient}，而按失效表
 （决定 0005）该理由使 candidate 失效。它不使 null 失效，故单品种检验仍能产出
 可信的否定；但一条在单品种上置换检验通过、$|t|$ 很高的构造，最好的结局是
-blocked，不可能是 candidate。全史实测：122 条单品种 Study 中 118 条带该阻断，
-47 条面板 Study 中只有 1 条。这也解释了为何回溯投影里唯一的完整候选形态
+blocked，不可能是 candidate。全史实测（由账本随报告重算，见下段）。
+这也解释了为何回溯投影里唯一的完整候选形态
 run16-study-3 是\textbf{面板}研究，而同期的 run11-study-3 在单品种上同时带
 成本模型缺失与 cluster 两条阻断，即使成本模型建成也翻不成 candidate。
 逐品种买到的是机制证据与排除界，买不到 candidate。
+
+""" + _cluster_blocker_paragraph() + r"""
+
 
 \subsection{第一轮完整检验的结算（run28）}\label{sec:run28}
 新账的第一轮跑满二十回合，产出十九版判决、统计分母十五。
