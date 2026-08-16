@@ -12,8 +12,17 @@ run.log
 atlas-app/node_modules/
 atlas-app/dist/
 
-# GitHub 100MB 硬限：原始文件仅保留在本地，仓库存 gzip 副本
-runs/run24/events.jsonl
-runs/run25/events.jsonl
-runs/run26/events.jsonl
-runs/run31/events.jsonl
+# run 的原始输出不入库，只留在本地磁盘。
+#
+# 理由有两条。其一是硬限：events.jsonl 最大到 154MB，atlas.json 到 101MB，
+# 超过 GitHub 单文件 100MB 的硬限，推送会被拒绝。其二是它们可再生：
+# 二者都能由账本 data/ledger/service.db 重新导出，本身不是第一手记录。
+#
+# 入库的是 events.jsonl.gz、manifest.json 与 cards/ —— gzip 副本保住了
+# 逐事件的可核性，体积只有原文件的两成。
+#
+# 2026-08-15：这条规则以 git filter-branch 回溯施于全部历史，
+# 此前已入库的 26 个此类文件一并从历史中移除（备份分支
+# backup/pre-blob-purge-20260815）。文件本身未从磁盘删除。
+runs/*/events.jsonl
+runs/*/atlas.json
