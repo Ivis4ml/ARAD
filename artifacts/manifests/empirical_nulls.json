@@ -1,0 +1,266 @@
+{
+  "measurement": "empirical-nulls/v1",
+  "built_at": "2026-08-16T03:02:15.230685+00:00",
+  "note": "取代决定 0013 §六原有的四行对照表 —— 那四对数字无产出脚本，本表逐条取自账本 evaluation_result 的 diagnostics。",
+  "decoy_draws": 39,
+  "decoy_resolution": 0.025,
+  "per_row_mc_se_upper_bound": 0.08006407690254357,
+  "n_paired": 26,
+  "n_decoy_stricter": 21,
+  "share_decoy_stricter": 0.8076923076923077,
+  "sign_test_two_sided_p": 0.0017018720926730182,
+  "exceptions": [
+    {
+      "study_id": "run31-study-1",
+      "universe": "mech_panel:jd+lh+c+m+a",
+      "placebo_exceed": 0.455,
+      "decoy_exceed": 0.3076923076923077,
+      "decoy_stricter": false,
+      "gap": -0.1473076923076923
+    },
+    {
+      "study_id": "run31-study-8",
+      "universe": "mech_panel:jd+lh+c+m+a",
+      "placebo_exceed": 0.2,
+      "decoy_exceed": 0.1282051282051282,
+      "decoy_stricter": false,
+      "gap": -0.07179487179487182
+    },
+    {
+      "study_id": "run31-study-22",
+      "universe": "mech_panel:jd+lh",
+      "placebo_exceed": 0.34,
+      "decoy_exceed": 0.1282051282051282,
+      "decoy_stricter": false,
+      "gap": -0.21179487179487183
+    },
+    {
+      "study_id": "run31-study-26",
+      "universe": "full_coverage_panel",
+      "placebo_exceed": 0.165,
+      "decoy_exceed": 0.02564102564102564,
+      "decoy_stricter": false,
+      "gap": -0.13935897435897437
+    },
+    {
+      "study_id": "run31-study-27",
+      "universe": "mech_panel:au+ag",
+      "placebo_exceed": 0.435,
+      "decoy_exceed": 0.38461538461538464,
+      "decoy_stricter": false,
+      "gap": -0.05038461538461536
+    }
+  ],
+  "median_placebo_exceed": 0.275,
+  "median_decoy_exceed": 0.41025641025641024,
+  "rows": [
+    {
+      "study_id": "run31-study-0",
+      "universe": "mech_panel:a+b+m+y+c+cs",
+      "placebo_exceed": 0.0,
+      "decoy_exceed": 0.02564102564102564,
+      "decoy_stricter": true,
+      "gap": 0.02564102564102564
+    },
+    {
+      "study_id": "run31-study-1",
+      "universe": "mech_panel:jd+lh+c+m+a",
+      "placebo_exceed": 0.455,
+      "decoy_exceed": 0.3076923076923077,
+      "decoy_stricter": false,
+      "gap": -0.1473076923076923
+    },
+    {
+      "study_id": "run31-study-2",
+      "universe": "mech_panel:cu+al+zn+pb+ni+sn+bc",
+      "placebo_exceed": 0.05,
+      "decoy_exceed": 0.23076923076923078,
+      "decoy_stricter": true,
+      "gap": 0.1807692307692308
+    },
+    {
+      "study_id": "run31-study-3",
+      "universe": "mech_panel:hc+v+pp+ru+nr+ss",
+      "placebo_exceed": 0.01,
+      "decoy_exceed": 0.05128205128205128,
+      "decoy_stricter": true,
+      "gap": 0.04128205128205128
+    },
+    {
+      "study_id": "run31-study-4",
+      "universe": "mech_panel:jd+lh",
+      "placebo_exceed": 0.94,
+      "decoy_exceed": 0.9743589743589743,
+      "decoy_stricter": true,
+      "gap": 0.03435897435897439
+    },
+    {
+      "study_id": "run31-study-5",
+      "universe": "mech_panel:a+b+m+y+p+c",
+      "placebo_exceed": 0.64,
+      "decoy_exceed": 0.6666666666666666,
+      "decoy_stricter": true,
+      "gap": 0.026666666666666616
+    },
+    {
+      "study_id": "run31-study-6",
+      "universe": "mech_panel:c+m+a+cs",
+      "placebo_exceed": 0.21,
+      "decoy_exceed": 0.41025641025641024,
+      "decoy_stricter": true,
+      "gap": 0.20025641025641025
+    },
+    {
+      "study_id": "run31-study-7",
+      "universe": "mech_panel:pg+l+pp+eg",
+      "placebo_exceed": 0.39,
+      "decoy_exceed": 0.6410256410256411,
+      "decoy_stricter": true,
+      "gap": 0.25102564102564107
+    },
+    {
+      "study_id": "run31-study-8",
+      "universe": "mech_panel:jd+lh+c+m+a",
+      "placebo_exceed": 0.2,
+      "decoy_exceed": 0.1282051282051282,
+      "decoy_stricter": false,
+      "gap": -0.07179487179487182
+    },
+    {
+      "study_id": "run31-study-9",
+      "universe": "mech_panel:c+cs+m+y+p",
+      "placebo_exceed": 0.605,
+      "decoy_exceed": 0.6153846153846154,
+      "decoy_stricter": true,
+      "gap": 0.010384615384615437
+    },
+    {
+      "study_id": "run31-study-10",
+      "universe": "mech_panel:lc+si+ss+v+eb",
+      "placebo_exceed": 0.035,
+      "decoy_exceed": 0.15384615384615385,
+      "decoy_stricter": true,
+      "gap": 0.11884615384615385
+    },
+    {
+      "study_id": "run31-study-11",
+      "universe": "mech_panel:au+ag+cu+zn",
+      "placebo_exceed": 0.01,
+      "decoy_exceed": 0.07692307692307693,
+      "decoy_stricter": true,
+      "gap": 0.06692307692307693
+    },
+    {
+      "study_id": "run31-study-12",
+      "universe": "mech_panel:cu+al+zn+ni+sn+bc",
+      "placebo_exceed": 0.725,
+      "decoy_exceed": 0.8717948717948718,
+      "decoy_stricter": true,
+      "gap": 0.14679487179487183
+    },
+    {
+      "study_id": "run31-study-13",
+      "universe": "mech_panel:sc+bu+fu+lu+bc",
+      "placebo_exceed": 0.55,
+      "decoy_exceed": 0.6153846153846154,
+      "decoy_stricter": true,
+      "gap": 0.06538461538461537
+    },
+    {
+      "study_id": "run31-study-14",
+      "universe": "mech_panel:cu+al+zn+ni+sn+bc",
+      "placebo_exceed": 0.3,
+      "decoy_exceed": 0.5128205128205128,
+      "decoy_stricter": true,
+      "gap": 0.21282051282051279
+    },
+    {
+      "study_id": "run31-study-16",
+      "universe": "mech_panel:rb+hc+i+j+jm+ss",
+      "placebo_exceed": 0.0,
+      "decoy_exceed": 0.05128205128205128,
+      "decoy_stricter": true,
+      "gap": 0.05128205128205128
+    },
+    {
+      "study_id": "run31-study-17",
+      "universe": "mech_panel:sc+lu+fu+bu",
+      "placebo_exceed": 0.175,
+      "decoy_exceed": 0.23076923076923078,
+      "decoy_stricter": true,
+      "gap": 0.05576923076923079
+    },
+    {
+      "study_id": "run31-study-18",
+      "universe": "mech_panel:au+ag+cu+al+zn+ni+sn",
+      "placebo_exceed": 0.275,
+      "decoy_exceed": 0.6410256410256411,
+      "decoy_stricter": true,
+      "gap": 0.36602564102564106
+    },
+    {
+      "study_id": "run31-study-19",
+      "universe": "mech_panel:au+ag+cu+al+zn+ni+sn+bc+sc",
+      "placebo_exceed": 0.205,
+      "decoy_exceed": 0.2564102564102564,
+      "decoy_stricter": true,
+      "gap": 0.0514102564102564
+    },
+    {
+      "study_id": "run31-study-20",
+      "universe": "mech_panel:m+a+b+y+p+c+cs",
+      "placebo_exceed": 0.58,
+      "decoy_exceed": 0.6923076923076923,
+      "decoy_stricter": true,
+      "gap": 0.11230769230769233
+    },
+    {
+      "study_id": "run31-study-21",
+      "universe": "mech_panel:au+ag+cu+al+zn+ni+sn+bc",
+      "placebo_exceed": 0.59,
+      "decoy_exceed": 0.7948717948717948,
+      "decoy_stricter": true,
+      "gap": 0.20487179487179485
+    },
+    {
+      "study_id": "run31-study-22",
+      "universe": "mech_panel:jd+lh",
+      "placebo_exceed": 0.34,
+      "decoy_exceed": 0.1282051282051282,
+      "decoy_stricter": false,
+      "gap": -0.21179487179487183
+    },
+    {
+      "study_id": "run31-study-23",
+      "universe": "mech_panel:m+y+p+b",
+      "placebo_exceed": 0.14,
+      "decoy_exceed": 0.4358974358974359,
+      "decoy_stricter": true,
+      "gap": 0.2958974358974359
+    },
+    {
+      "study_id": "run31-study-24",
+      "universe": "mech_panel:m+a+c+cs",
+      "placebo_exceed": 0.195,
+      "decoy_exceed": 0.41025641025641024,
+      "decoy_stricter": true,
+      "gap": 0.21525641025641024
+    },
+    {
+      "study_id": "run31-study-26",
+      "universe": "full_coverage_panel",
+      "placebo_exceed": 0.165,
+      "decoy_exceed": 0.02564102564102564,
+      "decoy_stricter": false,
+      "gap": -0.13935897435897437
+    },
+    {
+      "study_id": "run31-study-27",
+      "universe": "mech_panel:au+ag",
+      "placebo_exceed": 0.435,
+      "decoy_exceed": 0.38461538461538464,
+      "decoy_stricter": false,
+      "gap": -0.05038461538461536
+    }
+  ]
+}

@@ -1,0 +1,168 @@
+{
+  "settlement": "settle-run/v1",
+  "built_at": "2026-08-16T02:33:17.631060+00:00",
+  "run": "run31",
+  "family": "sc_mechanism_prior_v1",
+  "budget_denominator": 82,
+  "floor": 2.7000028815352453,
+  "verdicts": {
+    "null": 16,
+    "candidate": 3,
+    "blocked": 3
+  },
+  "studies_decided": 22,
+  "t_defined": 21,
+  "t_undefined": 1,
+  "t_undefined_studies": [
+    {
+      "study_id": "run31-study-8",
+      "universe": "mech_panel:jd+lh+c+m+a",
+      "verdict": "null",
+      "two_way_variance_negative": true
+    }
+  ],
+  "best_by_tier": {
+    "全部有定义的构造": {
+      "n": 21,
+      "best_abs_t": 2.194104240864565,
+      "study_id": "run31-study-0",
+      "reward": -0.5058986406706802
+    },
+    "另类数据": {
+      "n": 21,
+      "best_abs_t": 2.194104240864565,
+      "study_id": "run31-study-0",
+      "reward": -0.5058986406706802
+    },
+    "另类数据且符号一致": {
+      "n": 7,
+      "best_abs_t": 2.194104240864565,
+      "study_id": "run31-study-0",
+      "reward": -0.5058986406706802
+    },
+    "另类数据、符号一致且无阻断": {
+      "n": 3,
+      "best_abs_t": 2.194104240864565,
+      "study_id": "run31-study-0",
+      "reward": -0.5058986406706802
+    }
+  },
+  "coverage": {
+    "products_read": [
+      "a",
+      "ag",
+      "al",
+      "au",
+      "b",
+      "bc",
+      "bu",
+      "c",
+      "cs",
+      "cu",
+      "eb",
+      "eg",
+      "fu",
+      "hc",
+      "i",
+      "j",
+      "jd",
+      "jm",
+      "l",
+      "lc",
+      "lh",
+      "lu",
+      "m",
+      "ni",
+      "nr",
+      "p",
+      "pb",
+      "pg",
+      "pp",
+      "rb",
+      "ru",
+      "sc",
+      "si",
+      "sn",
+      "ss",
+      "v",
+      "y",
+      "zn"
+    ],
+    "n_products_read": 38,
+    "universe_forms": {
+      "mech_panel": 22
+    },
+    "uncovered": {
+      "full_coverage_rows": 1816,
+      "thin_history": [
+        {
+          "product": "ad",
+          "target_rows": 556
+        },
+        {
+          "product": "ao",
+          "target_rows": 1508
+        },
+        {
+          "product": "bb",
+          "target_rows": 442
+        },
+        {
+          "product": "br",
+          "target_rows": 1454
+        },
+        {
+          "product": "bz",
+          "target_rows": 516
+        },
+        {
+          "product": "fb",
+          "target_rows": 907
+        },
+        {
+          "product": "lg",
+          "target_rows": 412
+        },
+        {
+          "product": "op",
+          "target_rows": 424
+        },
+        {
+          "product": "pd",
+          "target_rows": 162
+        },
+        {
+          "product": "ps",
+          "target_rows": 384
+        },
+        {
+          "product": "pt",
+          "target_rows": 162
+        }
+      ],
+      "full_history_but_unread": [
+        {
+          "product": "rr",
+          "target_rows": 1816
+        },
+        {
+          "product": "sp",
+          "target_rows": 1816
+        }
+      ]
+    }
+  },
+  "direction": {
+    "n_with_declared_direction": 22,
+    "sign_agrees": 8,
+    "sign_opposite": 14,
+    "two_sided_p_vs_half": 0.20082512269514546
+  },
+  "decoy_median": 0.41025641025641024,
+  "stop_rule": {
+    "candidate 为 0": false,
+    "合格最好 |t| 未越 E2(82)=2.7000": true,
+    "符号一致率仍在 50% 的二项噪声内": true
+  },
+  "stop_rule_all_met": false
+}

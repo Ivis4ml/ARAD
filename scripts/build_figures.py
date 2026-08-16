@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 import matplotlib
 
 matplotlib.use("Agg")
+import build_report
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
 
@@ -375,11 +376,21 @@ def qualifying_climb() -> None:
     from arad.evaluation.selection import expected_max_abs_z
     from arad.memory.ledger import EvidenceLedger, Role
 
+    # 族归属与 build_report.py 共用同一份运行清单。此处曾各写一份，
+    # 结果是新增一轮只改了报告那一份，作图脚本把新一轮的机制族 Study 默默
+    # 归进旧族、把旧族的点数由 134 抬到 152。默认分支必须能被审出来，
+    # 因此下面对未登记的运行显式报错，而不是让它落进 old。
+    known_runs = set(build_report.RUN_ORDER)
+
     def fam_of(sid: str) -> str:
         run = sid.split("-study-")[0]
-        if run in ("run23", "run24"):
+        if run not in known_runs:
+            raise ValueError(
+                f"运行 {run!r} 未登记在 build_report.RUN_ORDER 中；"
+                "族归属不能靠默认分支猜，请先把它填进 RUN_ORDER 与相应的族集合")
+        if run in build_report.EVENT_RUNS:
             return "event"
-        if run in ("run27", "run28", "run29", "run30"):
+        if run in build_report.MECH_RUNS:
             return "mech"
         return "old"
 

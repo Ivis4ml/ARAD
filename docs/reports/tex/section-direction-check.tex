@@ -1,0 +1,158 @@
+%% 起草者备注（LaTeX 注释，不进正文，请在合入前阅读）：
+%% 1. 【与任务给定事实不符，已在正文更正】任务称「若不修，run30 会产出三条候选」。
+%%    实测不成立：run30 的四条 blocked 同时命中 cluster_structure_insufficient，
+%%    而该理由在 REASON_INVALIDATES 中同样只使 candidate 失效（kernel.py:65）。
+%%    把 direction_mismatch 从二十版理由中移除、用 derive_verdict 重推，判决仍为
+%%    16 null / 4 blocked。正文据此改写为：run30 不是「修复改变了判决」的实证，
+%%    改变判决的实证由回溯投影给出；run30 的实证是「|t| 前三全部反号」。
+%% 2. 【未能复现，正文用可复算的替代值】任务给的「Spearman +0.139、置换 p=0.155」
+%%    复现不出。同一 209 条上，|t| 与符号一致指示变量的逐条秩相关为 +0.024、
+%%    置换 p=0.73（2 万次重排，种子 20260815）；六层一致率与层序的秩相关为 -0.37。
+%%    两者都指向「一致率不随 |t| 上升」，正文采用 +0.024 / 0.73。若父级另有定义请替换。
+%% 3. 分层表、43.5%（91/209）、二项 p=0.0719 由账本 data/ledger/service.db 按
+%%    scripts/project_direction_check.py 的口径重算复现，截至 run30 收官。
+%%    run31（在跑）已有 22 版入账、其中 3 条 candidate，故正文对「唯一 candidate」
+%%    一句加了「截至 run30 收官」的限定。含 run31 的口径为 227 条、一致 97 条（42.7%）。
+%% 4. 残差化对照：任务给的 43.8% 复算为 43.6%（172 条），未残差化 43.2%（37 条）与任务一致；
+%%    残差化与否按 feature_spec_locked 载荷是否含 "resid" 判定。
+%% 5. 表格标题中的路径用 \texttt 而非 \path：\path 在 caption（moving argument）中报错。
+%%    片段已用 xelatex + ctexart 试排通过，0 error、0 overfull hbox。
+
+\subsection{提案自己写下的符号判据，与第一条越线的构造}
+
+每一次检验都从一份在检验之前锁定的提案开始。提案的方向字段 \path{direction} 取 $+1$ 或 $-1$，
+声明所主张的机制要求回归斜率取哪个符号；可证否条件 \path{falsifiable_condition} 要求模型写明
+什么样的读数算这条机制被否定。两者都在看到结果之前写定，此后不可改。
+
+run29-study-4 是本项目历史上第一条越过预注册证否线的构造：全覆盖面板的 36 个品种、
+21{,}390 行配对、316 个日期簇，双向 cluster 后 $|t|=2.5649$，越过证否线 $E_2(45)=2.4933$，
+整块置换 200 次中超过实际值的比例为 $0.000$（账本 \path{data/ledger/service.db} 中该 Study 的
+\path{evaluation_result}）。核实时发现，它的斜率点估计为 $+1.438\times10^{-4}$，符号为正，
+而它自己声明的方向是 $-1$。它写下的判据是：
+
+\begin{quote}\small
+「其二，斜率的点估计符号为正，即停火概率的净上修系统性地伴随更高的下一时段收益，
+这与本条主张的风险溢价压缩通道方向相反，说明所读到的不是该通道。」
+\end{quote}
+
+这句话写在结果出现之前。按它自己预注册的判据，这条读数是一次否定；而机器判的是 candidate。
+
+\subsection{根因：方向字段在提案锁定之后再没有被读过}
+
+原因不在阈值，而在接线：评价机的请求对象 \path{EvaluationRequest} 里根本没有方向字段。
+\path{direction} 写进提案、进入账本，此后没有任何代码读过它。模型写下的符号判据，
+机器一次都没有执行过。
+
+全史实测印证这一点。产物 \path{artifacts/manifests/direction_check_projection.json}
+（由 \path{scripts/project_direction_check.py} 在 run30 之前构建）：190 条有预注册方向且斜率
+非零的 Study 中，符号一致 85 条、相反 105 条，相反占 55.3\%，与掷硬币无异。
+
+\subsection{性质的界定：不是改标准，是执行一条早已写下的判据}
+
+这一点必须讲清楚，否则读者无法判断这次修改是不是事后调整。事后调整之所以是病，
+是因为它在看到不喜欢的结果之后改变检验的标准；而这里的标准从第一条提案起就写在
+可证否条件里，从未改动。本次改动既不收紧也不放松判据，只是把一条早已预注册、
+却从未被执行的判据接上执行路径。
+
+实现见决定 0012 与 \path{src/arad/evaluation/kernel.py}：\path{declared_direction} 进入评价请求
+与请求指纹（同一批预测配不同的声明方向不算同一次检验）；符号相反则追加阻断理由
+\path{direction_mismatch}；失效表令该理由只使 candidate 失效，不使 null 失效，
+因为幅度很小的反号读数本来就是合法的否定。反号而幅度大的读数归 blocked：
+它说明「有关系，但不是你说的那条」，既不能记为候选，也不允许被改写成事后编出的相反假设，
+后者即 HARKing。
+
+\subsection{回溯投影：只可能把候选降为阻塞}
+
+投影在读取侧进行，账本只追加、不回写，已入账判决原样保留，与成本模型建成后的回溯投影
+（第~\ref{sec:retro}~节）同一形态。由于新理由只使 candidate 失效，投影不可能把任何否定翻成肯定。
+
+\begin{table}[htbp]\centering\footnotesize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.18\textwidth} r r >{\raggedright\arraybackslash}p{0.40\textwidth}@{}}
+\toprule
+判决 & 如实入账 & 方向核对投影 & 变化 \\ \midrule
+null & 145 & 145 & 不变 \\
+underpowered & 3 & 3 & 不变 \\
+blocked & 38 & 41 & 增加 3 条 \\
+candidate & \textbf{4} & \textbf{1} & 减少 3 条 \\
+\bottomrule\end{tabular}
+\caption{方向核对下的全史回溯投影，190 条有预注册方向且斜率非零的 Study。
+来源：\texttt{artifacts/manifests/direction\_check\_projection.json}。}
+\end{table}
+
+\begin{table}[htbp]\centering\footnotesize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth} r r >{\raggedright\arraybackslash}p{0.34\textwidth}@{}}
+\toprule
+Study & 声明方向 & 实得 $t$ & 入账判决 $\to$ 投影判决 \\ \midrule
+run28-study-12 & $-1$ & $+1.353$ & candidate $\to$ blocked \\
+run29-study-4 & $-1$ & $+2.565$ & candidate $\to$ blocked \\
+run29-study-5 & $-1$ & $+0.601$ & candidate $\to$ blocked \\
+\bottomrule\end{tabular}
+\caption{投影下发生变化的三条，全部是「声明 $-1$、实得正号」。}
+\end{table}
+
+变化的三条原本阻断理由表为空，方向不匹配是它们唯一的候选失效理由。截至 run30 收官，
+唯一在方向核对下仍成立的 candidate 是 run29-study-2（声明 $+1$、实得 $+0.954$），
+其 $|t|$ 远在地板之下，属于「闸门全过而效应微弱」，不是发现。
+
+\subsection{修复后的实证：run30 的二十版}
+
+run30 在同一预算、同一证否线（$E_2(45)=2.4933$）下续跑，与 run29 的唯一差别是评价机会执行
+符号判据。二十版判决为 16 条 null、4 条 blocked、无 candidate；run29 同期记录 3 条 candidate，
+其中两条的符号与自己的声明相反。方向不匹配本轮触发 14 次，其中 10 次落在因整块置换失败
+（\path{placebo_failed}）已判 null 的 Study 上，按失效表不改变判决；其余四条见下表。
+
+\begin{table}[htbp]\centering\footnotesize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.14\textwidth} >{\raggedright\arraybackslash}p{0.14\textwidth} r r >{\raggedright\arraybackslash}p{0.32\textwidth}@{}}
+\toprule
+Study & universe & 声明 & 实得 $t$ & 同时命中的其他阻断理由 \\ \midrule
+run30-study-5 & \path{lu}（低硫燃料油） & $-1$ & $+3.744$ & 单点影响过大（删一个观测斜率移动 1.31 个标准误，超预注册上限 1.0）；品种维退化 \\
+run30-study-9 & \path{y}（豆油） & $-1$ & $+2.377$ & 品种维退化 \\
+run30-study-10 & \path{zn}（沪锌） & $-1$ & $+2.361$ & 品种维退化 \\
+run30-study-2 & \path{c}（玉米） & $-1$ & $+1.743$ & 品种维退化 \\
+\bottomrule\end{tabular}
+\caption{run30 中命中方向不匹配且判 blocked 的四条，全部为「声明 $-1$、实得正号」；
+另 10 次触发落在已判 null 的 Study 上。来源：\texttt{runs/run30/events.jsonl}。}
+\end{table}
+
+此处需要一处限定。二十版中有十八版在单品种 universe 上求值，品种维只有一组、双向 cluster 退化，
+阻断理由 \path{cluster_structure_insufficient} 独立地使 candidate 失效；把
+\path{direction_mismatch} 从各版理由中移除后按同一失效表重推，判决仍是 16 条 null、4 条 blocked。
+因此 run30 不是「修复改变了判决」的实证，改变判决的实证在上一节的回溯投影。
+
+run30 给出的是另一种实证：本轮 $|t|$ 前三的读数（$3.744$、$2.377$、$2.361$）符号全部与所声明的
+$-1$ 相反，第一条还越过本轮证否线。它们若出现在没有 cluster 退化这道闸的面板 universe 上
+（run29-study-4 正是如此），方向核对就是唯一拦下它们的判据。
+
+\subsection{符号一致率的分层：一致率不随效应大小上升}
+
+把全部有预注册方向、斜率非零且 $t$ 有限的 Study 按 $|t|$ 分层（截至 run30 收官共 209 条，
+run31 未计入；由账本 \path{data/ledger/service.db} 按 \path{scripts/project_direction_check.py}
+的口径重算）：
+
+\begin{table}[htbp]\centering\footnotesize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.16\textwidth} r r r@{}}
+\toprule
+$|t|$ 区间 & Study 数 & 符号一致数 & 一致率 \\ \midrule
+$[0,0.5)$ & 79 & 31 & 39.2\% \\
+$[0.5,1)$ & 53 & 25 & 47.2\% \\
+$[1,1.5)$ & 37 & 18 & 48.6\% \\
+$[1.5,2)$ & 18 & 8 & 44.4\% \\
+$[2,3)$ & 14 & 6 & 42.9\% \\
+$\geq 3$ & 8 & 3 & 37.5\% \\ \midrule
+合计 & 209 & 91 & \textbf{43.5\%} \\
+\bottomrule\end{tabular}
+\caption{符号一致率按 $|t|$ 分层。总体对 50\% 的双侧二项检验 $p=0.072$，不显著；
+一致率不随 $|t|$ 上升，效应最大的一层反而最低。}
+\end{table}
+
+总体 43.5\% 与掷硬币无从区分（双侧二项 $p=0.072$）。更有信息的是分层的形状：一致率不随 $|t|$
+上升，$|t|\geq 3$ 的一层是六层中最低的 37.5\%，逐条计算的秩相关（$|t|$ 与符号一致指示变量的
+Spearman 相关）为 $+0.024$，置换检验 $p=0.73$。这一层证据不支持「方向判断有内容、只是被噪声
+淹没」：若符号推理有预测力，效应大的那些应当更容易对，而分层看不到这种上升（209 条二元结果的
+功效有限，此处是「无证据支持」而非「有证据反对」）。两种技术性解释则已直接排除：残差化不翻转符号
+（172 条残差化规格 43.6\%，37 条未残差化 43.2\%）；机制族的极性折叠经成员表逐条核对无反转，
+停火类市场归 $+1$、战事推进类归 $-1$。
+
+剩下两种解释用这批数据分不开：被测切面上确实没有真实关系，符号只是噪声；
+或者模型的符号推理本身没有预测内容，机制叙述在两个方向上都讲得通，符号是叙述里最不受约束的
+那一位。区分二者需要一批已知存在真实关系的对照检验。
