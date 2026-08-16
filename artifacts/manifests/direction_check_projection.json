@@ -3,30 +3,30 @@
     {
       "low": 0.0,
       "high": 0.5,
-      "n": 85,
-      "sign_agrees": 32,
-      "rate": 0.3764705882352941
+      "n": 89,
+      "sign_agrees": 35,
+      "rate": 0.39325842696629215
     },
     {
       "low": 0.5,
       "high": 1.0,
-      "n": 61,
+      "n": 63,
       "sign_agrees": 30,
-      "rate": 0.4918032786885246
+      "rate": 0.47619047619047616
     },
     {
       "low": 1.0,
       "high": 1.5,
-      "n": 44,
+      "n": 46,
       "sign_agrees": 18,
-      "rate": 0.4090909090909091
+      "rate": 0.391304347826087
     },
     {
       "low": 1.5,
       "high": 2.0,
-      "n": 20,
+      "n": 21,
       "sign_agrees": 8,
-      "rate": 0.4
+      "rate": 0.38095238095238093
     },
     {
       "low": 2.0,
@@ -44,15 +44,15 @@
     }
   ],
   "rank_correlation": {
-    "spearman": 0.01699209906763988,
-    "permutation_p": 0.79095,
+    "spearman": -0.0042088945953993925,
+    "permutation_p": 0.94745,
     "draws": 20000,
     "seed": 20260815,
-    "n": 236,
+    "n": 245,
     "note": "取代先前无法复算的 +0.139 / p=0.155"
   },
   "projection": "direction_check/v1",
-  "built_at": "2026-08-16T03:16:27.104911+00:00",
+  "built_at": "2026-08-16T04:31:59.914104+00:00",
   "rule": {
     "reason_kind": "direction_mismatch",
     "invalidates": [
@@ -60,18 +60,18 @@
     ],
     "note": "斜率符号与预注册方向相反时追加该阻断理由。它只使 candidate 失效，因此投影不可能把任何否定翻成肯定；能改变的只有 candidate → blocked。账本不回写，本表是读取侧的投影。"
   },
-  "studies_with_declared_direction": 238,
-  "sign_agrees": 101,
-  "sign_opposite": 137,
+  "studies_with_declared_direction": 247,
+  "sign_agrees": 104,
+  "sign_opposite": 143,
   "verdict_counts_as_recorded": {
-    "null": 182,
-    "blocked": 46,
+    "null": 190,
+    "blocked": 47,
     "candidate": 7,
     "underpowered": 3
   },
   "verdict_counts_under_check": {
-    "null": 182,
-    "blocked": 49,
+    "null": 190,
+    "blocked": 50,
     "candidate": 4,
     "underpowered": 3
   },
@@ -2500,6 +2500,114 @@
       "sign_agrees": false,
       "verdict_as_recorded": "blocked",
       "verdict_under_direction_check": "blocked",
+      "changed": false
+    },
+    {
+      "study_id": "run31-study-30",
+      "family": "sc_mechanism_prior_v1",
+      "universe": "mech_panel:c+m+cs",
+      "declared_direction": -1,
+      "realised_sign": 1,
+      "t_stat": 1.5013892459228173,
+      "sign_agrees": false,
+      "verdict_as_recorded": "null",
+      "verdict_under_direction_check": "null",
+      "changed": false
+    },
+    {
+      "study_id": "run31-study-31",
+      "family": "sc_mechanism_prior_v1",
+      "universe": "mech_panel:rb+hc+i+j+jm",
+      "declared_direction": -1,
+      "realised_sign": -1,
+      "t_stat": -0.44987723120450307,
+      "sign_agrees": true,
+      "verdict_as_recorded": "null",
+      "verdict_under_direction_check": "null",
+      "changed": false
+    },
+    {
+      "study_id": "run31-study-32",
+      "family": "sc_mechanism_prior_v1",
+      "universe": "mech_panel:au+ag+cu+al+zn+ni",
+      "declared_direction": -1,
+      "realised_sign": 1,
+      "t_stat": 1.2847119302457115,
+      "sign_agrees": false,
+      "verdict_as_recorded": "null",
+      "verdict_under_direction_check": "null",
+      "changed": false
+    },
+    {
+      "study_id": "run31-study-34",
+      "family": "sc_mechanism_prior_v1",
+      "universe": "mech_panel:ru+nr+sp+ss+bc",
+      "declared_direction": -1,
+      "realised_sign": 1,
+      "t_stat": 0.14912822473677048,
+      "sign_agrees": false,
+      "verdict_as_recorded": "null",
+      "verdict_under_direction_check": "null",
+      "changed": false
+    },
+    {
+      "study_id": "run31-study-35",
+      "family": "sc_mechanism_prior_v1",
+      "universe": "mech_panel:sc+fu+lu+bu",
+      "declared_direction": -1,
+      "realised_sign": 1,
+      "t_stat": 1.200707365704794,
+      "sign_agrees": false,
+      "verdict_as_recorded": "blocked",
+      "verdict_under_direction_check": "blocked",
+      "changed": false
+    },
+    {
+      "study_id": "run31-study-36",
+      "family": "sc_mechanism_prior_v1",
+      "universe": "mech_panel:au+ag+cu+al+zn+pb",
+      "declared_direction": -1,
+      "realised_sign": 1,
+      "t_stat": 0.8348837651241958,
+      "sign_agrees": false,
+      "verdict_as_recorded": "null",
+      "verdict_under_direction_check": "null",
+      "changed": false
+    },
+    {
+      "study_id": "run31-study-37",
+      "family": "sc_mechanism_prior_v1",
+      "universe": "mech_panel:au+ag",
+      "declared_direction": -1,
+      "realised_sign": -1,
+      "t_stat": -0.1731323522933424,
+      "sign_agrees": true,
+      "verdict_as_recorded": "null",
+      "verdict_under_direction_check": "null",
+      "changed": false
+    },
+    {
+      "study_id": "run31-study-38",
+      "family": "sc_mechanism_prior_v1",
+      "universe": "mech_panel:al+zn+ni+ss",
+      "declared_direction": -1,
+      "realised_sign": -1,
+      "t_stat": -0.18299778315203666,
+      "sign_agrees": true,
+      "verdict_as_recorded": "null",
+      "verdict_under_direction_check": "null",
+      "changed": false
+    },
+    {
+      "study_id": "run31-study-39",
+      "family": "sc_mechanism_prior_v1",
+      "universe": "mech_panel:jd+lh",
+      "declared_direction": 1,
+      "realised_sign": -1,
+      "t_stat": -0.8203261003715995,
+      "sign_agrees": false,
+      "verdict_as_recorded": "null",
+      "verdict_under_direction_check": "null",
       "changed": false
     },
     {

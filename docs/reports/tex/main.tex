@@ -1,4 +1,4 @@
-% 由 scripts/build_report_tex.py 生成；数字全部来自账本快照 seq 4290
+% 由 scripts/build_report_tex.py 生成；数字全部来自账本快照 seq 4341
 \documentclass[11pt]{ctexart}
 \usepackage[a4paper,margin=2.4cm]{geometry}
 \usepackage{array,booktabs,longtable,graphicx,amsmath,amssymb,url,xcolor,caption}
@@ -15,9 +15,9 @@
 \maketitle
 \begin{abstract}
 研究者是大语言模型（claude-opus-5，经 \path{claude -p} 调用），确定性框架负责使其产出
-可信且可累积。截至账本冻结点（事件 seq 4290），系统在
+可信且可累积。截至账本冻结点（事件 seq 4341），系统在
 Polymarket 预测市场 $\times$ 中国商品期货（以 SC 原油为主）上共冻结 \textbf{159 个互异假设}，读取 outcome \textbf{135 次}，
-判决为 null \textbf{187}、blocked \textbf{72}、underpowered \textbf{11}、candidate \textbf{7}；噪声地板升至 \textbf{2.862}。三条主结果：（一）不加控制时最大的统计量
+判决为 null \textbf{190}、blocked \textbf{72}、underpowered \textbf{11}、candidate \textbf{7}；噪声地板升至 \textbf{2.862}。三条主结果：（一）不加控制时最大的统计量
 （$|t|$ 至 9.30）全部是波动率聚集这一教科书事实；
 （二）对品种自身波动或国际油价残差化后，Polymarket 特征大面积失去线性预测力；
 （三）第一条走完全流程的候选在一次性的封存段被否决；
@@ -96,7 +96,7 @@ Polymarket 仍在交易 —— 停市期间到达的信息，理论上要等次�
 \begin{center}\footnotesize
 \begin{tabular}{@{}l p{0.72\textwidth}@{}}\toprule
 术语 & 含义 \\ \midrule
-Study & 一次完整的研究：从提出假设到得出判决。本文共 315 个。 \\
+Study & 一次完整的研究：从提出假设到得出判决。本文共 317 个。 \\
 族（family） & 按上下文两义：（一）\textbf{事件族}，Polymarket 上语义相近的一批
   市场合成的一条序列，如 \path{cand:iran}；（二）\textbf{问题族}，共享同一本
   「搜索代价账」的一批研究，见「地板」。 \\
@@ -187,7 +187,7 @@ $|t|=9.30$ 的构造，其分母与预测目标同为已实现波动 —— 它�
 「多试几次」从来不是免费的（\S\ref{sec:selection}）。
 
 \paragraph{七、否定是产出，不是失败。}
-全部 315 个 Study 中 187 条是带排除界的可信否定：每条都预注册了证否条件、
+全部 317 个 Study 中 190 条是带排除界的可信否定：每条都预注册了证否条件、
 通过了语义审计、并被置换检验确认「打乱的假数据做得一样好」。对「Polymarket
 能否预测中国商品期货」这个问题，这批否定就是当前最可信的答案（\S\ref{sec:conclusions}）。
 
@@ -764,9 +764,9 @@ p{0.09\textwidth} >{\raggedright\arraybackslash}p{0.38\textwidth}@{}}\toprule
 账本 & 分母 & 适用地板 & 说明 \\ \midrule
 \path{demo_sc_price_volume} & 135 & 2.862 & 常在线性检验 \\
 \path{sc_event_conditional_v1} & 33 & 2.381 & 由触发器的问题形态定义 \\
-\path{sc_mechanism_prior_v1} & 76 & 2.675 &
+\path{sc_mechanism_prior_v1} & 79 & 2.688 &
   机制族；预算 20 回合，全轮以预算末地板 2.1895 为证否线 \\
-合并口径（不分族） & 244 & 3.045 & 约束 4 要求随时可读 \\
+合并口径（不分族） & 247 & 3.049 & 约束 4 要求随时可读 \\
 \bottomrule\end{tabular}
 \caption{三本账的现状。「适用地板」指该族按当前分母算出的线；
 新族另按约束 3 以预算末地板为证否线。candidate 指通过全部预注册闸门、
@@ -798,7 +798,7 @@ run16-study-3 是\textbf{面板}研究，而同期的 run11-study-3 在单品种
 成本模型缺失与 cluster 两条阻断，即使成本模型建成也翻不成 candidate。
 逐品种买到的是机制证据与排除界，买不到 candidate。
 
-全史实测（随报告重算）：154 条单品种 Study 中 150 条带该阻断，90 条面板 Study 中只有 2 条。单品种的 4 条例外中有 4 条阻断理由表为空 —— 它们出自早期评价机版本，当时还没有这条判据，不是「样本不足未走到该判据」。
+全史实测（随报告重算）：154 条单品种 Study 中 150 条带该阻断，93 条面板 Study 中只有 2 条。单品种的 4 条例外中有 4 条阻断理由表为空 —— 它们出自早期评价机版本，当时还没有这条判据，不是「样本不足未走到该判据」。
 
 
 \subsection{第一轮完整检验的结算（run28）}\label{sec:run28}
@@ -902,8 +902,8 @@ run29-study-4 越过了它那一批预先定下的证否线（$|t|=2.5649$ 对 $
 字段。\path{direction} 写进提案、进入账本，此后没有任何代码读过它。
 
 全史实测印证这一点。截至本报告的账本快照，有预注册方向且斜率非零的 Study 共
-238 条，符号一致 101 条、相反 137 条
-（相反占 57.6\%），与掷硬币无从区分。
+247 条，符号一致 104 条、相反 143 条
+（相反占 57.9\%），与掷硬币无从区分。
 
 \subsection{这次改动的性质：书面判据没变，执行的判据收紧了}
 这一点必须讲清楚，否则读者无法判断它是不是一次事后调整。准确的表述分两层：
@@ -934,12 +934,12 @@ run29-study-4 越过了它那一批预先定下的证否线（$|t|=2.5649$ 对 $
 >{\raggedright\arraybackslash}p{0.34\textwidth}@{}}
 \toprule
 判决 & 如实入账 & 方向核对投影 & 变化 \\ \midrule
-\path{null} & 182 & 182 & 不变 \\
+\path{null} & 190 & 190 & 不变 \\
 \path{underpowered} & 3 & 3 & 不变 \\
-\path{blocked} & 46 & 49 & 增加 3 条 \\
+\path{blocked} & 47 & 50 & 增加 3 条 \\
 \path{candidate} & \textbf{7} & \textbf{4} & 减少 3 条 \\
 \bottomrule\end{tabular}
-\caption{方向核对下的回溯投影，238 条有预注册方向且斜率非零的 Study。
+\caption{方向核对下的回溯投影，247 条有预注册方向且斜率非零的 Study。
 产物：\texttt{artifacts/manifests/direction\_check\_projection.json}。}
 \end{table}
 
@@ -977,22 +977,22 @@ run30 给出的是另一种实证：本轮读数最大的三条（$3.744$、$2.3
 \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.16\textwidth} r r r@{}}
 \toprule
 $|t|$ 区间 & Study 数 & 符号一致数 & 一致率 \\ \midrule
-$[0.0,0.5)$ & 85 & 32 & 37.6\% \\
-$[0.5,1.0)$ & 61 & 30 & 49.2\% \\
-$[1.0,1.5)$ & 44 & 18 & 40.9\% \\
-$[1.5,2.0)$ & 20 & 8 & 40.0\% \\
+$[0.0,0.5)$ & 89 & 35 & 39.3\% \\
+$[0.5,1.0)$ & 63 & 30 & 47.6\% \\
+$[1.0,1.5)$ & 46 & 18 & 39.1\% \\
+$[1.5,2.0)$ & 21 & 8 & 38.1\% \\
 $[2.0,3.0)$ & 18 & 9 & 50.0\% \\
 $\geq 3.0$ & 8 & 3 & 37.5\% \\
 \midrule
-合计 & 236 & 101 & \textbf{42.4\%} \\
+合计 & 245 & 104 & \textbf{42.1\%} \\
 \bottomrule\end{tabular}
 \caption{符号一致率按 $|t|$ 分层。最高一层的样本很小，不宜单独解读；
 可读的是整体没有随 $|t|$ 上升的形状。}
 \end{table}
 
 分层的形状比总体更有信息：一致率不随 $|t|$ 上升。逐条秩相关（$|t|$ 与符号一致
-指示变量的 Spearman 相关）为 $+0.0170$，
-20000 次置换 $p=0.7910$（种子 20260815）。
+指示变量的 Spearman 相关）为 $-0.0042$，
+20000 次置换 $p=0.9475$（种子 20260815）。
 这一层证据不支持「方向判断有内容、只是被噪声淹没」：若符号推理有预测力，
 效应大的那些应当更容易对。需要限定的是，二元结果的功效有限，
 此处是「无证据支持」而非「有证据反对」。
@@ -1028,7 +1028,7 @@ $\geq 3.0$ & 8 & 3 & 37.5\% \\
 解析地板假设 $n$ 次检验相互独立。实际不然：同一族的构造共用底层序列。
 集合的界必须先说清楚，否则算出来的数没有对照对象 —— 这里取
 \textbf{机制先验族里在决策网格上能重新求出信号序列的全部冻结构造}，
-共 73 条，2555 对。信号序列不是回放存下的数字，
+共 82 条，3231 对。信号序列不是回放存下的数字，
 而是用冻结规格在决策网格上重新求值得到。
 
 \begin{table}[htbp]\centering\footnotesize
@@ -1036,13 +1036,13 @@ $\geq 3.0$ & 8 & 3 & 37.5\% \\
 >{\raggedright\arraybackslash}p{0.30\textwidth}@{}}
 \toprule
 量 & 实测 & 纯噪声参照 & 说明 \\ \midrule
-两两 $|\rho|$ 中位 & 0.0523 & 0.0382 &
-  1.37 倍 \\
-两两 $|\rho|$ 平均 & 0.1084 & 0.0530 &
-  2.05 倍 \\
-最大特征值 & 8.47 & 2.20 &
+两两 $|\rho|$ 中位 & 0.0528 & 0.0397 &
+  1.33 倍 \\
+两两 $|\rho|$ 平均 & 0.1099 & 0.0535 &
+  2.06 倍 \\
+最大特征值 & 8.85 & 2.35 &
   纯噪声上界为 Marchenko-Pastur \\
-大于 1 的特征值 & 23 个 & — &
+大于 1 的特征值 & 24 个 & — &
   这些构造大致张成十几个方向 \\
 \bottomrule\end{tabular}
 \caption{构造之间的相关结构。纯噪声参照\textbf{逐对按该对自己的共同点数}计算
@@ -1050,15 +1050,21 @@ $\geq 3.0$ & 8 & 3 & 37.5\% \\
 \texttt{artifacts/manifests/construction\_correlation.json}。}
 \end{table}
 
-把实测相关矩阵直接拿去模拟纯噪声下的最大 $|z|$，期望为 2.5179
+把实测相关矩阵直接拿去模拟纯噪声下的最大 $|z|$，期望为 2.5502
 （20000 次，种子 20260815），而同一个 $n$ 的解析地板
-$E_2(73)=2.6610$。即解析地板在这一侧\textbf{偏严}约
-0.143，73 次尝试大致等价于
-49 次独立尝试。
+$E_2(82)=2.7000$。即解析地板在这一侧\textbf{偏严}约
+0.150，82 次尝试大致等价于
+53 次独立尝试。
 
 \textbf{模拟的 $n$ 必须与对照的 $E_2(n)$ 是同一个 $n$}。这一句看起来是废话，
 但先前的一段论述正是在这里出错：它用了「40 条构造」，而 40 是当时预注册的
 \textbf{回合预算}，不是被相关的构造数。拿回合预算去查 $E_2$ 表，对照的对象就错了。
+
+\textbf{一处需要挑明的巧合}：本节的 $n=82$ 与第~\ref{sec:coverage}~节那条批级
+证否线的 $n$ 恰好都是 82，但它们是两个来历不同的数。本节的 82 是\textbf{可重新
+求值的冻结构造数}（已读结果的那些，加上读取之前即被拦下、因而没消耗分母的那几条）；
+证否线的 82 是\textbf{预算末分母}（开跑前的分母加本批回合数）。两者相等是巧合，
+不存在一个由另一个推出的关系。
 
 \subsection{两处自我更正，其中一处此前也没改对}
 先前给出过一条折算：用设计效应公式 $n/(1+(n-1)\bar{\rho})$ 得到有效次数 6.4、
@@ -1070,9 +1076,9 @@ $E_2(73)=2.6610$。即解析地板在这一侧\textbf{偏严}约
       矩阵直接模拟最大值，即上一小节所做的。
 \item \textbf{第二条当时说错了}：当时称「实测 $|\rho|$ 中位 0.054 仅略高于纯噪声
       期望 0.040，故观察到的相关多半是抽样噪声」。那是\textbf{中位对均值}，
-      不同类。同类比较下相关是真的：平均之比 2.05 倍，
-      且最大特征值 8.47 远超纯噪声上界
-      2.20。第一条的结论不因此改变（方法错就是错），
+      不同类。同类比较下相关是真的：平均之比 2.06 倍，
+      且最大特征值 8.85 远超纯噪声上界
+      2.35。第一条的结论不因此改变（方法错就是错），
       但理由要改写。
 \end{enumerate}
 
@@ -1092,9 +1098,9 @@ $E_2(73)=2.6610$。即解析地板在这一侧\textbf{偏严}约
 
 评价机在同一次评价里同时记下两个超越比例，因此每一条带 decoy 的 Study 本身就是一次
 配对观测，两个比例算在同一批预测、同一批标签上。截至本报告快照共
-\textbf{26 条}配对读数，其中 decoy 更严 \textbf{21 条}
-（80.8\%），符号检验双侧 $p=0.0017$；
-中位为置换 0.2750、decoy 0.4103。
+\textbf{37 条}配对读数，其中 decoy 更严 \textbf{27 条}
+（73.0\%），符号检验双侧 $p=0.0052$；
+中位为置换 0.3000、decoy 0.4103。
 
 \textbf{可读的是方向，不是任何一对的差值大小}。decoy 只有 39 次平移，
 单条比例的蒙特卡洛标准误上界约 0.080，
@@ -1111,6 +1117,11 @@ Study & 置换超越比例 & decoy 超越比例 \\ \midrule
 \path{run31-study-22} & 0.3400 & 0.1282 \\
 \path{run31-study-26} & 0.1650 & 0.0256 \\
 \path{run31-study-27} & 0.4350 & 0.3846 \\
+\path{run31-study-28} & 0.0000 & 0.0000 \\
+\path{run31-study-32} & 0.4000 & 0.3590 \\
+\path{run31-study-34} & 0.7100 & 0.6923 \\
+\path{run31-study-37} & 0.9450 & 0.8205 \\
+\path{run31-study-39} & 0.3950 & 0.2564 \\
 \bottomrule\end{tabular}
 \caption{decoy 反而比置换更松的那几条。产物：
 \texttt{artifacts/manifests/empirical\_nulls.json}。}
@@ -1181,8 +1192,8 @@ $|t|=1.836$ —— \textbf{连封存段自己的地板都没越过}。这比「�
 \textbf{不预先枚举组合}：替提案挑组合，那就成了菜单的选择而不是研究判断。
 
 \subsection{实测：满行的品种已无遗漏}
-run31 的 30 条提案覆盖了 \textbf{40 个品种}，
-品种域形态的分布为 \path{mech_panel} 29 次、\path{full_coverage_panel} 1 次。
+run31 的 37 条提案覆盖了 \textbf{40 个品种}，
+品种域形态的分布为 \path{mech_panel} 36 次、\path{full_coverage_panel} 1 次。
 
 余下 11 个品种没有被读到，但\textbf{原因要分开说}，
 否则一条关于数据可得性的事实会被读成一条关于搜索行为的事实：
@@ -1210,6 +1221,36 @@ run31 中有 1 条检验的 $t$ \textbf{无定义}：
 若不单列，读者会以为每次检验都产出了可比的读数。与之配套的另一半是：
 \textbf{分母仍然照扣}。分母记的是「看了几次」，不是「看成了几次」；
 若把算不出 $t$ 的那次从分母里摘掉，等于让一次失败的读取免费。
+
+\subsection{本批的结算与预注册停止规则}
+本批预注册了一条停止规则：四十票花完后，若三条同时成立 —— 候选为零、
+合格构造最好 $|t|$ 未越批级证否线、符号一致率仍在掷硬币的噪声内 ——
+则宣告数据源级否定并终止检验票支出。
+
+结算结果：\textbf{三条中成立两条，规则不触发}。合格最好
+$|t|=2.1941$，
+未越 $E_2(82)=2.7000$；符号一致
+13 条、相反 24 条，
+对 50\% 的双侧 $p=0.0705$，仍在噪声内。
+不成立的是第一条：本轮有 3 条候选。
+
+规则不触发\textbf{不是一次退让}，需要把这三条候选的性质讲清楚：
+
+\begin{itemize}
+\item 它们是方向判据生效之后产出的第一批候选，因此与 run29 那三条不同，
+      \textbf{符号与自己声明的方向一致}；
+\item 但三条的 $|t|$ 全部低于各自读取时刻的\textbf{本族地板}
+      （$2.194$ 对 $2.4771$、$2.021$ 对 $2.5510$、$2.020$ 对 $2.5824$），
+      更低于批级证否线。按报告反复申明的辨析，这属于「闸门全过而效应微弱」，
+      不是发现；
+\item 更要紧的一点：\textbf{三条出自同一条机制轴}（本批新增的美国大选关税倾向轴），
+      因此它们不是三个互相独立的发现，而更接近同一条机制被在三组品种上测了三次。
+      把它们当作三份证据会重复计数。
+\end{itemize}
+
+据此，本批的结论是：没有任何构造越过它所在族的地板，
+而停止规则因候选计数一条不满足而暂不触发。是否续投预算属于统计预算决定，
+由人裁断，不由本报告代为决定。
 
 \subsection{两条容易被混为一谈的线}
 报告里「越线」一词指过两件不同的事，此处一次分清：
@@ -1286,7 +1327,7 @@ run31 中有 1 条检验的 $t$ \textbf{无定义}：
 \path{run28} & mech & 19 & 0 & 4 & 1.092 & 1.300 & $-0.208$ \\
 \path{run29} & mech & 7 & 0 & 4 & 1.466 & 2.227 & $-0.761$ \\
 \path{run30} & mech & 20 & 0 & 6 & 1.065 & 2.402 & $-1.337$ \\
-\path{run31} & mech & 28 & 1 & 9 & 2.194 & 2.477 & $-0.283$ \\
+\path{run31} & mech & 37 & 1 & 12 & 2.194 & 2.477 & $-0.283$ \\
 \bottomrule\end{tabular}
 \caption{逐轮合格构造的最好成绩。产物：\texttt{artifacts/manifests/climb.json}，
 地板口径见上文三条约定。}
@@ -1447,7 +1488,7 @@ DFBETAS & 0.04836 & 最大单点影响，闸门 1.0 \\
 统计量最大的构造（$|t|$ 至 9.30）分母为已实现波动、
 目标亦为已实现波动。PIT 无误、置换通过 —— 关系是真的，但它是 Baseline Control，
 不是另类数据 alpha。诊断（离线，不进账本，本文唯一非快照数字）：对最大一条做残差化，
-秩相关由 $-0.5695$ 塌至 $-0.0077$，缩小约 74 倍。此后 225/278 的规格自带控制项。
+秩相关由 $-0.5695$ 塌至 $-0.0077$，缩小约 74 倍。此后 228/281 的规格自带控制项。
 \begin{figure}[htbp]\centering
 \includegraphics[width=0.95\textwidth]{figures/run5-study-2.png}
 \caption{波动假象 \texttt{run5-study-2}（$t=-9.30$）：信号与价格。该信号实为已实现波动的函数，与目标同源。}\label{fig:run5-study-2}
@@ -1483,7 +1524,7 @@ $\sqrt{n_s/n_d}\approx 0.81$ 缩小；样本量修正后效应保留率约 21.8\
 \end{figure}
 
 
-\subsection{干净的 null（187 条）}
+\subsection{干净的 null（190 条）}
 残差化普及后，模型系统扫过互异机制：资金集中度、信念下限棘轮、闭市时段资金份额、
 停火/伊朗资金倾斜、平均单笔金额、方向性信念离散度、事件不确定性 $\bar p(1-\bar p)$、
 到达加速度、对娱乐族的安慰剂对照。按判决导出规则 null 只能经由置换检验产出，因此
@@ -1753,7 +1794,7 @@ $0.86$ 休市吸收相关，在七倍规模的样本上没有再现。评审列�
 \end{enumerate}
 
 \appendix
-\section{全部 315 个 Study}
+\section{全部 317 个 Study}
 {\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.42\textwidth} r r r l@{}}
 \toprule Study & 特征 & $t$ & IC & 置换 $p$ & 判决 \\ \midrule\endhead
 auto-study-0 & \path{pm_iran_trade_arrival_z} & +0.776 & +0.047 & 0.55 & null \\
@@ -2070,7 +2111,9 @@ run31-study-33 & \path{—} & — & — & — & 进行中 \\
 run31-study-34 & \path{pm_us_election_tariff_dp_net_12h_over_prior_week_span_resid_brent_and_own_rv_export_order_panel} & +0.149 & +0.016 & 0.71 & null \\
 run31-study-35 & \path{pm_ruua_ceasefire_dp_terminal_bucket_excess_closed_6h_over_90d_scale_resid_brent_and_own_rv_russian_barrel_chain_panel} & +1.201 & +0.009 & 0.03 & blocked \\
 run31-study-36 & \path{pm_fed_hike_dp_net_closed_6h_over_prior_week_span_resid_brent_and_own_rv_dollar_rate_metals_panel} & +0.835 & +0.042 & 0.22 & null \\
-run31-study-37 & \path{—} & — & — & — & 进行中 \\
+run31-study-37 & \path{pm_ruua_ceasefire_dp_net_closed_6h_over_90d_scale_resid_brent_and_own_rv_precious_risk_premium_panel} & -0.173 & -0.004 & 0.945 & null \\
+run31-study-38 & \path{pm_ruua_ceasefire_dp_jump_asymmetry_closed_6h_over_90d_scale_resid_brent_and_own_rv_energy_intensive_nonferrous_panel} & -0.183 & +0.002 & 0.725 & null \\
+run31-study-39 & \path{pm_bird_flu_dp_jump_asymmetry_12h_over_90d_scale_resid_brent_and_own_rv_jd_lh_panel} & -0.820 & -0.025 & 0.395 & null \\
 \bottomrule\end{longtable}}
 
 \section{二十四次运行编年（全记录）}\label{sec:chronicle}
@@ -2857,7 +2900,7 @@ run30-study-21 & \path{pm_fed_hike_dp_motion_intensity_x_breadth_1d_over_norm_re
 
 \clearpage
 \subsection{run31 · 覆盖全品种，与三条方向一致的候选}
-决定 0013 的四十票：新增机制子面板形态、第二批三条机制轴，证否线由 E2(45)=2.4933 抬到 **E2(82)=2.7000**（覆盖全品种的真实代价：多买四十张彩票，中奖标准就要相应提高）。提案**全部**使用子面板，覆盖品种数由上一轮的十几个升到四十个；未被读到的品种里，除极少数外全部是目标表行数不足者，即在「有足够历史可供检验」这个意义上，覆盖已经完成。本轮的候选与 run29 的那三条性质不同：方向判据已经生效，因此它们的符号与自己声明的方向一致；但三条的 |t| 全部低于各自读取时刻的本族地板，属「闸门全过而效应微弱」，不是发现。另有一条检验的 t 因双向 cluster 方差为负而无定义，评价机如实判 null 并记下理由，没有改用替代标准误去凑一个数 —— 报告据此把「因 cluster 结构不足而无定义」单列计数，同时分母照扣。
+决定 0013 的四十票：新增机制子面板形态、第二批三条机制轴，证否线由 E2(45)=2.4933 抬到 E2(82)=2.7000（覆盖全品种的真实代价：多买四十张彩票，中奖标准就要相应提高）。四十回合出三十七版判决（二十九 null、五 blocked、三 candidate），三个回合没走到读取因而**未消耗分母**：一次盲化拦截（修复提示词回显了模型自己写的裸词 ic，撞上效果字段词表，与 run28 那次同类而来源不同）、一次装配后无提案、一次提案既无 feature\_spec 也未声明原语缺口。另有十五次 provider 修复，高于 run30 的两次 —— 机械损耗并非单调下降。提案**全部**使用子面板（另有一条全覆盖面板），覆盖四十个品种；未被读到的十一个**全部**是目标表行数不足者，满行的品种一个不剩，即在「有足够历史可供检验」这个意义上覆盖已经完成。三条 candidate 与 run29 的那三条性质不同：方向判据已生效，它们的符号与自己声明的方向一致；但 |t| 分别为 2.194、2.021、2.020，全部低于各自读取时刻的本族地板 2.4771、2.5510、2.5824，属「闸门全过而效应微弱」。更要紧的是**三条出自同一条机制轴**（本批新增的美国大选关税倾向轴），因此不是三个独立发现，而是同一条机制在三组品种上被测了三次，当作三份证据会重复计数。另有一条检验的 t 因双向 cluster 方差为负而无定义，评价机如实判 null 并记下理由，没有改用替代标准误去凑一个数 —— 报告据此把「因 cluster 结构不足而无定义」单列计数，同时分母照扣。预注册停止规则三条中成立两条（最好 |t| 未越线、符号一致率仍在噪声内），因候选计数一条不满足而暂不触发。
 
 {\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.50\textwidth} r r l@{}}
 \toprule Study & 特征（第二行：target · 控制） & $t$ & IC$_\rho$ & 判决 \\ \midrule
@@ -2899,13 +2942,15 @@ run31-study-33 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & �
 run31-study-34 & \path{pm_us_election_tariff_dp_net_12h_over_prior_week_span_resid_brent_and_own_rv_export_order_panel}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & +0.149 & +0.016 & null \\
 run31-study-35 & \path{pm_ruua_ceasefire_dp_terminal_bucket_excess_closed_6h_over_90d_scale_resid_brent_and_own_rv_russian_barrel_chain_panel}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & +1.201 & +0.009 & blocked \\
 run31-study-36 & \path{pm_fed_hike_dp_net_closed_6h_over_prior_week_span_resid_brent_and_own_rv_dollar_rate_metals_panel}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & +0.835 & +0.042 & null \\
-run31-study-37 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
+run31-study-37 & \path{pm_ruua_ceasefire_dp_net_closed_6h_over_90d_scale_resid_brent_and_own_rv_precious_risk_premium_panel}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & -0.173 & -0.004 & null \\
+run31-study-38 & \path{pm_ruua_ceasefire_dp_jump_asymmetry_closed_6h_over_90d_scale_resid_brent_and_own_rv_energy_intensive_nonferrous_panel}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & -0.183 & +0.002 & null \\
+run31-study-39 & \path{pm_bird_flu_dp_jump_asymmetry_12h_over_90d_scale_resid_brent_and_own_rv_jd_lh_panel}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & -0.820 & -0.025 & null \\
 \bottomrule\end{longtable}}
 
 \clearpage
 
 
 \vfill\noindent\rule{\textwidth}{0.4pt}\\
-{\small 账本冻结点：事件 seq 4290（2026-08-16T03:59:39，run16 当时仍在进行）；事件 4290 条，哈希链完整。
+{\small 账本冻结点：事件 seq 4341（2026-08-16T04:29:09，run16 当时仍在进行）；事件 4341 条，哈希链完整。
 叙述由人撰写且不含数字；数字一律由快照渲染，二者不会不一致。}
 \end{document}

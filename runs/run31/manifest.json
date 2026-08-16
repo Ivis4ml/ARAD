@@ -1,0 +1,13 @@
+{
+  "run_id": "run31",
+  "created_at": "2026-08-16T04:29:13.136080+00:00",
+  "family": "sc_mechanism_prior_v1",
+  "studies": 281,
+  "statistical_denominator": 79,
+  "proposal_denominator": 87,
+  "headline": "这一轮留下了 7 个待确认的候选。",
+  "exceeded_band": true,
+  "cards": 4,
+  "chain_intact": true,
+  "runs_version": "0.1.0"
+}

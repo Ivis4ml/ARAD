@@ -1,6 +1,6 @@
 {
   "measurement": "climb/v1",
-  "built_at": "2026-08-16T03:18:56.059918+00:00",
+  "built_at": "2026-08-16T04:35:56.070448+00:00",
   "floor_convention": "当次本族地板 E₂(n)，n 为读取该次 outcome 时该族已读次数。报告另有合并地板口径，两者不可混用",
   "qualify_rule": "源为 pm_market（另类数据）且斜率符号与预注册方向一致；t 无定义者不进极值统计但单独计数",
   "runs_unregistered_in_run_order": [],
@@ -328,10 +328,10 @@
     {
       "run": "run31",
       "family": "mech",
-      "n_decided": 28,
+      "n_decided": 37,
       "n_not_evaluated": 0,
       "n_t_undefined": 1,
-      "n_qualified": 9,
+      "n_qualified": 12,
       "best_abs_t": 2.194104240864565,
       "best_reward": -0.28297074349775775,
       "best_study": "run31-study-0",
