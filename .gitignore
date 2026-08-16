@@ -14,15 +14,24 @@ atlas-app/dist/
 
 # run 的原始输出不入库，只留在本地磁盘。
 #
-# 理由有两条。其一是硬限：events.jsonl 最大到 154MB，atlas.json 到 101MB，
-# 超过 GitHub 单文件 100MB 的硬限，推送会被拒绝。其二是它们可再生：
-# 二者都能由账本 data/ledger/service.db 重新导出，本身不是第一手记录。
+# 第一手记录是账本 data/ledger/service.db —— 只追加、带哈希链，它在库里。
+# 这两类文件都是账本的**导出**，可以重新生成，因此不入库不损失原始证据：
 #
-# 入库的是 events.jsonl.gz、manifest.json 与 cards/ —— gzip 副本保住了
-# 逐事件的可核性，体积只有原文件的两成。
+#   events.jsonl  由 cli.py 的 `atlas --runs` 路径写出，取的是
+#                 `read_events(role=HUMAN)` 的**全量**结果。也就是说每个 run 的
+#                 这份文件都是当时整个账本的快照，而不只是本轮的事件 ——
+#                 实测 runs/run31/events.jsonl 为 4341 行，与账本 HUMAN 事件
+#                 总数逐行相等。体积逐轮单调增长的原因就在这里。
+#   atlas.json    同一路径写出的完整投影，同样由账本派生。
+#
+# 不入库的直接原因是硬限：events.jsonl 已到 154MB、atlas.json 到 101MB，
+# 超过 GitHub 单文件 100MB，推送会被拒绝。
+#
+# 入库的是 manifest.json 与 cards/（索引与因子卡，体积小且是给人读的）。
+# 另有四个 run 留有 events.jsonl.gz，那是早先逐个排除时的做法，
+# 保留不删；但**不是**每个 run 都有压缩副本，要逐事件复核请用账本本身。
 #
 # 2026-08-15：这条规则以 git filter-branch 回溯施于全部历史，
-# 此前已入库的 26 个此类文件一并从历史中移除（备份分支
-# backup/pre-blob-purge-20260815）。文件本身未从磁盘删除。
+# 此前已入库的 26 个此类文件一并从历史中移除。文件未从磁盘删除。
 runs/*/events.jsonl
 runs/*/atlas.json
