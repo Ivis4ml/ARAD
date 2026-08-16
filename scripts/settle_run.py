@@ -38,14 +38,21 @@ def _finite(value) -> bool:
 
 
 def _universe_products(universe: str | None) -> list[str]:
-    """从 universe 串里取出品种。只认已知的三种形态，认不出的返回空表。"""
+    """从 universe 串里取出品种。
+
+    解析一律交给 `demo.universe_members`，与评价机走同一条路径。此处曾自己
+    写一份字符串解析，结果漏掉了 `full_coverage_panel`（它不带冒号也不带加号），
+    把一条覆盖 36 个品种的面板算成 0 个品种，覆盖率因此少算。
+    认不出的名字按 0 个品种计并向上层暴露，不猜。
+    """
     if not universe:
         return []
-    if universe.startswith("mech_panel:"):
-        return sorted({p for p in universe.split(":", 1)[1].split("+") if p})
-    if universe.startswith("product:"):
-        return [universe.split(":", 1)[1]]
-    return []
+    from arad.harness.demo import UnknownUniverse, universe_members
+
+    try:
+        return sorted(universe_members(universe))
+    except UnknownUniverse:
+        return []
 
 
 def _uncovered_breakdown(covered: set[str]) -> dict:
