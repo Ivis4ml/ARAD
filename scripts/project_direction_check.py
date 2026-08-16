@@ -11,8 +11,11 @@
 
 from __future__ import annotations
 
+import itertools
 import json
+import math
 import os
+import random
 import sys
 from collections import Counter
 from datetime import UTC, datetime
@@ -22,6 +25,78 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from arad.evaluation.kernel import REASON_INVALIDATES
 from arad.memory.ledger import EvidenceLedger, Role
+
+#: |t| 分层的边界。分层是为了回答一个具体问题：**一致率随效应大小上升吗**。
+#: 若模型的符号推理有内容、只是被噪声淹没，效应大的那些应当更容易对。
+_STRATA_EDGES = (0.0, 0.5, 1.0, 1.5, 2.0, 3.0, float("inf"))
+
+
+def _strata(rows: list[dict]) -> list[dict]:
+    out = []
+    for low, high in itertools.pairwise(_STRATA_EDGES):
+        band = [r for r in rows
+                if isinstance(r.get("t_stat"), (int, float))
+                and math.isfinite(r["t_stat"])
+                and low <= abs(r["t_stat"]) < high]
+        agree = sum(1 for r in band if r["sign_agrees"])
+        out.append({
+            "low": low, "high": None if math.isinf(high) else high,
+            "n": len(band), "sign_agrees": agree,
+            "rate": (agree / len(band)) if band else None,
+        })
+    return out
+
+
+def _spearman(xs: list[float], ys: list[float]) -> float:
+    def rank(values: list[float]) -> list[float]:
+        order = sorted(range(len(values)), key=lambda i: values[i])
+        ranks = [0.0] * len(values)
+        i = 0
+        while i < len(values):
+            j = i
+            while j + 1 < len(values) and values[order[j + 1]] == values[order[i]]:
+                j += 1
+            average = (i + j) / 2 + 1
+            for k in range(i, j + 1):
+                ranks[order[k]] = average
+            i = j + 1
+        return ranks
+
+    rx, ry = rank(xs), rank(ys)
+    n = len(xs)
+    mx, my = sum(rx) / n, sum(ry) / n
+    num = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
+    den = math.sqrt(sum((a - mx) ** 2 for a in rx) * sum((b - my) ** 2 for b in ry))
+    return num / den if den else float("nan")
+
+
+def _rank_correlation(rows: list[dict], draws: int = 20000,
+                      seed: int = 20260815) -> dict:
+    """逐条秩相关（|t| 与符号一致指示变量）及其置换 p 值。
+
+    先前流通过一组「+0.139 / p=0.155」的数字，复算不出来；本函数把它换成
+    可复算的量并写进产物，付印一律以此为准。
+    """
+    usable = [r for r in rows
+              if isinstance(r.get("t_stat"), (int, float))
+              and math.isfinite(r["t_stat"])]
+    if len(usable) < 3:
+        return {"spearman": None, "permutation_p": None, "n": len(usable)}
+    xs = [abs(r["t_stat"]) for r in usable]
+    ys = [1.0 if r["sign_agrees"] else 0.0 for r in usable]
+    rho = _spearman(xs, ys)
+    rnd = random.Random(seed)
+    hits = 0
+    for _ in range(draws):
+        shuffled = ys[:]
+        rnd.shuffle(shuffled)
+        if abs(_spearman(xs, shuffled)) >= abs(rho):
+            hits += 1
+    return {
+        "spearman": rho, "permutation_p": hits / draws,
+        "draws": draws, "seed": seed, "n": len(usable),
+        "note": "取代先前无法复算的 +0.139 / p=0.155",
+    }
 
 
 def project(ledger_path: str = "data/ledger/service.db") -> dict:
@@ -83,7 +158,10 @@ def project(ledger_path: str = "data/ledger/service.db") -> dict:
         })
 
     changed = [r for r in rows if r["changed"]]
+    strata = _strata(rows)
     return {
+        "strata": strata,
+        "rank_correlation": _rank_correlation(rows),
         "projection": "direction_check/v1",
         "built_at": datetime.now(tz=UTC).isoformat(),
         "rule": {
