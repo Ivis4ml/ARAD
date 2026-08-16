@@ -1,17 +1,17 @@
 {
   "settlement": "settle-run/v1",
-  "built_at": "2026-08-16T03:13:42.198023+00:00",
+  "built_at": "2026-08-16T03:27:56.102852+00:00",
   "run": "run31",
   "family": "sc_mechanism_prior_v1",
   "budget_denominator": 82,
   "floor": 2.7000028815352453,
   "verdicts": {
-    "null": 20,
+    "null": 23,
     "blocked": 4,
     "candidate": 3
   },
-  "studies_decided": 27,
-  "t_defined": 26,
+  "studies_decided": 30,
+  "t_defined": 29,
   "t_undefined": 1,
   "t_undefined_studies": [
     {
@@ -23,19 +23,19 @@
   ],
   "best_by_tier": {
     "全部有定义的构造": {
-      "n": 26,
+      "n": 29,
       "best_abs_t": 2.194104240864565,
       "study_id": "run31-study-0",
       "reward": -0.5058986406706802
     },
     "另类数据": {
-      "n": 26,
+      "n": 29,
       "best_abs_t": 2.194104240864565,
       "study_id": "run31-study-0",
       "reward": -0.5058986406706802
     },
     "另类数据且符号一致": {
-      "n": 9,
+      "n": 10,
       "best_abs_t": 2.194104240864565,
       "study_id": "run31-study-0",
       "reward": -0.5058986406706802
@@ -92,7 +92,7 @@
     ],
     "n_products_read": 40,
     "universe_forms": {
-      "mech_panel": 26,
+      "mech_panel": 29,
       "full_coverage_panel": 1
     },
     "uncovered": {
@@ -147,12 +147,12 @@
     }
   },
   "direction": {
-    "n_with_declared_direction": 27,
-    "sign_agrees": 10,
-    "sign_opposite": 17,
-    "two_sided_p_vs_half": 0.1779317252682547
+    "n_with_declared_direction": 30,
+    "sign_agrees": 11,
+    "sign_opposite": 19,
+    "two_sided_p_vs_half": 0.1441270348160153
   },
-  "decoy_median": 0.38461538461538464,
+  "decoy_median": 0.41025641025641024,
   "stop_rule": {
     "candidate 为 0": false,
     "合格最好 |t| 未越 E2(82)=2.7000": true,

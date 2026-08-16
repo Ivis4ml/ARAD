@@ -24,6 +24,7 @@ from build_report import (
     collect,
 )
 from report_sections_v9 import all_sections as _v9_sections
+from report_sections_v10 import all_sections as _v10_sections
 
 from arad.evaluation.selection import expected_max_abs_z
 
@@ -139,6 +140,10 @@ def appendix_figures(D: dict, figs: dict) -> str:
 def render(D: dict, figs: dict) -> str:
     # 第九版新增的三节（M16 至 M18），正文在 report_sections_v9.py。
     V9_SECTIONS = _v9_sections()
+    # 第十版新增的四节（M19 至 M23），正文在 report_sections_v10.py。
+    # 该模块不写死任何数字，全部从 artifacts/manifests/ 读取：
+    # 重建报告即重算，避免再出现「印在报告里却复算不出来」的数字。
+    V10_SECTIONS = _v10_sections()
     v = D["verdicts"]
     n = D["denominators"]["statistical_denominator"]
     pn = D["denominators"]["proposal_denominator"]
@@ -654,7 +659,7 @@ B6--B9 & 束位先后被基线假象、十行样本、异族成员、错误族�
 \bottomrule\end{tabular}\end{center}
 这张表本身是一条结论的证据：\textbf{对这类系统，最有效的除错器是真实运行}。
 
-""" + V9_SECTIONS + r"""
+""" + V9_SECTIONS + V10_SECTIONS + r"""
 \section{一条特征的完整算术：从原始数据到 $t$ 值}\label{sec:worked}
 前一节给出的是定义。本节把\textbf{一个具体的数}算给读者看：取 run16-study-3
 （回溯投影下唯一的完整候选形态，\S\ref{sec:retro}），在一个真实决策时点上把
