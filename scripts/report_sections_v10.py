@@ -54,6 +54,12 @@ def direction_check_section() -> str:
     n = d["studies_with_declared_direction"]
     agree, opposite = d["sign_agrees"], d["sign_opposite"]
 
+    # 合计行必须由分层自身求和，不能取顶层计数：分层只收 $t$ 有限的读数，
+    # 而顶层的 sign_agrees 与 studies_with_declared_direction 是全部读数。
+    # 混用会印出一行三个口径的合计，各列求和对不上。
+    strata_n = sum(s["n"] for s in d["strata"])
+    strata_agree = sum(s["sign_agrees"] for s in d["strata"])
+
     strata_rows = "".join(
         f"$[{s['low']:.1f},{s['high']:.1f})$ & {s['n']} & {s['sign_agrees']} & "
         f"{_pct(s['rate'])} \\\\\n"
@@ -172,10 +178,12 @@ run30 给出的是另一种实证：本轮读数最大的三条（$3.744$、$2.3
 \\toprule
 $|t|$ 区间 & Study 数 & 符号一致数 & 一致率 \\\\ \\midrule
 {strata_rows}\\midrule
-合计 & {rc['n']} & {agree} & \\textbf{{{_pct(agree / n)}}} \\\\
+合计 & {strata_n} & {strata_agree} & \\textbf{{{_pct(strata_agree / strata_n)}}} \\\\
 \\bottomrule\\end{{tabular}}
-\\caption{{符号一致率按 $|t|$ 分层。最高一层的样本很小，不宜单独解读；
-可读的是整体没有随 $|t|$ 上升的形状。}}
+\\caption{{符号一致率按 $|t|$ 分层。本表只含 $t$ 有限的读数，
+因此合计 {strata_n} 少于上文的 {n} 条（差额是双向 cluster 方差为负、$t$ 无定义的
+那几次读取；它们消耗了分母，但没有可分层的 $|t|$）。
+最高一层的样本很小，不宜单独解读；可读的是整体没有随 $|t|$ 上升的形状。}}
 \\end{{table}}
 
 分层的形状比总体更有信息：一致率不随 $|t|$ 上升。逐条秩相关（$|t|$ 与符号一致
@@ -199,6 +207,7 @@ $|t|$ 区间 & Study 数 & 符号一致数 & 一致率 \\\\ \\midrule
 def null_baseline_section() -> str:
     e = _load("empirical_nulls")
     c = _load("construction_correlation")
+    td = _load("t_distribution")
     rho, ref = c["abs_rho"], c["pure_noise_reference"]
     sim = c["simulated_null_max"]
     n = c["n_constructions"]
@@ -218,16 +227,36 @@ def null_baseline_section() -> str:
 \textbf{两侧都量出来之后，门槛仍然照旧执行}。
 
 \subsection{一侧：我们的读数比理论噪声更容易碰出大值}
-实际检验的 $|t|$ 分布比同样本量的标准正态噪声更肥尾：中段接近，
-而 90 分位与最大值不在同一量级。真实金融数据有自相关、厚尾与体制切换，
-这一侧使解析地板作为参照\textbf{偏松}。
+""" + f"""实际检验的 $|t|$ 分布比同样本量的标准正态噪声更肥尾。
 
-需要一处限定：这批读数不是纯零样本，其中混着可能真实但与另类数据无关的效应
-（最大的那条是波动率聚集假象）。因此它只作提示，严格的零参照要从下面两条经验
-零分布来。
+\\begin{{table}}[htbp]\\centering\\footnotesize
+\\begin{{tabular}}{{@{{}}>{{\\raggedright\\arraybackslash}}p{{0.14\\textwidth}} r r r@{{}}}}
+\\toprule
+量 & 实测 & 正态参照 & 倍数 \\\\ \\midrule
+中位 & {_num(td['observed']['median'])} & {_num(td['normal_reference']['median'])} &
+  {td['observed']['median'] / td['normal_reference']['median']:.2f} \\\\
+均值 & {_num(td['observed']['mean'])} & {_num(td['normal_reference']['mean'])} &
+  {td['observed']['mean'] / td['normal_reference']['mean']:.2f} \\\\
+90 分位 & {_num(td['observed']['p90'])} & {_num(td['normal_reference']['p90'])} &
+  {td['observed']['p90'] / td['normal_reference']['p90']:.2f} \\\\
+最大值 & {_num(td['observed']['max'])} & {_num(td['normal_reference']['max'])} &
+  {td['observed']['max'] / td['normal_reference']['max']:.2f} \\\\
+\\bottomrule\\end{{tabular}}
+\\caption{{实测 $|t|$（{td['n_finite']} 条有限读数，另有 {td['n_undefined']} 条无定义）
+与同样本量标准正态噪声的对照。参照列为 {td['reference']['draws']} 次模拟的均值，
+种子 {td['reference']['seed']}；分位一律用{td['quantile_definition']}，
+全表同一定义。产物：\\texttt{{artifacts/manifests/t\\_distribution.json}}。}}
+\\end{{table}}
 
-\subsection{另一侧：构造之间不独立，解析地板因此偏严}
-""" + f"""解析地板假设 $n$ 次检验相互独立。实际不然：同一族的构造共用底层序列。
+中段接近而尾部明显更重：最大值差了三倍有余。真实金融数据有自相关、厚尾与体制切换，
+这一侧使解析地板作为参照\\textbf{{偏松}}。
+
+需要一处限定：这批读数\\textbf{{不是纯零样本}}，其中混着可能真实但与另类数据无关的
+效应 —— 最大的那条正是波动率聚集假象（分母是已实现波动，目标也是已实现波动）。
+因此本表只作提示，严格的零参照要从下面两条经验零分布来。
+
+\\subsection{{另一侧：构造之间不独立，解析地板因此偏严}}
+解析地板假设 $n$ 次检验相互独立。实际不然：同一族的构造共用底层序列。
 集合的界必须先说清楚，否则算出来的数没有对照对象 —— 这里取
 \\textbf{{机制先验族里在决策网格上能重新求出信号序列的全部冻结构造}}，
 共 {n} 条，{rho['n_pairs']} 对。信号序列不是回放存下的数字，
@@ -403,8 +432,9 @@ def coverage_section(run: str = "run31") -> str:
 
 \\begin{{itemize}}
 \\item \\textbf{{目标表行数不足 {len(thin)} 个}}：{thin_text}，
-      对满样本 {unc['full_coverage_rows']} 行。这些是上市较晚或成交稀疏的品种，
-      不是搜索遗漏。
+      对满样本 {unc['full_coverage_rows']} 行。这是一条数据可得性的事实，
+      不是搜索遗漏；至于它们为什么行数少（上市晚、成交稀疏或别的原因），
+      本报告没有核过，不下断言。
 \\item \\textbf{{满行却未被选中 {len(unread)} 个}}：{'无' if not unread else '、'.join(chr(92) + 'path{' + r['product'] + '}' for r in unread)}。
 \\end{{itemize}}
 

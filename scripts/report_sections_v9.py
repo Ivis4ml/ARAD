@@ -282,7 +282,7 @@ schema 不合、事前功效筛拦下、语义审计判不一致，它们全部�
 不是 \path{mechanical_failures_only}，装载即被拒绝。第一版内容取自实测的失败模式：
 \path{direction} 写成词而非 $\pm 1$、声明原语缺口（原语指特征构造的基本算子）时
 漏掉 \path{mechanism}、自创契约之外的键、给派生步骤加 \path{offset_seconds}、
-把 JSON 包进 markdown 代码块。run26 的二十回合里约四分之一耗在这类机械失败上。
+把 JSON 包进 markdown 代码块。run26 的十九次上下文装配只出十五版判决，即约五分之一的回合耗在这类机械失败上。
 
 \subsection{搜索为什么收窄到一条轴}
 \begin{center}\footnotesize
@@ -387,7 +387,9 @@ p{0.09\textwidth} >{\raggedright\arraybackslash}p{0.38\textwidth}@{}}\toprule
 \path{demo_sc_price_volume} & {N_OLD} & {FLOOR_OLD} & 常在线性检验 \\
 \path{sc_event_conditional_v1} & {EVENT_N} & {EVENT_FLOOR} & 由触发器的问题形态定义 \\
 \path{sc_mechanism_prior_v1} & {MECH_N} & {MECH_FLOOR} &
-  机制族；预算 20 回合，全轮以预算末地板 2.1895 为证否线 \\
+  机制族。批级证否线按批次预注册，已历三批：20 回合批 $E_2(20)=2.1895$、
+  追加至 45 的批 $E_2(45)=2.4933$、覆盖全品种的 40 票批 $E_2(82)=2.7000$。
+  同一族出现多条证否线不是矛盾，每条只对它自己那一批有效 \\
 合并口径（不分族） & {MERGED_N} & {MERGED_FLOOR} & 约束 4 要求随时可读 \\
 \bottomrule\end{tabular}
 \caption{三本账的现状。「适用地板」指该族按当前分母算出的线；
@@ -436,7 +438,7 @@ run16-study-3 是\textbf{面板}研究，而同期的 run11-study-3 在单品种
 机制族覆盖 & 五族全部用上 & 停火 7、加息路径 7、飓风 3、通胀 1、议息 1 \\
 最好 $|t|$ & 2.028 & 本族地板 $E_2(15)=2.0734$；预注册证否线 $E_2(20)=2.1895$ \\
 越过证否线者 & 无 & \\
-机械失败 & 解析失败 0、provider 修复 0 & run26 同类损耗约占四分之一回合 \\
+机械失败 & 解析失败 0、provider 修复 0 & run26 同类损耗约占五分之一回合 \\
 \bottomrule\end{tabular}\end{center}
 
 \begin{figure}[htbp]\centering
