@@ -2,6 +2,8 @@
 \documentclass[11pt]{ctexart}
 \usepackage[a4paper,margin=2.4cm]{geometry}
 \usepackage{array,booktabs,longtable,graphicx,amsmath,amssymb,url,xcolor,caption}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,calc}
 \usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
 \definecolor{warn}{HTML}{9A6510}\definecolor{bad}{HTML}{B93C28}
 \definecolor{ok}{HTML}{00806E}
@@ -91,6 +93,79 @@ Polymarket 仍在交易 —— 停市期间到达的信息，理论上要等次�
   逐项检查预先声明的关卡，并给出判决。
 \item 判决入账，搜索的「价格」随之上升（见下）。
 \end{enumerate}
+
+图~\ref{fig:arch} 把这一轮画出来。看图时抓住两件事：\textbf{屏障两侧谁能看到什么}，
+以及\textbf{哪一步在花钱}。
+
+\begin{figure}[htbp]\centering
+\begin{tikzpicture}[
+  x=1cm, y=1cm, font=\footnotesize,
+  box/.style={draw=blue!45!black!65, fill=blue!45!black!5, rounded corners=1.5pt,
+              align=left, inner sep=4.5pt, text width=50mm, anchor=center},
+  ubox/.style={draw=warn!65, fill=warn!7, rounded corners=1.5pt, align=left,
+               inner sep=4.5pt, text width=50mm, anchor=center},
+  flow/.style={-{Stealth[length=4.5pt]}, draw=black!55, semithick},
+  back/.style={-{Stealth[length=4.5pt]}, draw=ok, thick},
+  cut/.style={-{Stealth[length=4.5pt]}, draw=bad, thick, dash pattern=on 3pt off 2pt},
+  lbl/.style={font=\scriptsize, inner sep=1.6pt, fill=white, align=center},
+]
+\def\LX{3.15}\def\RX{11.35}\def\BX{7.25}
+
+\node[box] (menu) at (\LX, 0)     {\textbf{菜单装配}\\[1.5pt]
+  覆盖表（\emph{只含提案计数}）\\ 机制族与可用品种全表\\ 原语语法与输出契约\\ 机械失败清单};
+\node[box] (prop) at (\LX,-2.55)  {\textbf{提案器}\quad\texttt{claude -p}\\[1.5pt]
+  hermetic：禁用 37 个工具、\\ 无 MCP、不读 CLAUDE.md};
+\node[box] (gate) at (\LX,-5.05)  {\textbf{三道前置闸门}\\[1.5pt]
+  schema 校验 $\cdot$ 语义审计\\ 事前功效筛\\[1.5pt]
+  {\color{bad}\textbf{拦下者不消耗分母}}};
+\node[box] (lock) at (\LX,-7.55)  {\textbf{冻结}\quad\texttt{content\_id}\\[1.5pt]
+  方向、品种集合、特征规格\\ 此后不可改};
+
+\node[ubox] (read) at (\RX,-7.55) {\textbf{读取结果}\quad\texttt{outcome\_read}\\[1.5pt]
+  {\color{bad}\textbf{只有这一步消耗分母}}\\
+  {\color{bad}$n\!\to\!n\!+\!1$，地板 $E_2(n)$ 随之抬升}};
+\node[ubox] (eval) at (\RX,-5.05) {\textbf{评价机}\\[1.5pt]
+  双向 cluster 标准误 $\cdot$ 置换检验\\ decoy 校准 $\cdot$ 单点影响闸门\\
+  方向核对 $\cdot$ 成本模型};
+\node[ubox] (verd) at (\RX,-2.55) {\textbf{失效表 $\to$ 判决}\\[1.5pt]
+  null $\cdot$ underpowered $\cdot$\\ blocked $\cdot$ candidate};
+\node[ubox] (led)  at (\RX, 0)    {\textbf{账本}\\[1.5pt]
+  只追加、哈希链、不可回写};
+
+\draw[bad, very thick, dash pattern=on 3.5pt off 2.5pt] (\BX, 1.25) -- (\BX, -8.75);
+\node[text=bad, font=\scriptsize\bfseries, rotate=90, fill=white, inner sep=2pt]
+  at (\BX, -5.3) {盲化屏障\ \ \texttt{assert\_blinded}};
+
+\draw[flow] (menu) -- node[lbl, right=1pt] {提示词全文受扫描} (prop);
+\draw[flow] (prop) -- node[lbl, right=1pt] {提案 JSON} (gate);
+\draw[flow] (gate) -- node[lbl, right=1pt] {通过} (lock);
+\draw[flow] (lock.east) -- node[lbl, above=0pt] {冻结的规格} (read.west);
+\draw[flow] (read) -- (eval);
+\draw[flow] (eval) -- node[lbl, right=1pt] {阻断理由集合} (verd);
+\draw[flow] (verd) -- node[lbl, right=1pt] {全部事件} (led);
+
+\draw[back] (led.north) -- (\RX, 1.5) -- (\LX, 1.5) -- (menu.north);
+\node[text=ok, font=\scriptsize, fill=white, inner sep=2.5pt, align=center]
+  at (\BX, 1.5) {只有\textbf{机械失败}回流\\
+  解析失败 $\cdot$ schema 不通过 $\cdot$ 被前筛拦下};
+
+\draw[cut] (verd.west) -- (\BX+0.30, -2.55);
+\node[bad, font=\large\bfseries] at (\BX, -2.55) {$\times$};
+\node[text=bad, font=\scriptsize, fill=white, inner sep=1.5pt, anchor=south]
+  at (8.2, -2.44) {\textbf{不回流}};
+\end{tikzpicture}
+\caption{一轮 autoresearch 的执行结构，以及贯穿其中的信息屏障。左侧是盲化侧，
+提案器在这里生成假设；右侧是非盲侧，只有它接触结果。两条回流路径是本图的要点。
+绿色那条允许通过，运的是\textbf{机械失败}（解析失败、schema 不通过、被事前功效筛拦下）：
+它们全部发生在读取任何结果之前，因此不含结果信息。红色那条被切断，
+运的是判决计数、统计量与效应。切断的理由是实测的：run4 那一轮的 null 计数恰好等于
+已花的检验次数，提案器据此可\emph{确定地}推出「全部被度量过的具名规格都是 null」，
+也就是拿到了逐条的量级上界。计数因此也是结果（决定 0006）。
+另一处要点在分母：只有 \texttt{outcome\_read} 消耗它，
+三道前置闸门拦下的提案不花钱，这使得「多提案、少读取」成为可负担的策略。
+图中未画封存段，它是预留作最终检验的数据段，同一（规格，段）只允许开封一次，
+并有自己独立的分母。}\label{fig:arch}
+\end{figure}
 
 \subsection{读懂全文所需的十二个词}
 \begin{center}\footnotesize
