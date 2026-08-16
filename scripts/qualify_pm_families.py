@@ -1,8 +1,8 @@
 """扫描全量 PM 族小时表，产出资格名单与主题先验标注（M12）。
 
 两个产物：
-- artifacts/manifests/pm_family_qualification.json —— 资格筛（纯 PM 侧统计）
-- artifacts/manifests/pm_theme_priors.json —— 事前经济映射（读 Alpha-Data
+- artifacts/manifests/pm_family_qualification.json：资格筛（纯 PM 侧统计）
+- artifacts/manifests/pm_theme_priors.json：事前经济映射（读 Alpha-Data
   tier_registry，只读；验证只用外部 ETF 证据，从未接触期货收益）
 """
 

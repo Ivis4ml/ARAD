@@ -13,7 +13,7 @@
    本脚本只出本族口径。
 
    n **按 `outcome_read` 事件计数**：一次读取消耗一次分母，与那次读取最终有没有
-   算出有限的 t 无关。理由是分母记的是「看了几次」，不是「看成了几次」——
+   算出有限的 t 无关。理由是分母记的是「看了几次」，不是「看成了几次」。
    若把算不出 t 的那次从分母里摘掉，等于让一次失败的读取免费。
    账本里近期评价载荷的 `floors.family_tests` 用的正是这个口径
    （run31-study-0 记 43，与本脚本重建一致）。报告既有的 `tab:crossed`
@@ -62,7 +62,7 @@ def measure(ledger_path: str = "data/ledger/service.db") -> dict:
 
     # 地板必须自己按族内已读次数重建：`floors.family_floor` 只在近期运行的
     # 评价载荷里有，早期运行没有该字段。按账本顺序数每族的 outcome_read，
-    # 第 k 次读取对应的地板即 E₂(k) —— 与评价机、与搜索曲线同一条定义。
+    # 第 k 次读取对应的地板即 E₂(k)，与评价机、与搜索曲线同一条定义。
     from arad.evaluation.selection import expected_max_abs_z
 
     rows: dict[str, dict] = {}

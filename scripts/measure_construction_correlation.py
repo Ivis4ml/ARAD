@@ -7,7 +7,7 @@
 偏严约 0.16」。核对时发现两个问题，本脚本一并修掉：
 
 1. 那些数字没有产出脚本，仓库里复算不出来；
-2. 更要紧的是「40」的来历不明 —— 40 是决定 0013 预注册的**回合预算**，
+2. 更要紧的是「40」的来历不明：40 是决定 0013 预注册的**回合预算**，
    不是被相关的构造数。拿回合预算去查 E₂ 表，对照的对象就错了。
 
 因此本脚本不去还原「40」，改为把集合的界说清楚再算：**集合 = 机制先验族里
@@ -135,7 +135,7 @@ def measure(ledger_path: str = "data/ledger/service.db") -> dict:
         signals = demo._signal_values(ledger, sc, rows, list(wanted))
 
     # 只保留在决策网格上真的取到值的构造。求不出序列的不进集合，
-    # 也不假装它们独立 —— 它们根本没有被这次测量覆盖，如实计数。
+    # 也不假装它们独立：它们根本没有被这次测量覆盖，如实计数。
     usable = {wanted[fid]: values for fid, values in signals.items()
               if sum(1 for v in values if not math.isnan(v)) >= 30}
     studies = sorted(usable)

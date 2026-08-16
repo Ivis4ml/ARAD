@@ -2,7 +2,7 @@
 
 设计上的一条硬约束：**报告里的每一个数字都从同一次账本快照派生**，
 包括标题与摘要里的措辞。此前手写「六十次检验」而账本已跑到 65，
-就是同一份文档自我矛盾 —— 服务在跑时分母每几分钟就变一次。
+就是同一份文档自我矛盾：服务在跑时分母每几分钟就变一次。
 因此本脚本一次读完账本、记下冻结点（末条事件的 seq 与时间），
 其后所有文字都引用这一份快照。
 
@@ -35,7 +35,7 @@ RUN_ORDER = ["auto", "run3", "run4", "run5", "run6", "run7", "run8", "run9",
              "run18", "run19", "run20", "run21", "run22", "run23", "run24",
              "run25", "run26", "run27", "run28", "run29", "run30", "run31"]
 
-#: 事件条件族（决定 0008）的运行。族归属按运行前缀判定 —— B9 时代的评价载荷
+#: 事件条件族（决定 0008）的运行。族归属按运行前缀判定：B9 时代的评价载荷
 #: 曾把族标签写错，运行前缀才是可靠索引。
 EVENT_RUNS = frozenset({"run23", "run24"})
 EVENT_FAMILY = "sc_event_conditional_v1"
@@ -56,7 +56,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
             "不含任何指向原油的提示。第 1 轮因输出契约只列字段名不列类型（direction 被写成 "
             "\"positive\"）三次解析全败；后续轮次模型自主选中 cand:iran 族，在关注度异常、"
             "跨族份额、自我归一份额、停市窗口信念四个角度展开。run_llm2 只跑一轮即报 "
-            "no_runnable_work —— 队列跨运行持久而任务标识不带运行名，成为 M7.2 的直接动因。"
+            "no_runnable_work：队列跨运行持久而任务标识不带运行名，成为 M7.2 的直接动因。"
         ),
     ),
     "run3": (
@@ -78,7 +78,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
         "run5 · 面板首测与假象初现",
         (
             "前两轮因目标菜单携带散文（含 alpha / Sharpe 字样）被盲化检查整轮拦下"
-            "（M8.5 白名单投影修复）。其后出现本项目最大的单次统计量 —— 事后确认为"
+            "（M8.5 白名单投影修复）。其后出现本项目最大的单次统计量，事后确认为"
             "波动率聚集假象：分母是已实现波动、目标也是已实现波动。"
         ),
     ),
@@ -100,7 +100,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
     "run8": (
         "run8 · 零 Study 事故",
         (
-            "启动后写出的第一条事件属于上一轮的 Study —— 队列里积着旧运行的 ready 任务，"
+            "启动后写出的第一条事件属于上一轮的 Study：队列里积着旧运行的 ready 任务，"
             "而认领按创建时间取最早。M7.2 补正为按运行前缀隔离认领。本次运行未产出任何"
             "属于自己的 Study。"
         ),
@@ -110,7 +110,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
         (
             "跑到中途崩溃：模型返回文字齐全但 feature_spec 为 null 的提案，"
             "contamination(None) 打断整个服务（M9.9 降级为证据而非异常）。本轮 residualise "
-            "使用率为零 —— 原因不是可见性（原语在菜单里），而是提示词从未说明**为什么**要"
+            "使用率为零：原因不是可见性（原语在菜单里），而是提示词从未说明**为什么**要"
             "残差化；另发现 blockers 里「pm_market 尚未接入」是一句假话（本轮实际用了 20 次）。"
             "M9.8 补上 what_counts_as_a_finding 口径。"
         ),
@@ -133,7 +133,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
     "run12": (
         "run12 · 重复启动被守卫拦下",
         (
-            "助手侧与用户侧同时启动服务，TaskIdentifierCollision 正确拒绝了重复运行 —— "
+            "助手侧与用户侧同时启动服务，TaskIdentifierCollision 正确拒绝了重复运行："
             "结构挡住了双倍消耗统计预算的事故。"
         ),
     ),
@@ -151,7 +151,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
     "run15": (
         "run15 · 管道块缓冲暴露",
         (
-            "同一进程内一次调用流畅、下一次近二百秒零字节 —— CLI 检测到 stdout 是管道即按块"
+            "同一进程内一次调用流畅、下一次近二百秒零字节：CLI 检测到 stdout 是管道即按块"
             "缓冲。M10.4 改走伪终端，端到端冒烟确认增量逐秒到达。本轮也留下一段高质量推理："
             "模型翻查自己的全部历史规格以避开已用过的族，并对 universe 给出「收盘几何是一个"
             "只有极少数取值的分组变量」这一统计论证。"
@@ -162,7 +162,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
         (
             "pty 流式全程可见的首轮，二十个回合。其中 study-3"
             "（伊朗族未决概率质量 p̄(1−p̄)，残差化掉自身波动，36 品种面板）"
-            "在评价时越过族地板，置换检验零例外、单点影响极小 —— 当时唯一的"
+            "在评价时越过族地板，置换检验零例外、单点影响极小，当时唯一的"
             "阻塞理由是成本模型未建。它排在束的第五位而束宽为四，"
             "收尾的自动封存没有轮到它（缺陷记 B6），封条因此仍未开启。"
         ),
@@ -179,7 +179,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
         "run18 · 成本模型时代首轮",
         (
             "决定 0007 后第一轮：cost_model_missing 从判决理由中绝迹，"
-            "真实成本诊断（盈亏平衡捕捉率）入账 —— 首版即显示成本仅占典型幅度"
+            "真实成本诊断（盈亏平衡捕捉率）入账：首版即显示成本仅占典型幅度"
             "约百分之九，构造死于统计而非成本。为错配教训跨运行回放修复让位。"
         ),
     ),
@@ -203,7 +203,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
         "run21 · 阻塞读吞超时（零判决）",
         (
             "pty 改造的阻塞读使超时永远不触发：CLI 一个字节不发时，检查超时的"
-            "代码轮不到执行 —— 进程挂死 103 分钟（子进程仅 3 秒 CPU）被杀。"
+            "代码轮不到执行，进程挂死 103 分钟（子进程仅 3 秒 CPU）被杀。"
             "修为 select 五秒一拍的带超时轮询，挂死调用三十分钟必被回收。"
         ),
     ),
@@ -220,7 +220,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
         "run23 · 事件条件族第一轮",
         (
             "决定 0008：只在 PM 概率大幅移动后的窗口上评价，独立问题族、地板从头起。"
-            "触发器采用 19/19，但 17 版集中在 iran 单一事件源。十九版全为 null ——"
+            "触发器采用 19/19，但 17 版集中在 iran 单一事件源。十九版全为 null："
             "iran 事件窗口内 SC 仍无线性可预测性。收尾封存越界烧在旧族特征上"
             "（B8 由此修复：束按族过滤）。"
         ),
@@ -240,7 +240,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
             "对抗性评审第一梯队（决定 0009）上线后的首次运行：先验四种子经"
             "--direction 通道喂入。方向文本中出现了效果词，盲化断言三次拒绝组装"
             "上下文（人写的指令不豁免审查），provider_unusable，零研究。改词后"
-            "以 run26 重启。账面只留三条 context_blocked——系统按设计工作的记录。"
+            "以 run26 重启。账面只留三条 context_blocked：系统按设计工作的记录。"
         ),
     ),
     "run27": (
@@ -251,7 +251,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
             "机制族序列，三条提案一律判 blocked，理由都是「没有为 "
             "(pm_market, 'mech:X:dp') 提供数据序列」。三个回合作废，"
             "但**未消耗统计分母**：blocked 发生在读 outcome 之前。"
-            "三条被拦下的提案本身证明新层在起作用 —— 分别是加息路径对沪银、"
+            "三条被拦下的提案本身证明新层在起作用：分别是加息路径对沪银、"
             "加息路径对沪金、俄乌停火对玉米，三个组合在此前 196 条提案里"
             "一次都没出现过。修法是两份 manifest 取并集；"
             "教训入册：菜单与准入必须同源，否则模型看得见、系统求不出。"
@@ -261,11 +261,11 @@ NARRATIVE: dict[str, tuple[str, str]] = {
         "run29 · 首次越线，与一处判据从未被执行",
         (
             "追加预算的第一轮（决定 0011 §八：30 回合，证否线随之由 2.1895 升至 "
-            "E2(45)=2.4933 —— 多试一次就该把门槛抬高一次）。第 5 版出现项目历史上"
+            "E2(45)=2.4933，多试一次就该把门槛抬高一次）。第 5 版出现项目历史上"
             "第一条越过预注册证否线的构造：run29-study-4，36 品种面板、置换 exceed 0.000、"
             "|t|=2.5649。核实时发现它的斜率符号与其**声明方向相反**，而机器仍判 candidate。"
             "追查得到根因：EvaluationRequest 里根本没有方向字段，direction 在提案锁定之后"
-            "就再没被读过 —— 每份提案在证否条件里认真写下的符号判据，机器一次都没执行过。"
+            "就再没被读过：每份提案在证否条件里认真写下的符号判据，机器一次都没执行过。"
             "全史 190 条有方向且斜率非零的 Study 中符号相反 105 条（55.3%），与掷硬币无异，"
             "正说明该字段此前不起作用。人裁断「修复」，本轮在第 8 回合停下（族分母 22）。"
         ),
@@ -277,7 +277,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
             "差别只在评价机会执行符号判据。20 版判决：16 null、4 blocked、"
             "**candidate 归零**（run29 同期为 3）。反号阻断触发 14 次。"
             "|t| 前三分别为 3.744、2.377、2.361，全部是「声明 −1 实得正号」，"
-            "全部判 blocked —— 其中 3.744 那条还叠加单点影响过大（删一个观测移动 "
+            "全部判 blocked：其中 3.744 那条还叠加单点影响过大（删一个观测移动 "
             "1.31 个标准误）与品种维退化。需要说清的一点是，**本轮判决与方向判据无关**："
             "二十版里十八版在单品种 universe 上求值，品种维退化这条理由独立地使 "
             "candidate 失效，把 direction_mismatch 从各版理由中移除后按同一失效表重推，"
@@ -296,7 +296,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
             "十九条规格**全部**引用机制族（此前 196 条提案里机制族出现 0 次），"
             "十八个互异品种（此前 119/196 条挤在原油一个品种上），"
             "五个机制族全部用上。最好 |t|=2.028，低于本族地板 E2(15)=2.0734，"
-            "更低于按约束三预注册的证否线 E2(20)=2.1895 —— **无一越线**。"
+            "更低于按约束三预注册的证否线 E2(20)=2.1895，**无一越线**。"
             "唯一的 candidate（run28-study-12，加息路径的构成受控分量在 36 品种面板上）"
             "闸门全过、置换 exceed 0.000，但 |t|=1.353，自罚奖励 −0.589；"
             "封条地板门判定不予开封。candidate 这一档回答的是「检验做得对不对」，"
@@ -315,7 +315,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
             "**未消耗分母**：一次盲化拦截（修复提示词回显了模型自己写的裸词 ic，"
             "撞上效果字段词表，与 run28 那次同类而来源不同）、一次装配后无提案、"
             "一次提案既无 feature_spec 也未声明原语缺口。另有十五次 provider 修复，"
-            "高于 run30 的两次 —— 机械损耗并非单调下降。"
+            "高于 run30 的两次：机械损耗并非单调下降。"
             "提案**全部**使用子面板（另有一条全覆盖面板），覆盖四十个品种；"
             "未被读到的十一个**全部**是目标表行数不足者，满行的品种一个不剩，"
             "即在「有足够历史可供检验」这个意义上覆盖已经完成。"
@@ -326,7 +326,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
             "（本批新增的美国大选关税倾向轴），因此不是三个独立发现，"
             "而是同一条机制在三组品种上被测了三次，当作三份证据会重复计数。"
             "另有一条检验的 t 因双向 cluster 方差为负而无定义，评价机如实判 null "
-            "并记下理由，没有改用替代标准误去凑一个数 —— 报告据此把「因 cluster "
+            "并记下理由，没有改用替代标准误去凑一个数。报告据此把「因 cluster "
             "结构不足而无定义」单列计数，同时分母照扣。"
             "预注册停止规则三条中成立两条（最好 |t| 未越线、符号一致率仍在噪声内），"
             "因候选计数一条不满足而暂不触发。"
@@ -341,7 +341,7 @@ NARRATIVE: dict[str, tuple[str, str]] = {
             "生产使用。结果十四 null 一 blocked（cluster 结构退化），最好 |t|=2.31"
             "（sc_ret_next_session，低于其预注册证否线 2.85）；吸收目标侧最好"
             "|t|=1.83。前身 0.86 的休市吸收相关在七倍样本上没有再现。评审给出的"
-            "最短路径走完，方法边界的三块高地补上后仍是 null——「市场真相」的"
+            "最短路径走完，方法边界的三块高地补上后仍是 null。「市场真相」的"
             "分量自此显著加重。"
         ),
     ),
@@ -530,7 +530,7 @@ def render(D: dict) -> str:
             f"<td>{E(s.get('verdict') or '进行中')}</td></tr>")
     appendix.append("</table>")
 
-    # 唯一走完全流程的候选：散文里的每个数字都必须从快照取，不得手写 ——
+    # 唯一走完全流程的候选：散文里的每个数字都必须从快照取，不得手写。
     # 封面声明了这条约束，散文里硬编码就是文档自我违约（而账本每几分钟在变）。
     HERO_ID = "run11-study-3"
     hero = next((s for s in D["studies"] if s["study_id"] == HERO_ID), {})
@@ -640,7 +640,7 @@ blockquote{{margin:7pt 0 10pt;padding:8pt 13pt;border-left:2.5pt solid #3c5488;
 <p><strong>但这个「0」必须分成两半读，否则会被误读为经验结论。</strong>其中一半是经验的：
 {v.get('null', 0)} 条否定都通过了置换检验这道唯一能产出 null 的闸门。另一半是结构的：
 成本模型未建（M5）使 <span class=m>cost_model_missing</span> 对每一条 Study 都成立，
-而该理由的失效集合含 candidate —— <strong>在 M5 补上之前，candidate 在判决导出规则下
+而该理由的失效集合含 candidate：<strong>在 M5 补上之前，candidate 在判决导出规则下
 不可达，与数据无关。</strong>本报告第七章把这两半分开陈述。</p>
 <div class=slab>
   <div><span class=k>candidate</span><span class=val
@@ -658,7 +658,7 @@ blockquote{{margin:7pt 0 10pt;padding:8pt 13pt;border-left:2.5pt solid #3c5488;
 
 <h3>1.1 一条上升的曲线本身不是证据</h3>
 <p>选择在纯噪声上必然产出上升的 running-best 曲线。旧系统的实测就摆在那里：81 次爬山
-选出的最好 Sharpe 是 2.40，而同一套搜索过程在零假设下的期望是 2.63 —— 曲线在涨，
+选出的最好 Sharpe 是 2.40，而同一套搜索过程在零假设下的期望是 2.63：曲线在涨，
 实际比噪声还差。只画「每次尝试」与「running best」两条线的界面会系统性地骗人。</p>
 <p><strong>约束</strong>：给每条曲线配一条随检验次数上升的零假设带（§3.5），并把
 「多问一个问题的价格」写进提案器上下文。<strong>后果是对称的</strong>：地板对已有与
@@ -666,17 +666,17 @@ blockquote{{margin:7pt 0 10pt;padding:8pt 13pt;border-left:2.5pt solid #3c5488;
 
 <h3>1.2 分母会被悄悄做小</h3>
 <p>如果「试过多少次」由报告者自己数，它必然缩水。<strong>约束</strong>：分母进数据库，
-且只增不减 —— <span class=m>statistical_denominator</span> 表上挂 DELETE 与 UPDATE
+且只增不减。<span class=m>statistical_denominator</span> 表上挂 DELETE 与 UPDATE
 触发器，一律 <span class=m>RAISE(ABORT)</span>。提案分母（内容寻址，含被拦下的）与
 统计分母（只计真正读过 outcome 的）分成两张表：被预检挡下的提案不抬高零假设带。</p>
 <p class=src>ledger.py:79-100, 359-385</p>
 
 <h3>1.3 提案者一旦看见效应，就不再是提案者</h3>
-<p><strong>约束</strong>：白名单投影 —— 提案器能看见的字段由账本按事件类型逐个列举，
+<p><strong>约束</strong>：白名单投影。提案器能看见的字段由账本按事件类型逐个列举，
 不在名单上的一律不可见。黑名单形式在本项目历史上失败过两次。</p>
 <p><strong>这条约束曾被自己违反，且是被对抗性审查抓出来的</strong>（决定 0006）：
 决定 0005 曾论证「判决词只泄漏存在性，不泄漏方向与量级」是安全的。该定价有一个
-未写出的前提 —— 计数指向的是<strong>匿名总体</strong>。M9 的第 0 层记忆把具名规格清单
+未写出的前提：计数指向的是<strong>匿名总体</strong>。M9 的第 0 层记忆把具名规格清单
 交给提案器，取消了匿名：具名清单 + 检验次数 + 判决计数三者可做减法，反推出哪些规格
 落在哪一类。定价没有被重新审视，于是判决计数被移出提案器上下文。</p>
 
@@ -688,7 +688,7 @@ Study 不读 outcome、不进统计分母。判据必须是结构的：run3 的�
 
 <h3>1.5 否定结论必须有地方安放</h3>
 <p>判决原本由「blocked 与否」二分导出，<span class=m>Verdict.NULL</span> 在全仓
-没有任何产出路径 —— 成因是 <span class=m>cost_model_declared=False</span> 对每条
+没有任何产出路径：成因是 <span class=m>cost_model_declared=False</span> 对每条
 Study 都成立，<span class=m>blocked</span> 恒非空。<strong>约束</strong>（决定 0005）：
 判决改由「每条阻塞理由使哪些结论失效」的集合并集推出（§3.4），使 null 成为一等产出。</p>
 
@@ -742,7 +742,7 @@ diagnostic_only，定义为 −move_k ⁄ gap（跳空被抹去的比例）。</
 
 <h3>3.2 特征语言的七个原语</h3>
 <p>每条特征是一张 DAG，节点取自七个原语；规格冻结后由代码生成器产出与解释器<strong>逐位
-一致</strong>的代码。无定义一律返回 None 并沿 DAG 传播，<strong>绝不返回 0</strong> ——
+一致</strong>的代码。无定义一律返回 None 并沿 DAG 传播，<strong>绝不返回 0</strong>：
 「没有数据」与「数据为零」是不同的事实。</p>
 <table>
 <tr><th>原语</th><th>定义</th></tr>
@@ -763,11 +763,11 @@ diagnostic_only，定义为 −move_k ⁄ gap（跳空被抹去的比例）。</
   若 |set(cs)| &lt; m 则返回 None      ← 计的是**控制变量**的互异取值个数
   β̂ = Σ(c_k − c̄)(x_k − x̄) ⁄ Σ(c_k − c̄)²,   α̂ = x̄ − β̂·c̄
   返回 x_now − (α̂ + β̂·c_now)</div>
-<p>三点必须写清，否则会被误读：<strong>（一）返回的不是教科书意义上的残差</strong> ——
+<p>三点必须写清，否则会被误读：<strong>（一）返回的不是教科书意义上的残差</strong>：
 当前点被排除在拟合之外，返回值是「当前观测减去用<strong>纯过去</strong>数据拟合的直线在
 当前控制值处的预测」，属于样本外预测残差，它在拟合样本上不满足均值为零。
 <strong>（二）每个决策时点重新拟合一次</strong>，记忆表按 (步骤, 时刻) 键控，不跨决策点
-复用。<strong>（三）门槛计的是控制变量的互异取值个数</strong>，不是样本对数 —— 控制序列
+复用。<strong>（三）门槛计的是控制变量的互异取值个数</strong>，不是样本对数：控制序列
 在窗口内取值常量时不可识别，这条门槛正是为它设的。</p>
 <p class=src>interpreter.py:231-296（注册表见 43-49）· 代码生成镜像 codegen.py:243-292</p>
 
@@ -791,10 +791,10 @@ Cameron–Gelbach–Miller 双向 cluster（a = 交易日，b = 品种）：
 <div class=eq>n_eff = (Σ_g w_g)² ⁄ Σ_g w_g²,  权重 w_g = 该组观测数 c_g
      = n² ⁄ Σ_g c_g²</div>
 <p><strong>量纲提醒</strong>：权重取的是 cluster 规模，所以这个数是<strong>有效
-cluster 数</strong>而非有效观测数 —— 等规模时它恰好等于组数 G。它与同一字典里的
+cluster 数</strong>而非有效观测数：等规模时它恰好等于组数 G。它与同一字典里的
 <span class=m>nominal_n</span> 并排出现，容易被读成有效观测数。</p>
 
-<h4>置换检验（按 Episode 整块置换）——唯一能产出 null 的闸门</h4>
+<h4>置换检验（按 Episode 整块置换）：唯一能产出 null 的闸门</h4>
 <div class=eq>置换单位是 episode_id（不是单行）。默认 draws = 200，seed = 20260805。
 每次抽样：对 episode 键做一次洗牌得映射 g → src，
         对每一行取 pool[src] 中第 cursor[src] mod len(pool[src]) 个标签作 y*，
@@ -804,7 +804,7 @@ placebo_exceed_rate = exceed ⁄ 成功抽样数     （成功数为 0 时兜底
 <p><strong>三处必须声明的偏差。</strong>（一）episode 规模不等时 y* <strong>不是</strong>
 y 的置换：短块的标签被循环复用、长块尾部的标签被丢弃，零分布的标签边缘分布因此与实际
 样本不同。（二）exceed 用 ≥ 且<strong>没有</strong> (exceed+1)⁄(draws+1) 修正。
-（三）成功抽样数为 0 时兜底 1.0，会直接触发 placebo_failed —— 也就是<strong>把一次
+（三）成功抽样数为 0 时兜底 1.0，会直接触发 placebo_failed，也就是<strong>把一次
 度量失败记成支持 null 的证据</strong>。阈值 0.1 的取值来源代码与文档均未给出。</p>
 <p class=src>kernel.py:335-337, 369-373</p>
 
@@ -812,7 +812,7 @@ y 的置换：短块的标签被循环复用、长块尾部的标签被丢弃，
 <div class=eq>h_i     = 1⁄n + (x_i − x̄)² ⁄ Sxx                （只依赖回归元，不含标签）
 DFBETA_i = (x_i − x̄)·e_i ⁄ [ Sxx·(1 − h_i) ]        （解析一步删除，非逐点重跑）
 DFBETAS  = max_i |DFBETA_i| ⁄ SE                    （SE 即双向 cluster SE）
-闸门：DFBETAS &gt; 1.0 时按方向分两种理由 ——
+闸门：DFBETAS &gt; 1.0 时按方向分两种理由：
   could_flip_null = isnan(t) 或 |t| + DFBETAS ≥ 2.8
     真 → single_point_influence_both        （使 candidate 与 null 同时失效）
     假 → single_point_influence_candidate_only（只使 candidate 失效）</div>
@@ -849,7 +849,7 @@ derive_verdict(kinds)：
   6. 否则                         → CANDIDATE</div>
 <p>判决<strong>只读理由的种类</strong>，不读任何数值：数值唯一能影响种类的地方是
 <span class=m>could_flip_null</span>，而它经由预注册的闸门表达。这条设计使判决可
-机械复核 —— 给定理由集合，判决唯一确定。</p>
+机械复核：给定理由集合，判决唯一确定。</p>
 <p class=src>kernel.py:44-87, 506-522</p>
 
 <h3>3.5 选择校正：零假设带与自罚奖励</h3>
@@ -871,7 +871,7 @@ E_τ(n) = (1 − γ)·Φ⁻¹(1 − 1⁄(τn)) + γ·Φ⁻¹(1 − 1⁄(τne))
 1−1⁄(ne)，不含 τ）；因 τ 与 n 只以乘积出现，恒有
 <span class=m>expected_max_abs_z(n) = expected_max_z(2n)</span>。
 （二）n = 1 处硬编码值与公式取值不连续（0.798 对 0.520），这是 Φ⁻¹(0) = NaN 的必需
-分支。（三）<strong>独立性假设使阈值偏严</strong> —— 同一族里的变体高度相关，真实的
+分支。（三）<strong>独立性假设使阈值偏严</strong>：同一族里的变体高度相关，真实的
 期望最大值更低。因此「没越过带」不等于「确定无效」，它是独立情形下的上界，
 不构成判决，也不是多重检验校正后的 p 值。</p>
 <p class=src>selection.py:26, 60-97 · beam.py:41-46 · induction.py:83-97</p>
@@ -885,7 +885,7 @@ assert_unopened：扫描全部 sealed_segment_opened 事件，键已存在 → S
 taxonomy_clean = not (contamination 且 归纳语料切点落在任一结果窗口起点之后)</div>
 <p><strong>两处必须写明。</strong>（一）<span class=m>_HOLD_RATIO = 0.35</span> 与
 <span class=m>min_rows = 120</span> 都是写死的模块常量，全仓各只用一处，
-<strong>没有任何文档给出推导</strong> —— 不是由功效分析、样本量比或先验收缩推出的。
+<strong>没有任何文档给出推导</strong>：不是由功效分析、样本量比或先验收缩推出的。
 （二）比值的分子分母都是 <strong>t 值</strong>而非效应量，而两段样本量通常不同，
 详见 §5.2 的量化。</p>
 <p class=src>sealed.py:60-97 · registry/specs.py:149-157</p>
@@ -901,7 +901,7 @@ taxonomy_clean = not (contamination 且 归纳语料切点落在任一结果窗�
 
 <h3>5.1 假象家族：重新发现了波动率聚集</h3>
 <p>统计量最大的几条：{E(artefacts)}。共同构造是<strong>分母为已实现波动、目标也是
-已实现波动</strong>。PIT 无问题、置换检验通过 —— 因为这个关系是真的；它只是金融学里
+已实现波动</strong>。PIT 无问题、置换检验通过，因为这个关系是真的；它只是金融学里
 最稳健的定型化事实之一，属 Baseline Control，不是另类数据的 alpha。</p>
 <p>诊断证据（离线，不进族账本）：对其中最大一条的构造做残差化，秩相关由 −0.5695
 塌至 −0.0077，<strong>缩小 74 倍</strong>。这几条是 <span class=m>rank_pct</span> 与
@@ -911,18 +911,18 @@ taxonomy_clean = not (contamination 且 归纳语料切点落在任一结果窗�
 <h3>5.2 唯一走完全流程的候选，及其封存段裁决</h3>
 <blockquote><strong>{E(hero.get('feature_id') or '—')}</strong>（{HERO_ID}）：
 cand:iran 族归一化概率的 30 日均值，减掉品种自身波动持续性之后，预测下一时段已实现波动。
-机制为混合分布假说 —— 波动由信息到达强度决定，到达强度由风险的当前发生率水平决定；
+机制为混合分布假说：波动由信息到达强度决定，到达强度由风险的当前发生率水平决定；
 油价已含发生率×损失的一阶期望，发生率水平本身另有信息。<br><br>
 发现段：t = {num(hero.get('t'))}、IC 秩 = {num(hero.get('ic'), 3)}、{n_d} 行、
 置换 {hero.get('placebo', '—')} 通过。<br>
 封存段（一次性）：t = {num(hero_seal_t)}、IC 秩 = {num(hero_sealed.get('ic_spearman'), 3)}、
-{n_s} 行 —— t 值比 {f'{retention:.1%}' if retention is not None else '—'}，
+{n_s} 行，t 值比 {f'{retention:.1%}' if retention is not None else '—'}，
 低于 0.35 的保持线，判 sealed_failed。<strong>裁决终身有效，不重开。</strong></blockquote>
 <p><strong>一处口径更正。</strong>闸门比的是<strong>两个 t 值</strong>而非两个效应量，
 而两段样本量不同（{n_d} 行对 {n_s} 行）。即便斜率与残差标准差完全不变，t 也会按
 √(n_封存⁄n_发现) ≈ {f'{size_factor:.2f}' if size_factor else '—'} 缩小。
 按样本量修正后，效应本身的保留率约
-{f'{retention_adj:.1%}' if retention_adj is not None else '—'} —— 仍远低于 0.35，
+{f'{retention_adj:.1%}' if retention_adj is not None else '—'}，仍远低于 0.35，
 <strong>裁决结论不变</strong>，但此前文档所用的「线性效应保留率」这一措辞与代码实际
 所算的量不是同一个东西（记 B3）。</p>
 <p>该候选在发现段也从未越过当时的族地板：被评价时本族已花 {tests_then} 次检验，
@@ -961,16 +961,16 @@ IC 在本系统中不给标准误、不给 p 值、不进入任何闸门（kerne
 <tr><th>项</th><th>不一致之处</th><th>对结论的影响方向</th></tr>
 <tr><td>置换检验兜底</td><td>成功抽样数为 0 时 <span class=m>placebo_exceed_rate</span>
   兜底 1.0，直接触发 placebo_failed</td>
-  <td>把一次<strong>度量失败</strong>记成支持 null 的证据 —— null 偏多</td></tr>
+  <td>把一次<strong>度量失败</strong>记成支持 null 的证据：null 偏多</td></tr>
 <tr><td>置换的块结构</td><td>episode 规模不等时短块标签循环复用、长块尾部丢弃，
   y* 不是 y 的置换</td><td>零分布的边缘分布与样本不同，方向不定</td></tr>
 <tr><td>置换阈值</td><td>0.1，严格大于，不随 draws 变化；来源代码与文档均无</td>
-  <td>比常用的 0.05 宽松 —— null 偏少</td></tr>
+  <td>比常用的 0.05 宽松：null 偏少</td></tr>
 <tr><td>cluster SE</td><td>无任何有限样本修正（无 G⁄(G−1)）</td>
-  <td>SE 偏小 → |t| 偏大、MDE 偏小 —— 排除界宣称得比实际紧</td></tr>
+  <td>SE 偏小 → |t| 偏大、MDE 偏小：排除界宣称得比实际紧</td></tr>
 <tr><td>功效闸门</td><td><span class=m>min_clusters</span> 数的是 episode 不重复数，
   而多品种下 episode_id 以品种开头，N 个品种把同一批交易日的 episode 数放大 N 倍</td>
-  <td>面板上功效闸门被稀释 N 倍 —— underpowered 偏少</td></tr>
+  <td>面板上功效闸门被稀释 N 倍：underpowered 偏少</td></tr>
 <tr><td>DFBETA 分子</td><td>h_i = 1 时 DFBETA = +inf，而
   <span class=m>gate_evaluable</span> 仍为 True</td>
   <td>账本可写下「斜率移动 inf 个标准误」，守卫只覆盖标准误一侧</td></tr>
@@ -978,7 +978,7 @@ IC 在本系统中不给标准误、不给 p 值、不进入任何闸门（kerne
   未引用 <span class=m>SIGNIFICANCE_T</span>，而注释声明二者共用</td>
   <td>目前数值相同；改一处会静默漂移</td></tr>
 <tr><td>紧缩 Sharpe</td><td>方差项比发表式少常数项 2⁄4（正态情形代码得 1，
-  发表式得 1 + SR²⁄2）</td><td>方差偏小 → z 偏极端 —— 紧缩 Sharpe 偏乐观</td></tr>
+  发表式得 1 + SR²⁄2）</td><td>方差偏小 → z 偏极端：紧缩 Sharpe 偏乐观</td></tr>
 <tr><td>Sharpe 带的尺度</td><td><span class=m>sharpe_spread</span> 在循环外对整个序列
   算一次，含第 i 点之后才发生的试验</td><td>Sharpe 带含前视成分；|t| 带没有</td></tr>
 <tr><td>驾驶舱的两个 n</td><td>曲线的 n 是 <span class=m>evaluation_result</span>
@@ -990,7 +990,7 @@ IC 在本系统中不给标准误、不给 p 值、不进入任何闸门（kerne
   <td>封存段的判定线是约定，不是导出的</td></tr>
 </table>
 <p><strong>这一章存在本身是一条结论</strong>：本系统的可信性来自约束的结构，
-而不是任何单个数字的精确。上表里没有一条会把某个 null 翻成 candidate ——
+而不是任何单个数字的精确。上表里没有一条会把某个 null 翻成 candidate：
 candidate 被 §3.4 的失效表结构性挡住，与这些数值无关。</p>
 
 <h2 class=pb>七 · 结论</h2>
@@ -1027,7 +1027,7 @@ candidate 被 §3.4 的失效表结构性挡住，与这些数值无关。</p>
 <div class=ct>残差化把「发现」与「重新发现基线」分开了，且效果是数量级的。</div>
 <p>不加控制时 |t| 达 {abs(top[0]['t']):.2f} 的构造，残差化后秩相关缩小约 74 倍（该诊断在离线完成、不进族账本，是本报告中唯一不来自快照的数字）；
 原语可用后，{residualised}／{specs} 的规格自带控制项，近数轮 100%。
-<strong>模型采用它的转折点不是「原语可见」，而是提示词写明了为什么要用</strong> ——
+<strong>模型采用它的转折点不是「原语可见」，而是提示词写明了为什么要用</strong>：
 run9 时原语已在菜单里，使用率为零；run10 补上口径后立即 5／5。</p>
 <div class=cf>证否：一条残差化后 |t| 未显著下降、且能在封存段保住的量价构造。</div></div>
 
@@ -1057,12 +1057,12 @@ run9 时原语已在菜单里，使用率为零；run10 补上口径后立即 5�
 
 <h2>八 · 下一步（全部需人决定）</h2>
 <ol>
-<li><strong>M5 成本模型</strong> —— 由结论一，这是唯一能让 candidate 从不可达变为可达
+<li><strong>M5 成本模型</strong>：由结论一，这是唯一能让 candidate 从不可达变为可达
 的改动。在它之前继续花检验预算，只是把地板抬得更高。</li>
-<li><strong>分类法重归纳（干净切点）</strong> —— 解除结论六的封顶。</li>
-<li><strong>郑商所 21 品种</strong> —— TradingDay 自然日与交易日之别，属 PIT 语义裁决。</li>
-<li><strong>财联社接入</strong> —— 第三个数据源，五十六万行原文待进解释器。</li>
-<li><strong>横截面 target</strong> —— 面板已通，但真正的截面 IC 需要「同一时点排序多品种」
+<li><strong>分类法重归纳（干净切点）</strong>：解除结论六的封顶。</li>
+<li><strong>郑商所 21 品种</strong>：TradingDay 自然日与交易日之别，属 PIT 语义裁决。</li>
+<li><strong>财联社接入</strong>：第三个数据源，五十六万行原文待进解释器。</li>
+<li><strong>横截面 target</strong>：面板已通，但真正的截面 IC 需要「同一时点排序多品种」
 的新目标定义；同时应修 <span class=m>min_clusters</span> 在面板上的稀释（见第六章）。</li>
 </ol>
 <p class=note>顺序上，1 应先于其余四项：不修门而继续敲门，每一次都在抬高自己的地板。</p>

@@ -88,7 +88,7 @@ def measure(ledger_path: str = "data/ledger/service.db") -> dict:
         "measurement": "empirical-nulls/v1",
         "built_at": datetime.now(tz=UTC).isoformat(),
         "note": (
-            "取代决定 0013 §六原有的四行对照表 —— 那四对数字无产出脚本，"
+            "取代决定 0013 §六原有的四行对照表：那四对数字无产出脚本，"
             "本表逐条取自账本 evaluation_result 的 diagnostics。"
         ),
         "decoy_draws": _DECOY_DRAWS,
@@ -125,7 +125,7 @@ def main() -> None:
           f"decoy {doc['median_decoy_exceed']:.4f}")
     print(f"  单条比例的蒙特卡洛标准误上界 {doc['per_row_mc_se_upper_bound']:.4f}"
           f"（{doc['decoy_draws']} 次平移，分辨率 {doc['decoy_resolution']:.4f}）"
-          " —— 单条上的两率之差多半落在此误差内，可读的是方向的一致性")
+          "：单条上的两率之差多半落在此误差内，可读的是方向的一致性")
     if doc["exceptions"]:
         print("  例外（decoy 反而更松）：")
         for row in doc["exceptions"]:
