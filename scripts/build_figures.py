@@ -433,7 +433,9 @@ def qualifying_climb() -> None:
         ax.plot(floors_x, floors_y, color=PRICE, lw=1.5, ls="--", label="零假设地板")
         ax.scatter(off_x, off_y, s=10, color="#c9c9c9", zorder=2, label="不合格")
         ax.scatter(pts_x, pts_y, s=20, color=SIGNAL, zorder=3, label="合格构造")
-        ax.set_title(f"{titles[fam]}（n={len(floors_x)}）", fontsize=8)
+        # 标「点数」而不是「分母」：t 无定义的读数消耗了分母却画不出点，
+        # 两个数因此不等（旧族 134 对 135）。图注也须用同一措辞。
+        ax.set_title(f"{titles[fam]}（点数 {len(floors_x)}）", fontsize=8)
         ax.set_xlabel("本族已读 outcome 次数", fontsize=7.5)
         ax.tick_params(labelsize=7)
         for spine in ("top", "right"):

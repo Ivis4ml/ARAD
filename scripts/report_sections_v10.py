@@ -525,6 +525,14 @@ ${c['best_reward_overall']:+.3f}$ 之间起伏，没有上行趋势，这是可�
 比一个报告了假象的装置有用得多；本报告全部的可信度都建立在前者上。
 
 \subsection{配图}
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth]{figures/qualifying_climb.png}
+\caption{三本账各一栏的爬升图。横轴是本族已读结果次数，虚线为随之上升的零假设地板，
+橙点为合格构造（另类数据且符号一致），灰点为不合格者。
+子图标题里的数是\textbf{可作图的点数}，与分母不等：$t$ 无定义的读数消耗了分母
+却画不出点。}\label{fig:climb}
+\end{figure}
+
 图~\ref{fig:climb} 把三本账各画一栏：虚线是随分母上升的零假设地板，
 橙点是合格构造（另类数据且符号一致），灰点是不合格者。橙点始终在虚线之下，
 唯一的例外是旧族那个后来在封存段没保住的点。

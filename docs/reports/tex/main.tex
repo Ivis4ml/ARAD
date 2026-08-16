@@ -1,4 +1,4 @@
-% 由 scripts/build_report_tex.py 生成；数字全部来自账本快照 seq 4223
+% 由 scripts/build_report_tex.py 生成；数字全部来自账本快照 seq 4238
 \documentclass[11pt]{ctexart}
 \usepackage[a4paper,margin=2.4cm]{geometry}
 \usepackage{array,booktabs,longtable,graphicx,amsmath,amssymb,url,xcolor,caption}
@@ -15,9 +15,9 @@
 \maketitle
 \begin{abstract}
 研究者是大语言模型（claude-opus-5，经 \path{claude -p} 调用），确定性框架负责使其产出
-可信且可累积。截至账本冻结点（事件 seq 4223），系统在
+可信且可累积。截至账本冻结点（事件 seq 4238），系统在
 Polymarket 预测市场 $\times$ 中国商品期货（以 SC 原油为主）上共冻结 \textbf{159 个互异假设}，读取 outcome \textbf{135 次}，
-判决为 null \textbf{184}、blocked \textbf{71}、underpowered \textbf{11}、candidate \textbf{7}；噪声地板升至 \textbf{2.862}。三条主结果：（一）不加控制时最大的统计量
+判决为 null \textbf{185}、blocked \textbf{71}、underpowered \textbf{11}、candidate \textbf{7}；噪声地板升至 \textbf{2.862}。三条主结果：（一）不加控制时最大的统计量
 （$|t|$ 至 9.30）全部是波动率聚集这一教科书事实；
 （二）对品种自身波动或国际油价残差化后，Polymarket 特征大面积失去线性预测力；
 （三）第一条走完全流程的候选在一次性的封存段被否决；
@@ -96,7 +96,7 @@ Polymarket 仍在交易 —— 停市期间到达的信息，理论上要等次�
 \begin{center}\footnotesize
 \begin{tabular}{@{}l p{0.72\textwidth}@{}}\toprule
 术语 & 含义 \\ \midrule
-Study & 一次完整的研究：从提出假设到得出判决。本文共 310 个。 \\
+Study & 一次完整的研究：从提出假设到得出判决。本文共 311 个。 \\
 族（family） & 按上下文两义：（一）\textbf{事件族}，Polymarket 上语义相近的一批
   市场合成的一条序列，如 \path{cand:iran}；（二）\textbf{问题族}，共享同一本
   「搜索代价账」的一批研究，见「地板」。 \\
@@ -187,7 +187,7 @@ $|t|=9.30$ 的构造，其分母与预测目标同为已实现波动 —— 它�
 「多试几次」从来不是免费的（\S\ref{sec:selection}）。
 
 \paragraph{七、否定是产出，不是失败。}
-全部 310 个 Study 中 184 条是带排除界的可信否定：每条都预注册了证否条件、
+全部 311 个 Study 中 185 条是带排除界的可信否定：每条都预注册了证否条件、
 通过了语义审计、并被置换检验确认「打乱的假数据做得一样好」。对「Polymarket
 能否预测中国商品期货」这个问题，这批否定就是当前最可信的答案（\S\ref{sec:conclusions}）。
 
@@ -764,9 +764,9 @@ p{0.09\textwidth} >{\raggedright\arraybackslash}p{0.38\textwidth}@{}}\toprule
 账本 & 分母 & 适用地板 & 说明 \\ \midrule
 \path{demo_sc_price_volume} & 135 & 2.862 & 常在线性检验 \\
 \path{sc_event_conditional_v1} & 33 & 2.381 & 由触发器的问题形态定义 \\
-\path{sc_mechanism_prior_v1} & 72 & 2.656 &
+\path{sc_mechanism_prior_v1} & 73 & 2.661 &
   机制族；预算 20 回合，全轮以预算末地板 2.1895 为证否线 \\
-合并口径（不分族） & 240 & 3.040 & 约束 4 要求随时可读 \\
+合并口径（不分族） & 241 & 3.041 & 约束 4 要求随时可读 \\
 \bottomrule\end{tabular}
 \caption{三本账的现状。「适用地板」指该族按当前分母算出的线；
 新族另按约束 3 以预算末地板为证否线。candidate 指通过全部预注册闸门、
@@ -1321,6 +1321,14 @@ $+1.793$ 之间起伏，没有上行趋势，这是可以说的；
 比一个报告了假象的装置有用得多；本报告全部的可信度都建立在前者上。
 
 \subsection{配图}
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth]{figures/qualifying_climb.png}
+\caption{三本账各一栏的爬升图。横轴是本族已读结果次数，虚线为随之上升的零假设地板，
+橙点为合格构造（另类数据且符号一致），灰点为不合格者。
+子图标题里的数是\textbf{可作图的点数}，与分母不等：$t$ 无定义的读数消耗了分母
+却画不出点。}\label{fig:climb}
+\end{figure}
+
 图~\ref{fig:climb} 把三本账各画一栏：虚线是随分母上升的零假设地板，
 橙点是合格构造（另类数据且符号一致），灰点是不合格者。橙点始终在虚线之下，
 唯一的例外是旧族那个后来在封存段没保住的点。
@@ -1436,7 +1444,7 @@ DFBETAS & 0.04836 & 最大单点影响，闸门 1.0 \\
 统计量最大的构造（$|t|$ 至 9.30）分母为已实现波动、
 目标亦为已实现波动。PIT 无误、置换通过 —— 关系是真的，但它是 Baseline Control，
 不是另类数据 alpha。诊断（离线，不进账本，本文唯一非快照数字）：对最大一条做残差化，
-秩相关由 $-0.5695$ 塌至 $-0.0077$，缩小约 74 倍。此后 221/274 的规格自带控制项。
+秩相关由 $-0.5695$ 塌至 $-0.0077$，缩小约 74 倍。此后 222/275 的规格自带控制项。
 \begin{figure}[htbp]\centering
 \includegraphics[width=0.95\textwidth]{figures/run5-study-2.png}
 \caption{波动假象 \texttt{run5-study-2}（$t=-9.30$）：信号与价格。该信号实为已实现波动的函数，与目标同源。}\label{fig:run5-study-2}
@@ -1472,7 +1480,7 @@ $\sqrt{n_s/n_d}\approx 0.81$ 缩小；样本量修正后效应保留率约 21.8\
 \end{figure}
 
 
-\subsection{干净的 null（184 条）}
+\subsection{干净的 null（185 条）}
 残差化普及后，模型系统扫过互异机制：资金集中度、信念下限棘轮、闭市时段资金份额、
 停火/伊朗资金倾斜、平均单笔金额、方向性信念离散度、事件不确定性 $\bar p(1-\bar p)$、
 到达加速度、对娱乐族的安慰剂对照。按判决导出规则 null 只能经由置换检验产出，因此
@@ -1742,7 +1750,7 @@ $0.86$ 休市吸收相关，在七倍规模的样本上没有再现。评审列�
 \end{enumerate}
 
 \appendix
-\section{全部 310 个 Study}
+\section{全部 311 个 Study}
 {\footnotesize\begin{longtable}{@{}>{\ttfamily}l >{\raggedright\arraybackslash}p{0.42\textwidth} r r r l@{}}
 \toprule Study & 特征 & $t$ & IC & 置换 $p$ & 判决 \\ \midrule\endhead
 auto-study-0 & \path{pm_iran_trade_arrival_z} & +0.776 & +0.047 & 0.55 & null \\
@@ -2054,7 +2062,8 @@ run31-study-28 & \path{pm_ruua_ceasefire_dp_net_12h_dow_matched_excess_over_90d_
 run31-study-29 & \path{pm_ruua_ceasefire_dp_pace_innov_closed_6h_7d_over_90d_scale_resid_brent_and_own_rv_lpg_olefin_panel} & +0.211 & -0.000 & 0.8 & null \\
 run31-study-30 & \path{pm_bird_flu_dp_pace_innov_12h_7d_over_90d_scale_resid_brent_and_own_rv_feed_demand_panel} & +1.501 & +0.050 & 0.18 & null \\
 run31-study-31 & \path{pm_ruua_ceasefire_dp_net_closed_6h_dod_excess_over_90d_scale_resid_brent_and_own_rv_ferrous_chain_panel} & -0.450 & -0.006 & 0.38 & null \\
-run31-study-32 & \path{—} & — & — & — & 进行中 \\
+run31-study-32 & \path{pm_fed_decision_minus_fed_hike_dp_net_12h_scaled_divergence_resid_brent_and_own_rv_dollar_rate_metals_panel} & +1.285 & +0.112 & 0.4 & null \\
+run31-study-33 & \path{—} & — & — & — & 进行中 \\
 \bottomrule\end{longtable}}
 
 \section{二十四次运行编年（全记录）}\label{sec:chronicle}
@@ -2878,13 +2887,14 @@ run31-study-28 & \path{pm_ruua_ceasefire_dp_net_12h_dow_matched_excess_over_90d_
 run31-study-29 & \path{pm_ruua_ceasefire_dp_pace_innov_closed_6h_7d_over_90d_scale_resid_brent_and_own_rv_lpg_olefin_panel}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & +0.211 & -0.000 & null \\
 run31-study-30 & \path{pm_bird_flu_dp_pace_innov_12h_7d_over_90d_scale_resid_brent_and_own_rv_feed_demand_panel}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & +1.501 & +0.050 & null \\
 run31-study-31 & \path{pm_ruua_ceasefire_dp_net_closed_6h_dod_excess_over_90d_scale_resid_brent_and_own_rv_ferrous_chain_panel}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & -0.450 & -0.006 & null \\
-run31-study-32 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
+run31-study-32 & \path{pm_fed_decision_minus_fed_hike_dp_net_12h_scaled_divergence_resid_brent_and_own_rv_dollar_rate_metals_panel}\newline {\scriptsize\color{gray}ret\_next\_session · 控制 brent,own\_realised\_volatility} & +1.285 & +0.112 & null \\
+run31-study-33 & \path{—}\newline {\scriptsize\color{gray}—} & — & — & 进行中 \\
 \bottomrule\end{longtable}}
 
 \clearpage
 
 
 \vfill\noindent\rule{\textwidth}{0.4pt}\\
-{\small 账本冻结点：事件 seq 4223（2026-08-16T03:27:51，run16 当时仍在进行）；事件 4223 条，哈希链完整。
+{\small 账本冻结点：事件 seq 4238（2026-08-16T03:34:29，run16 当时仍在进行）；事件 4238 条，哈希链完整。
 叙述由人撰写且不含数字；数字一律由快照渲染，二者不会不一致。}
 \end{document}
