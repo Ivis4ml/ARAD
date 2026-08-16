@@ -380,7 +380,7 @@ def coverage_section(run: str = "run31") -> str:
 只作用于少数品种的机制会被其余品种稀释，甚至被反号的品种抵消。
 
 \subsection{子面板：品种集合必须由机制论证，并随提案冻结}
-新增的品种域形态写作 \path{mech_panel:<品种>+<品种>+…}，按传导通道选出一组品种，
+新增的品种域形态写作 \path{mech_panel:} 后接以加号分隔的品种代码，按传导通道选出一组品种，
 一次评价覆盖它们全部，品种维因而有变异、候选可达。至少两个成员：
 一个成员的子面板就是单品种，不该用另一个名字表达，否则就绕过了品种维退化的记账。
 
@@ -390,7 +390,7 @@ def coverage_section(run: str = "run31") -> str:
 
 """ + f"""\\subsection{{实测：满行的品种已无遗漏}}
 {run} 的 {s['studies_decided']} 条提案覆盖了 \\textbf{{{cov['n_products_read']} 个品种}}，
-品种域形态的分布为 {'、'.join(f'{k} {v} 次' for k, v in cov['universe_forms'].items())}。
+品种域形态的分布为 {'、'.join(chr(92) + 'path{' + k + '} ' + str(v) + ' 次' for k, v in cov['universe_forms'].items())}。
 
 余下 {len(thin) + len(unread)} 个品种没有被读到，但\\textbf{{原因要分开说}}，
 否则一条关于数据可得性的事实会被读成一条关于搜索行为的事实：
