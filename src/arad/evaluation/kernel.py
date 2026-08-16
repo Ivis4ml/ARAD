@@ -202,6 +202,10 @@ class EvaluationRequest:
     #: label 语义不是同一次评价。
     target_name: str = ""
     label_rule: str = ""
+    #: decoy 校准的抽样数与最小平移量（决定 0014）。39 次给出 1/40=2.5% 的经验分辨率。
+    #: 最小平移量应大于规格里最长的回看窗口，否则平移后的因子仍与标签部分对齐。
+    decoy_draws: int = 39
+    decoy_min_shift: int = 10
     #: 年化用的每年期数。SC 一天两个 session，但年化只是显示口径，不改变判决。
     periods_per_year: float = 252.0
     #: 仓位规则。sign_unit：按 prediction 的符号取单位多空。规则必须显式记录，
@@ -398,6 +402,14 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
     placebo = stats.placebo_slope_distribution(
         y, x, episodes, draws=request.placebo_draws, seed=request.placebo_seed
     )
+    # decoy 校准（决定 0014）：与置换检验切同一条链的两端。
+    # 它**只作信息披露，不作判据** —— 升格为闸门需另一份决定，先看两条零分布
+    # 在真实数据上的实际分离度。它不读任何新的 outcome（用的就是本次已读的 y），
+    # 因此不进统计分母；但也**不得**用它给构造排序，否则那就是一次选择读取。
+    decoy = stats.decoy_slope_distribution(
+        y, x, draws=request.decoy_draws, seed=request.placebo_seed,
+        min_shift=request.decoy_min_shift,
+    ) if request.decoy_draws > 0 else None
     se = two_way["se"]
     t_stat = slope / se if se and not math.isnan(se) and se > 0 else float("nan")
     mde = 2.8 * se if se and not math.isnan(se) else float("nan")
@@ -537,6 +549,7 @@ def evaluate(request: EvaluationRequest, labels: dict[str, float], *, role: str)
         ),
         "influence": influence,
         "placebo": placebo,
+        **({"decoy": decoy} if decoy else {}),
         "cost_model_declared": declared,
         "cost_model": cost_effects,
         "cost_note": "成本占位：真实成本与容量模型属 M5，未声明时不得取 candidate",

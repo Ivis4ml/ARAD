@@ -32,6 +32,26 @@ class SealedAlreadyOpened(RuntimeError):
     """该 (规格, 段) 的封闭评估已经做过。再看一眼就不是封闭段了。"""
 
 
+def sealed_denominator(ledger: EvidenceLedger, segment: str | None = None) -> int:
+    """封存段自己的检验计数。
+
+    一次性规则挡的是「同一条构造反复开封」，它挡不住「在同一段封存数据上试很多条
+    不同构造、再报告其中最好的那条」—— 那同样是取最大值，同样要按次数记账。
+    实测：截至加入本函数时，封存段已开 18 次、18 条互异构造、全在
+    historical_validation 段上，而这 18 次读取一次都没进任何分母；
+    若其中某次跑出高读数，按当时的记账会被当成一次干净的单次确认来讲。
+
+    与搜索分母一样只增不减：它数的是已入账的开封事件，而账本只追加。
+    """
+    from ..memory.ledger import Role as _Role
+
+    return sum(
+        1 for event in ledger.read_events(role=_Role.HUMAN)
+        if event["event_type"] == SEALED_OPENED
+        and (segment is None or (event["payload"] or {}).get("segment") == segment)
+    )
+
+
 @dataclass(frozen=True)
 class SealedVerdict:
     """封闭评估的结果。**它不能改写发现段的判决**，只在它旁边并列。"""
@@ -87,6 +107,9 @@ def open_sealed(
 ) -> SealedVerdict:
     """开封一次并入账。**写一次即封死**，由账本的追加式触发器保证。"""
     key = assert_unopened(ledger, feature_id, segment)
+    # 本次开封是该段的第几次：写进证据，使「18 选 1」与「钉死一条开一次」
+    # 在记录上可分辨。地板由读取侧按它算，不在这里裁决。
+    opened_before = sealed_denominator(ledger, segment)
     verdict = SealedVerdict(
         feature_id=feature_id,
         segment=segment,
@@ -94,5 +117,10 @@ def open_sealed(
         taxonomy_clean=not (contamination and contamination.overlaps_outcome_window),
         result=result,
     )
-    ledger.append(SEALED_OPENED, {"seal_key": key, **verdict.payload()})
+    ledger.append(SEALED_OPENED, {
+        "seal_key": key,
+        "sealed_denominator_before": opened_before,
+        "sealed_denominator_after": opened_before + 1,
+        **verdict.payload(),
+    })
     return verdict

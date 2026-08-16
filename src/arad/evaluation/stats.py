@@ -243,6 +243,65 @@ def placebo_slope_distribution(
     }
 
 
+def decoy_slope_distribution(
+    y: list[float], x: list[float], *, draws: int, seed: int, min_shift: int = 1
+) -> dict:
+    """仿冒因子（decoy）的零分布：切断**因子那一侧**的对应关系。
+
+    与 `placebo_slope_distribution` 切的是同一条链的两端，两者互补：
+
+    - 置换检验打乱**标签**，保留真实的因子序列。它的零分布条件于真实的 x，
+      但 y 侧的序列结构、体制与肥尾被打乱破坏，零分布可能过窄。
+    - 本函数循环平移**因子**，保留真实的标签序列（肥尾、体制、序列相关全在），
+      也逐点保留因子自身的边际分布与自相关（平移不改变这两者），
+      只破坏 x 与 y 的配对。
+
+    为什么用循环平移而不是打乱因子：打乱会毁掉因子的自相关，而自相关正是
+    构造伪迹的主要来源之一（实测：族概率日度变化的九成方差来自构成移动，
+    这类结构在打乱后就不存在了，零分布会因此过窄）。平移把它原样保留。
+
+    这条零分布**不依赖「试了多少次」**，因此在单次确认（封存段）上同样成立 ——
+    那里没有搜索次数可数，解析地板塌回单次临界值，而本分布仍然给出标尺。
+    """
+    if draws <= 0:
+        raise ValueError("draws 必须为正")
+    n = len(x)
+    if n != len(y):
+        raise ValueError("x 与 y 长度不一致")
+    _, actual, _ = ols(y, x)
+    rng = random.Random(seed)
+    usable = n - 2 * min_shift
+    if usable <= 1:
+        return {"draws": 0, "seed": seed, "actual_slope": actual,
+                "decoy_exceed_rate": 1.0, "note": "样本太短，平移无定义"}
+    slopes = []
+    exceed = 0
+    for _ in range(draws):
+        shift = rng.randrange(min_shift, n - min_shift)
+        x_star = x[shift:] + x[:shift]
+        try:
+            _, s, _ = ols(y, x_star)
+        except ValueError:
+            continue
+        slopes.append(s)
+        if abs(s) >= abs(actual):
+            exceed += 1
+    return {
+        "draws": len(slopes),
+        "seed": seed,
+        "min_shift": min_shift,
+        "actual_slope": actual,
+        # 经验分位：伪因子里有多大比例跑出不小于实际值的 |斜率|。
+        # 与 placebo_exceed_rate 同向读：越小越说明实际值不是伪迹能给出的。
+        "decoy_exceed_rate": (exceed / len(slopes)) if slopes else 1.0,
+        "decoy_slope_sd": (
+            math.sqrt(sum((s - mean(slopes)) ** 2 for s in slopes) / len(slopes))
+            if len(slopes) > 1 else 0.0
+        ),
+        "decoy_max_abs_slope": max((abs(s) for s in slopes), default=0.0),
+    }
+
+
 def _ranks(values: list[float]) -> list[float]:
     """平均秩。并列取平均，否则并列会给相关系数带来虚假的确定性。"""
     order = sorted(range(len(values)), key=lambda i: values[i])
